@@ -13,9 +13,10 @@ import {
   BarChart3,
   Save,
   Filter,
-  ChevronRight,
-  LucideIcon
+  ChevronRight
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react'; // Correção TS1484: Importação separada do tipo
+
 import { 
   Bar, 
   XAxis, 
@@ -236,7 +237,8 @@ export default function LideraApp() {
       ? (evaluations.reduce((acc, curr) => acc + curr.average, 0) / evaluations.length).toFixed(1) 
       : "0";
 
-    return { stats, chartDataEvolution, chartDataSector, totalAvg };
+    // Correção TS2339: Retornamos bySector explicitamente
+    return { stats, bySector: stats.bySector, chartDataEvolution, chartDataSector, totalAvg };
   }, [evaluations, employees]);
 
   // --- HELPERS ---
