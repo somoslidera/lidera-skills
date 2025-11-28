@@ -8,33 +8,22 @@ import {
   Users, 
   ClipboardCheck, 
   Settings, 
-  Search, 
-  Plus, 
   TrendingUp, 
   Award, 
-  FileText,
-  PieChart,
-  BarChart3,
-  Save,
-  Filter,
-  ChevronRight,
+  PieChart, 
   LogOut,
   Database
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { 
+  BarChart,
   Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  Line,
-  ComposedChart,
-  AreaChart,
-  Area
+  ResponsiveContainer
 } from 'recharts';
 
 // --- TIPAGENS ---
