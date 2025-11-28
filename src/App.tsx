@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -13,10 +13,10 @@ import {
   BarChart3,
   Save,
   Filter,
-  ChevronRight
+  ChevronRight,
+  LucideIcon
 } from 'lucide-react';
 import { 
-  BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
@@ -24,16 +24,39 @@ import {
   Tooltip, 
   Legend, 
   ResponsiveContainer,
-  LineChart,
   Line,
   ComposedChart,
   AreaChart,
   Area
 } from 'recharts';
 
+// --- TIPAGENS (TypeScript Interfaces) ---
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  sector: string;
+  level: string;
+  status: string;
+}
+
+interface Evaluation {
+  id: string;
+  employeeId: string;
+  date: string;
+  type: string;
+  average: number;
+  scores: Record<string, number>;
+}
+
+interface MetricsMap {
+  [key: string]: string;
+}
+
 // --- CONFIGURAÇÕES E MAPEAMENTOS ---
 
-const METRICAS_OPERADORES = {
+const METRICAS_OPERADORES: MetricsMap = {
   "Assiduidade_Pontualidade": "Assiduidade e Pontualidade",
   "Uso_Uniforme_EPI": "Uso de Uniforme e EPI",
   "Cumprimento_Tarefas": "Cumprimento das Tarefas",
@@ -46,7 +69,7 @@ const METRICAS_OPERADORES = {
   "Atendimento_Cliente": "Atendimento ao Cliente"
 };
 
-const METRICAS_LIDERES = {
+const METRICAS_LIDERES: MetricsMap = {
   "Assiduidade_Pontualidade_Lider": "Assiduidade e Pontualidade",
   "Cumprimento_Metas_Setor": "Cumprimento das Metas do Setor",
   "Organizacao_Gestao_Setor": "Organização e Gestão do Setor",
@@ -70,7 +93,7 @@ const SECTORES = [
 
 // --- MOCK DATA ---
 
-const INITIAL_EMPLOYEES = [
+const INITIAL_EMPLOYEES: Employee[] = [
   { id: '8', name: 'EDILSON ROCHA', role: 'Chefe de Loja', sector: 'Loja', level: 'Líder', status: 'Ativo' },
   { id: '445', name: 'ITAMARA BORGES HOFFMANN', role: 'Auxiliar de Depósito', sector: 'Depósito', level: 'Colaborador', status: 'Ativo' },
   { id: '564', name: 'DANIEL BRAGA DA SILVA', role: 'Encarregado Açougue', sector: 'Açougue', level: 'Líder', status: 'Ativo' },
@@ -80,7 +103,7 @@ const INITIAL_EMPLOYEES = [
   { id: '205', name: 'FERNANDO BRITO DA SILVA', role: 'Encarregado Depósito', sector: 'Depósito', level: 'Líder', status: 'Ativo' },
 ];
 
-const INITIAL_EVALUATIONS = [
+const INITIAL_EVALUATIONS: Evaluation[] = [
   { id: 'ev1', employeeId: '602', date: '2025-08-01', type: 'Colaborador', average: 7.8, scores: { "Assiduidade e Pontualidade": 8, "Proatividade": 7, "Trabalho em Equipe": 9, "Atendimento ao Cliente": 8 } },
   { id: 'ev2', employeeId: '564', date: '2025-08-01', type: 'Líder', average: 8.2, scores: { "Cumprimento das Metas do Setor": 8, "Organização e Gestão do Setor": 9 } },
   { id: 'ev3', employeeId: '445', date: '2025-09-01', type: 'Colaborador', average: 6.5, scores: { "Assiduidade e Pontualidade": 6, "Proatividade": 7, "Atendimento ao Cliente": 5 } },
@@ -91,15 +114,23 @@ const INITIAL_EVALUATIONS = [
 
 // --- COMPONENTES AUXILIARES ---
 
-// Correção do Tailwind: Mapeamento explícito de cores
-const colorVariants = {
+const colorVariants: Record<string, { bg: string; text: string }> = {
   blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
   emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
   violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
   orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
 };
 
-const Card = ({ title, value, icon: Icon, trend, color = "blue", subtitle }) => {
+interface CardProps {
+  title: string;
+  value: string | number;
+  icon: LucideIcon;
+  trend?: number;
+  color?: keyof typeof colorVariants;
+  subtitle?: string;
+}
+
+const Card = ({ title, value, icon: Icon, trend, color = "blue", subtitle }: CardProps) => {
   const styles = colorVariants[color] || colorVariants.blue;
   
   return (
@@ -128,21 +159,30 @@ const Card = ({ title, value, icon: Icon, trend, color = "blue", subtitle }) => 
 
 export default function LideraApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [employees, setEmployees] = useState(INITIAL_EMPLOYEES);
-  const [evaluations, setEvaluations] = useState(INITIAL_EVALUATIONS);
+  const [employees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>(INITIAL_EVALUATIONS);
   
   // State for Evaluation Form
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [evaluationData, setEvaluationData] = useState({});
+  const [evaluationData, setEvaluationData] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- ENGINE DE BI ---
   
   const analytics = useMemo(() => {
+    // Definição explicita da estrutura para o TypeScript não reclamar
+    interface SectorStats {
+      sum: Record<string, number>;
+      count: Record<string, number>;
+      avg: Record<string, string>;
+      rawScores: number[];
+      overallAvg?: string;
+    }
+
     const stats = {
-      global: { sum: {}, count: {}, avg: {} },
-      bySector: {}, 
-      byMonth: {}
+      global: { sum: {} as Record<string, number>, count: {} as Record<string, number>, avg: {} as Record<string, string> },
+      bySector: {} as Record<string, SectorStats>, 
+      byMonth: {} as Record<string, { sum: number; count: number; avg: number }>
     };
 
     evaluations.forEach(ev => {
@@ -150,8 +190,7 @@ export default function LideraApp() {
       if (!emp) return;
 
       const sector = emp.sector;
-      // Correção: Uso mais seguro de data para evitar erros de locale
-      const dateObj = new Date(ev.date + 'T12:00:00'); // Garante que não volte um dia pelo fuso
+      const dateObj = new Date(ev.date + 'T12:00:00'); 
       const month = dateObj.toLocaleString('pt-BR', { month: 'short' });
 
       if (!stats.bySector[sector]) stats.bySector[sector] = { sum: {}, count: {}, avg: {}, rawScores: [] };
@@ -162,7 +201,7 @@ export default function LideraApp() {
       stats.bySector[sector].rawScores.push(ev.average);
 
       Object.entries(ev.scores).forEach(([metricName, score]) => {
-        const val = parseFloat(score) || 0;
+        const val = score || 0;
         stats.global.sum[metricName] = (stats.global.sum[metricName] || 0) + val;
         stats.global.count[metricName] = (stats.global.count[metricName] || 0) + 1;
         stats.bySector[sector].sum[metricName] = (stats.bySector[sector].sum[metricName] || 0) + val;
@@ -184,25 +223,25 @@ export default function LideraApp() {
 
     const chartDataEvolution = Object.entries(stats.byMonth).map(([name, data]) => ({
       name,
-      Média: (data.sum / data.count).toFixed(1)
+      Média: parseFloat((data.sum / data.count).toFixed(1))
     }));
 
     const chartDataSector = Object.entries(stats.bySector).map(([name, data]) => ({
       name,
-      Media: parseFloat(data.overallAvg),
+      Media: data.overallAvg ? parseFloat(data.overallAvg) : 0,
       Meta: 8.5
     }));
 
     const totalAvg = evaluations.length > 0 
       ? (evaluations.reduce((acc, curr) => acc + curr.average, 0) / evaluations.length).toFixed(1) 
-      : 0;
+      : "0";
 
     return { stats, chartDataEvolution, chartDataSector, totalAvg };
   }, [evaluations, employees]);
 
   // --- HELPERS ---
 
-  const handleStartEvaluation = (e) => {
+  const handleStartEvaluation = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const empId = e.target.value;
     setSelectedEmployeeId(empId);
     setEvaluationData({});
@@ -212,7 +251,7 @@ export default function LideraApp() {
   const currentMetricsMap = selectedEmployee?.level === 'Líder' ? METRICAS_LIDERES : METRICAS_OPERADORES;
   const currentMetricsList = selectedEmployee ? Object.values(currentMetricsMap) : [];
 
-  const handleScoreChange = (metric, score) => {
+  const handleScoreChange = (metric: string, score: string) => {
     setEvaluationData(prev => ({
       ...prev,
       [metric]: parseFloat(score)
@@ -224,7 +263,6 @@ export default function LideraApp() {
     
     setIsSubmitting(true);
     setTimeout(() => {
-      // Correção Lógica: Calcular média baseada no TOTAL de métricas esperadas
       const expectedMetrics = Object.values(currentMetricsMap);
       const totalScore = expectedMetrics.reduce((acc, metric) => {
         return acc + (evaluationData[metric] || 0);
@@ -232,7 +270,7 @@ export default function LideraApp() {
       
       const average = totalScore / expectedMetrics.length;
       
-      const newEval = {
+      const newEval: Evaluation = {
         id: Math.random().toString(36).substr(2, 9),
         employeeId: selectedEmployeeId,
         date: new Date().toISOString().split('T')[0],
@@ -249,10 +287,6 @@ export default function LideraApp() {
       alert("Avaliação salva com sucesso!");
     }, 800);
   };
-
-  // --- RENDER ---
-  // Correção Crítica: Removida a definição de componentes internos (DashboardView, etc)
-  // Agora usamos renderização condicional direta para evitar perda de foco e problemas de performance.
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -412,8 +446,10 @@ export default function LideraApp() {
                   <tbody className="divide-y divide-slate-100">
                     {evaluations.slice(0, 5).map((ev) => {
                       const emp = employees.find(e => e.id === ev.employeeId);
-                      const globalDiff = (ev.average - analytics.totalAvg).toFixed(1);
-                      const isPositive = globalDiff >= 0;
+                      const avg = ev.average;
+                      const totalAvgNum = parseFloat(analytics.totalAvg);
+                      const globalDiff = (avg - totalAvgNum).toFixed(1);
+                      const isPositive = avg - totalAvgNum >= 0;
 
                       return (
                         <tr key={ev.id} className="hover:bg-slate-50 transition-colors">
@@ -657,7 +693,7 @@ export default function LideraApp() {
                         <td className="px-6 py-4">
                           {personalAvg !== '-' ? (
                             <div className="flex items-center gap-2">
-                               <span className={`font-bold ${personalAvg >= 8 ? 'text-green-600' : 'text-slate-600'}`}>{personalAvg}</span>
+                               <span className={`font-bold ${parseFloat(personalAvg) >= 8 ? 'text-green-600' : 'text-slate-600'}`}>{personalAvg}</span>
                                {analytics.bySector[emp.sector]?.overallAvg && (
                                  <span className="text-[10px] text-slate-400" title="Média do Setor">(Setor: {analytics.bySector[emp.sector].overallAvg})</span>
                                )}
