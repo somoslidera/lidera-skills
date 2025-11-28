@@ -1,4 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { db } from './services/firebase';
+import { collection, addDoc, getDocs, writeBatch, doc } from 'firebase/firestore';
+
 import { 
   LayoutDashboard, 
   Users, 
@@ -13,9 +17,11 @@ import {
   BarChart3,
   Save,
   Filter,
-  ChevronRight
+  ChevronRight,
+  LogOut,
+  Database
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react'; // Correção TS1484: Importação separada do tipo
+import type { LucideIcon } from 'lucide-react';
 
 import { 
   Bar, 
@@ -31,8 +37,7 @@ import {
   Area
 } from 'recharts';
 
-// --- TIPAGENS (TypeScript Interfaces) ---
-
+// --- TIPAGENS ---
 interface Employee {
   id: string;
   name: string;
@@ -55,8 +60,7 @@ interface MetricsMap {
   [key: string]: string;
 }
 
-// --- CONFIGURAÇÕES E MAPEAMENTOS ---
-
+// --- CONFIGURAÇÕES ---
 const METRICAS_OPERADORES: MetricsMap = {
   "Assiduidade_Pontualidade": "Assiduidade e Pontualidade",
   "Uso_Uniforme_EPI": "Uso de Uniforme e EPI",
@@ -92,29 +96,18 @@ const SECTORES = [
   "Depósito", "Açougue", "Hortifruti", "Padaria"
 ];
 
-// --- MOCK DATA ---
-
-const INITIAL_EMPLOYEES: Employee[] = [
-  { id: '8', name: 'EDILSON ROCHA', role: 'Chefe de Loja', sector: 'Loja', level: 'Líder', status: 'Ativo' },
-  { id: '445', name: 'ITAMARA BORGES HOFFMANN', role: 'Auxiliar de Depósito', sector: 'Depósito', level: 'Colaborador', status: 'Ativo' },
-  { id: '564', name: 'DANIEL BRAGA DA SILVA', role: 'Encarregado Açougue', sector: 'Açougue', level: 'Líder', status: 'Ativo' },
-  { id: '596', name: 'SABRINA RIBEIRO SOUZA MARTINS', role: 'Gerente', sector: 'Gerência', level: 'Líder', status: 'Ativo' },
-  { id: '602', name: 'FRANCIELE CRISTIANE GARCIA', role: 'Operador de Caixa', sector: 'Caixa', level: 'Colaborador', status: 'Ativo' },
-  { id: '843', name: 'CRISTIANE JULIANE DA SILVA', role: 'Operador de Caixa', sector: 'Caixa', level: 'Colaborador', status: 'Ativo' },
-  { id: '205', name: 'FERNANDO BRITO DA SILVA', role: 'Encarregado Depósito', sector: 'Depósito', level: 'Líder', status: 'Ativo' },
+// --- DADOS PARA CARGA INICIAL (SEED) ---
+const SEED_EMPLOYEES = [
+  { name: 'EDILSON ROCHA', role: 'Chefe de Loja', sector: 'Loja', level: 'Líder', status: 'Ativo' },
+  { name: 'ITAMARA BORGES HOFFMANN', role: 'Auxiliar de Depósito', sector: 'Depósito', level: 'Colaborador', status: 'Ativo' },
+  { name: 'DANIEL BRAGA DA SILVA', role: 'Encarregado Açougue', sector: 'Açougue', level: 'Líder', status: 'Ativo' },
+  { name: 'SABRINA RIBEIRO SOUZA MARTINS', role: 'Gerente', sector: 'Gerência', level: 'Líder', status: 'Ativo' },
+  { name: 'FRANCIELE CRISTIANE GARCIA', role: 'Operador de Caixa', sector: 'Caixa', level: 'Colaborador', status: 'Ativo' },
+  { name: 'CRISTIANE JULIANE DA SILVA', role: 'Operador de Caixa', sector: 'Caixa', level: 'Colaborador', status: 'Ativo' },
+  { name: 'FERNANDO BRITO DA SILVA', role: 'Encarregado Depósito', sector: 'Depósito', level: 'Líder', status: 'Ativo' },
 ];
 
-const INITIAL_EVALUATIONS: Evaluation[] = [
-  { id: 'ev1', employeeId: '602', date: '2025-08-01', type: 'Colaborador', average: 7.8, scores: { "Assiduidade e Pontualidade": 8, "Proatividade": 7, "Trabalho em Equipe": 9, "Atendimento ao Cliente": 8 } },
-  { id: 'ev2', employeeId: '564', date: '2025-08-01', type: 'Líder', average: 8.2, scores: { "Cumprimento das Metas do Setor": 8, "Organização e Gestão do Setor": 9 } },
-  { id: 'ev3', employeeId: '445', date: '2025-09-01', type: 'Colaborador', average: 6.5, scores: { "Assiduidade e Pontualidade": 6, "Proatividade": 7, "Atendimento ao Cliente": 5 } },
-  { id: 'ev4', employeeId: '596', date: '2025-09-01', type: 'Líder', average: 9.1, scores: { "Capacidade de Decisão e Resolução": 10, "Cumprimento das Metas do Setor": 9 } },
-  { id: 'ev5', employeeId: '843', date: '2025-10-01', type: 'Colaborador', average: 8.5, scores: { "Assiduidade e Pontualidade": 9, "Proatividade": 8, "Atendimento ao Cliente": 9 } },
-  { id: 'ev6', employeeId: '602', date: '2025-10-01', type: 'Colaborador', average: 8.0, scores: { "Assiduidade e Pontualidade": 9, "Proatividade": 8, "Trabalho em Equipe": 7, "Atendimento ao Cliente": 8 } },
-];
-
-// --- COMPONENTES AUXILIARES ---
-
+// --- COMPONENTES UI ---
 const colorVariants: Record<string, { bg: string; text: string }> = {
   blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
   emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
@@ -158,20 +151,68 @@ const Card = ({ title, value, icon: Icon, trend, color = "blue", subtitle }: Car
   );
 };
 
-export default function LideraApp() {
+// --- APP CONTENT (Logado) ---
+function AppContent() {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [employees] = useState<Employee[]>(INITIAL_EMPLOYEES);
-  const [evaluations, setEvaluations] = useState<Evaluation[]>(INITIAL_EVALUATIONS);
   
-  // State for Evaluation Form
+  // Data States
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Form States
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [evaluationData, setEvaluationData] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- ENGINE DE BI ---
-  
+  // --- DATA FETCHING ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const empSnap = await getDocs(collection(db, 'employees'));
+        const evalSnap = await getDocs(collection(db, 'evaluations'));
+        
+        const empData = empSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
+        const evalData = evalSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Evaluation));
+        
+        setEmployees(empData);
+        setEvaluations(evalData);
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- SEED DATABASE FUNCTION ---
+  const seedDatabase = async () => {
+    if (!confirm("Isso adicionará dados de teste ao banco de dados real. Continuar?")) return;
+    setIsSubmitting(true);
+    try {
+      const batch = writeBatch(db);
+      
+      // Seed Employees
+      SEED_EMPLOYEES.forEach(emp => {
+        const newRef = doc(collection(db, "employees"));
+        batch.set(newRef, emp);
+      });
+
+      await batch.commit();
+      alert("Dados de teste inseridos! Recarregue a página.");
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao inserir dados.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- BI ENGINE ---
   const analytics = useMemo(() => {
-    // Definição explicita da estrutura para o TypeScript não reclamar
     interface SectorStats {
       sum: Record<string, number>;
       count: Record<string, number>;
@@ -237,58 +278,63 @@ export default function LideraApp() {
       ? (evaluations.reduce((acc, curr) => acc + curr.average, 0) / evaluations.length).toFixed(1) 
       : "0";
 
-    // Correção TS2339: Retornamos bySector explicitamente
     return { stats, bySector: stats.bySector, chartDataEvolution, chartDataSector, totalAvg };
   }, [evaluations, employees]);
 
-  // --- HELPERS ---
-
+  // --- ACTIONS ---
   const handleStartEvaluation = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const empId = e.target.value;
-    setSelectedEmployeeId(empId);
+    setSelectedEmployeeId(e.target.value);
     setEvaluationData({});
   };
 
-  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
-  const currentMetricsMap = selectedEmployee?.level === 'Líder' ? METRICAS_LIDERES : METRICAS_OPERADORES;
-  const currentMetricsList = selectedEmployee ? Object.values(currentMetricsMap) : [];
-
   const handleScoreChange = (metric: string, score: string) => {
-    setEvaluationData(prev => ({
-      ...prev,
-      [metric]: parseFloat(score)
-    }));
+    setEvaluationData(prev => ({ ...prev, [metric]: parseFloat(score) }));
   };
 
-  const submitEvaluation = () => {
+  const submitEvaluation = async () => {
+    if (!selectedEmployeeId) return;
+    const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
     if (!selectedEmployee) return;
-    
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const expectedMetrics = Object.values(currentMetricsMap);
-      const totalScore = expectedMetrics.reduce((acc, metric) => {
-        return acc + (evaluationData[metric] || 0);
-      }, 0);
-      
-      const average = totalScore / expectedMetrics.length;
-      
-      const newEval: Evaluation = {
-        id: Math.random().toString(36).substr(2, 9),
-        employeeId: selectedEmployeeId,
-        date: new Date().toISOString().split('T')[0],
-        type: selectedEmployee.level,
-        average: parseFloat(average.toFixed(2)),
-        scores: evaluationData
-      };
 
-      setEvaluations([newEval, ...evaluations]);
-      setIsSubmitting(false);
+    setIsSubmitting(true);
+    
+    // Calcular Média
+    const currentMetricsMap = selectedEmployee.level === 'Líder' ? METRICAS_LIDERES : METRICAS_OPERADORES;
+    const expectedMetrics = Object.values(currentMetricsMap);
+    const totalScore = expectedMetrics.reduce((acc, metric) => acc + (evaluationData[metric] || 0), 0);
+    const average = totalScore / expectedMetrics.length;
+
+    const newEval = {
+      employeeId: selectedEmployeeId,
+      date: new Date().toISOString().split('T')[0],
+      type: selectedEmployee.level,
+      average: parseFloat(average.toFixed(2)),
+      scores: evaluationData
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, "evaluations"), newEval);
+      setEvaluations([{ id: docRef.id, ...newEval }, ...evaluations]);
+      alert("Avaliação salva com sucesso!");
       setSelectedEmployeeId('');
       setEvaluationData({});
       setActiveTab('dashboard');
-      alert("Avaliação salva com sucesso!");
-    }, 800);
+    } catch (e) {
+      console.error("Erro ao salvar:", e);
+      alert("Erro ao salvar avaliação.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+  const currentMetricsList = selectedEmployee 
+    ? Object.values(selectedEmployee.level === 'Líder' ? METRICAS_LIDERES : METRICAS_OPERADORES) 
+    : [];
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-slate-500">Carregando dados...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -301,434 +347,189 @@ export default function LideraApp() {
             </div>
             <h1 className="font-bold text-xl tracking-tight text-slate-800">Lidera<span className="text-blue-600">App</span></h1>
           </div>
-          <p className="text-xs text-slate-400 mt-2 pl-11">Gestão de Performance</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <LayoutDashboard size={20} />
-            Dashboard BI
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <LayoutDashboard size={20} /> Dashboard BI
           </button>
-          <button 
-             onClick={() => setActiveTab('evaluation')}
-             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'evaluation' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <ClipboardCheck size={20} />
-            Avaliações
+          <button onClick={() => setActiveTab('evaluation')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'evaluation' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <ClipboardCheck size={20} /> Avaliações
           </button>
-          <button 
-             onClick={() => setActiveTab('employees')}
-             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'employees' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Users size={20} />
-            Colaboradores
+          <button onClick={() => setActiveTab('employees')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'employees' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <Users size={20} /> Colaboradores
           </button>
-          <button 
-             onClick={() => setActiveTab('settings')}
-             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Settings size={20} />
-            Configurações
+          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <Settings size={20} /> Configurações
           </button>
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-50 border border-slate-100">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
-              AD
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-slate-700 truncate">Administrador</p>
-              <p className="text-xs text-slate-400 truncate">admin@lidera.com</p>
-            </div>
-          </div>
+          <button onClick={signOut} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+            <LogOut size={20} /> Sair
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 md:ml-64 p-8">
+        {/* HEADER */}
         <header className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">
-              {activeTab === 'dashboard' && 'Visão Geral & Inteligência'}
+              {activeTab === 'dashboard' && 'Visão Geral'}
               {activeTab === 'evaluation' && 'Nova Avaliação'}
               {activeTab === 'employees' && 'Gestão de Talentos'}
               {activeTab === 'settings' && 'Configurações'}
             </h2>
-            <p className="text-slate-500 mt-1">
-              {activeTab === 'dashboard' && 'KPIs consolidados e comparação Mercado vs Setor.'}
-              {activeTab === 'evaluation' && 'Formulário inteligente ajustado ao nível do cargo.'}
-              {activeTab === 'employees' && 'Base de dados ativa de funcionários.'}
-            </p>
           </div>
-          
           <div className="flex items-center gap-3">
              <span className="text-sm text-slate-500 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm flex items-center gap-2">
-                <FileText size={14} className="text-blue-500"/>
-                Relatório Mensal: {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                {user?.email}
              </span>
           </div>
         </header>
 
-        {/* DASHBOARD VIEW */}
+        {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card title="Avaliações Realizadas" value={evaluations.length} icon={ClipboardCheck} color="blue" subtitle="Total histórico" />
-              <Card title="Média Global da Empresa" value={analytics.totalAvg} icon={TrendingUp} trend={2.1} color="emerald" subtitle="Meta: 8.5" />
-              <Card title="Funcionários Ativos" value={employees.length} icon={Users} color="violet" subtitle={`${SECTORES.length} Setores`} />
-              <Card title="Setor Destaque" value="Gerência" icon={Award} color="orange" subtitle="Média: 9.1" />
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card title="Avaliações" value={evaluations.length} icon={ClipboardCheck} color="blue" />
+              <Card title="Média Global" value={analytics.totalAvg} icon={TrendingUp} color="emerald" subtitle="Meta: 8.5" />
+              <Card title="Colaboradores" value={employees.length} icon={Users} color="violet" />
+              <Card title="Setores" value={SECTORES.length} icon={PieChart} color="orange" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <TrendingUp size={20} className="text-blue-600"/>
-                  Evolução de Desempenho
-                </h3>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={analytics.chartDataEvolution}>
-                      <defs>
-                        <linearGradient id="colorMedia" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 10]} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                      <Area type="monotone" dataKey="Média" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorMedia)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <PieChart size={20} className="text-violet-600"/>
-                  Desempenho por Setor vs Meta
-                </h3>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={analytics.chartDataSector} layout="vertical">
-                      <CartesianGrid stroke="#f3f4f6" horizontal={false} />
-                      <XAxis type="number" domain={[0, 10]} hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                      <Tooltip cursor={{fill: 'transparent'}} />
-                      <Legend iconType="circle" />
-                      <Bar dataKey="Media" barSize={20} fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Média Setor" />
-                      <Line dataKey="Meta" type="monotone" stroke="#ef4444" strokeWidth={2} dot={false} name="Meta da Empresa" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-slate-800">Últimas Avaliações Processadas</h3>
-                <button className="text-blue-600 text-sm font-medium hover:underline">Ver todas</button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
-                    <tr>
-                      <th className="px-6 py-4 font-medium">Colaborador</th>
-                      <th className="px-6 py-4 font-medium">Setor</th>
-                      <th className="px-6 py-4 font-medium">Nota</th>
-                      <th className="px-6 py-4 font-medium">Comp. Mercado</th>
-                      <th className="px-6 py-4 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {evaluations.slice(0, 5).map((ev) => {
-                      const emp = employees.find(e => e.id === ev.employeeId);
-                      const avg = ev.average;
-                      const totalAvgNum = parseFloat(analytics.totalAvg);
-                      const globalDiff = (avg - totalAvgNum).toFixed(1);
-                      const isPositive = avg - totalAvgNum >= 0;
-
-                      return (
-                        <tr key={ev.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-slate-800">{emp?.name}</p>
-                              <p className="text-xs text-slate-500">{emp?.role}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-slate-600">{emp?.sector}</td>
-                          <td className="px-6 py-4">
-                            <span className={`font-bold ${ev.average >= 8 ? 'text-green-600' : ev.average >= 6 ? 'text-amber-600' : 'text-red-600'}`}>
-                              {ev.average.toFixed(1)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`text-xs px-2 py-1 rounded-full ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {isPositive ? '+' : ''}{globalDiff} pts (Geral)
-                            </span>
-                          </td>
-                          <td className="px-6 py-4"><span className="text-slate-400 text-xs">Processado</span></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80">
+               <h3 className="font-bold mb-4">Média por Setor</h3>
+               <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={analytics.chartDataSector}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" />
+                    <YAxis domain={[0, 10]} />
+                    <Tooltip />
+                    <Bar dataKey="Media" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+               </ResponsiveContainer>
             </div>
           </div>
         )}
 
-        {/* EVALUATION FORM VIEW */}
+        {/* EVALUATIONS */}
         {activeTab === 'evaluation' && (
-          <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-1 space-y-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                   <h3 className="font-bold text-slate-800 mb-4">1. Identificação</h3>
-                   <label className="block text-sm font-medium text-slate-700 mb-2">Colaborador</label>
-                   <select 
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-4"
-                      onChange={handleStartEvaluation}
-                      value={selectedEmployeeId}
-                    >
-                      <option value="">Selecione...</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                      ))}
-                    </select>
+          <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-6">Nova Avaliação</h3>
+            <select className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg mb-6" onChange={handleStartEvaluation} value={selectedEmployeeId}>
+              <option value="">Selecione um colaborador...</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name} - {e.role}</option>)}
+            </select>
 
-                    {selectedEmployee && (
-                      <div className="bg-slate-50 p-4 rounded-lg text-sm space-y-2 border border-slate-100">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Cargo:</span>
-                          <span className="font-medium text-slate-800 text-right">{selectedEmployee.role}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Setor:</span>
-                          <span className="font-medium text-slate-800">{selectedEmployee.sector}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Nível:</span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-semibold ${selectedEmployee.level === 'Líder' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {selectedEmployee.level}
-                          </span>
-                        </div>
+            {selectedEmployee && (
+              <div className="space-y-6">
+                 {currentMetricsList.map((metric, i) => (
+                   <div key={i} className="pb-4 border-b border-slate-100 last:border-0">
+                      <div className="flex justify-between mb-2">
+                        <label>{metric}</label>
+                        <span className="font-bold text-blue-600">{evaluationData[metric] || 0}</span>
                       </div>
-                    )}
-                </div>
-                
-                {selectedEmployee && (
-                  <div className="bg-indigo-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <BarChart3 size={100} />
-                    </div>
-                    <h4 className="font-bold mb-2 z-10 relative">Contexto do Setor</h4>
-                    <p className="text-indigo-200 text-xs mb-4 z-10 relative">
-                      Médias atuais do setor <strong>{selectedEmployee.sector}</strong> para comparação.
-                    </p>
-                    <div className="space-y-3 z-10 relative">
-                       <div className="flex justify-between items-center">
-                          <span className="text-sm opacity-80">Média Geral Setor</span>
-                          <span className="font-bold text-lg">{analytics.bySector[selectedEmployee.sector]?.overallAvg || 'N/A'}</span>
-                       </div>
-                       <div className="h-px bg-indigo-700"></div>
-                       <div className="text-xs opacity-70">
-                         * Dados calculados em tempo real com base nas avaliações anteriores.
-                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="md:col-span-2">
-                 {selectedEmployee ? (
-                   <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-                      <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                          <Award className="text-blue-600" />
-                          Avaliação de Desempenho
-                        </h2>
-                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">
-                          Ref: {new Date().toLocaleDateString('pt-BR', {month:'long'})}
-                        </span>
-                      </div>
-
-                      <div className="space-y-6">
-                        {currentMetricsList.map((metric, index) => {
-                          const sectorAvg = analytics.bySector[selectedEmployee.sector]?.avg[metric];
-
-                          return (
-                            <div key={index} className="pb-6 border-b border-slate-100 last:border-0">
-                              <div className="flex justify-between items-end mb-3">
-                                <label className="text-slate-700 font-medium w-2/3">{metric}</label>
-                                <div className="text-right">
-                                   <span className="text-2xl font-bold text-blue-600 block leading-none">{evaluationData[metric] || 0}</span>
-                                   <span className="text-[10px] text-slate-400 uppercase tracking-wider">Nota</span>
-                                </div>
-                              </div>
-                              
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max="10" 
-                                step="0.5"
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-2"
-                                value={evaluationData[metric] || 0}
-                                onChange={(e) => handleScoreChange(metric, e.target.value)}
-                              />
-                              
-                              <div className="flex justify-between items-center">
-                                <div className="flex gap-1 text-xs text-slate-400">
-                                  <span>0 (Ruim)</span>
-                                </div>
-                                
-                                {sectorAvg && (
-                                  <div className="text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100 text-slate-500 flex items-center gap-1">
-                                    <TrendingUp size={10} />
-                                    Média Setor: <strong>{sectorAvg}</strong>
-                                  </div>
-                                )}
-
-                                <div className="flex gap-1 text-xs text-slate-400">
-                                  <span>10 (Excel.)</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="pt-8 flex justify-end gap-3">
-                        <button 
-                          onClick={() => setSelectedEmployeeId('')}
-                          className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-200"
-                        >
-                          Cancelar
-                        </button>
-                        <button 
-                          onClick={submitEvaluation}
-                          disabled={isSubmitting}
-                          className="px-8 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-70"
-                        >
-                          {isSubmitting ? 'Processando...' : (
-                            <>
-                              <Save size={18} />
-                              Salvar Avaliação
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <input type="range" min="0" max="10" step="0.5" className="w-full h-2 bg-slate-200 rounded-lg accent-blue-600" 
+                        value={evaluationData[metric] || 0} onChange={(e) => handleScoreChange(metric, e.target.value)} />
                    </div>
-                 ) : (
-                   <div className="h-full bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 p-12">
-                     <Users size={48} className="mb-4 opacity-50" />
-                     <p className="font-medium">Selecione um colaborador ao lado para iniciar</p>
-                     <p className="text-sm mt-2">O formulário será carregado automaticamente de acordo com o cargo.</p>
-                   </div>
-                 )}
+                 ))}
+                 <button onClick={submitEvaluation} disabled={isSubmitting} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">
+                   {isSubmitting ? 'Salvando...' : 'Finalizar Avaliação'}
+                 </button>
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* EMPLOYEES VIEW */}
+        {/* EMPLOYEES */}
         {activeTab === 'employees' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Buscar funcionário, cargo ou ID..." 
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg border border-slate-200">
-                  <Filter size={18} />
-                </button>
-              </div>
-              <button className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 ml-4">
-                <Plus size={18} />
-                Novo Cadastro
-              </button>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 text-slate-500 text-sm">
-                  <tr>
-                    <th className="px-6 py-4 font-medium">Nome</th>
-                    <th className="px-6 py-4 font-medium">Cargo</th>
-                    <th className="px-6 py-4 font-medium">Setor</th>
-                    <th className="px-6 py-4 font-medium">Nível</th>
-                    <th className="px-6 py-4 font-medium">Performance Média</th>
-                    <th className="px-6 py-4 font-medium">Ações</th>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-6 py-4">Nome</th>
+                  <th className="px-6 py-4">Cargo</th>
+                  <th className="px-6 py-4">Setor</th>
+                  <th className="px-6 py-4">Nível</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {employees.map(emp => (
+                  <tr key={emp.id}>
+                    <td className="px-6 py-4 font-medium">{emp.name}</td>
+                    <td className="px-6 py-4">{emp.role}</td>
+                    <td className="px-6 py-4">{emp.sector}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${emp.level === 'Líder' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {emp.level}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {employees.map((emp) => {
-                    const empEvals = evaluations.filter(e => e.employeeId === emp.id);
-                    const personalAvg = empEvals.length 
-                      ? (empEvals.reduce((a, b) => a + b.average, 0) / empEvals.length).toFixed(1)
-                      : '-';
-
-                    return (
-                      <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-800">{emp.name}</td>
-                        <td className="px-6 py-4 text-slate-600">{emp.role}</td>
-                        <td className="px-6 py-4 text-slate-600">
-                          <span className="px-2 py-1 bg-slate-100 rounded text-slate-600 text-xs">
-                            {emp.sector}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${emp.level === 'Líder' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {emp.level}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {personalAvg !== '-' ? (
-                            <div className="flex items-center gap-2">
-                               <span className={`font-bold ${parseFloat(personalAvg) >= 8 ? 'text-green-600' : 'text-slate-600'}`}>{personalAvg}</span>
-                               {analytics.bySector[emp.sector]?.overallAvg && (
-                                 <span className="text-[10px] text-slate-400" title="Média do Setor">(Setor: {analytics.bySector[emp.sector].overallAvg})</span>
-                               )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Sem avaliações</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1">
-                            Ver Histórico <ChevronRight size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {/* SETTINGS VIEW */}
+        {/* SETTINGS */}
         {activeTab === 'settings' && (
-          <div className="bg-white p-12 rounded-xl text-center border border-slate-100 shadow-sm">
-            <Settings size={48} className="mx-auto text-slate-300 mb-4" />
-            <h3 className="text-lg font-bold text-slate-800">Configurações Avançadas</h3>
-            <p className="text-slate-500 max-w-md mx-auto mt-2">
-              Gerencie pesos, métricas personalizadas e regras de cálculo de média do sistema.
-            </p>
+          <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 text-center">
+            <Database size={48} className="mx-auto text-blue-200 mb-4" />
+            <h3 className="text-lg font-bold text-slate-800">Banco de Dados</h3>
+            <p className="text-slate-500 mb-6">Use esta função apenas na configuração inicial para popular o banco.</p>
+            <button onClick={seedDatabase} disabled={isSubmitting} className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition">
+              {isSubmitting ? 'Enviando...' : 'Carga Inicial (Seed Data)'}
+            </button>
           </div>
         )}
       </main>
     </div>
   );
+}
+
+// --- LOGIN SCREEN ---
+function LoginScreen() {
+  const { signIn } = useAuth();
+  return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <Award className="text-white" size={24} />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">Lidera Skills</h1>
+        <p className="text-slate-500 mb-8">Faça login para acessar o painel.</p>
+        
+        <button onClick={signIn} className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors font-medium text-slate-700">
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Entrar com Google
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN ENTRY POINT ---
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthWrapper />
+    </AuthProvider>
+  );
+}
+
+function AuthWrapper() {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div className="h-screen flex items-center justify-center">Carregando...</div>;
+  if (!user) return <LoginScreen />;
+  
+  return <AppContent />;
 }
