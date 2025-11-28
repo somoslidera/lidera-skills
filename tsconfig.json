@@ -1,27 +1,7 @@
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        lidera: {
-          900: '#0F0F0F', // Preto 95% (Fundo Principal)
-          800: '#1A1A1A', // Preto 90% (Cartões/Painéis)
-          700: '#2A2A2A', // Bordas e Separadores
-          gold: {
-            light: '#F2E29F',
-            DEFAULT: '#D4AF37', // Ouro Metálico
-            dark: '#AA8C2C',
-          }
-        }
-      },
-      fontFamily: {
-        sans: ['Inter', 'sans-serif'], // Fonte Sans moderna e limpa
-      }
-    },
-  },
-  plugins: [],
-}
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
