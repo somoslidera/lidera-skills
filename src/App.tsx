@@ -15,8 +15,7 @@ import {
   Database,
   Target,
   List,
-  AlertTriangle,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -28,15 +27,11 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  AreaChart,
-  Area,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
   PolarRadiusAxis,
-  Radar as RechartsRadar,
-  Legend,
-  Cell
+  Radar as RechartsRadar
 } from 'recharts';
 
 // --- TIPAGENS ---
@@ -132,10 +127,10 @@ const Card = ({ title, value, icon: Icon, trend, subtitle }: { title: string; va
 
 const DashboardGeral = ({ analytics, totalEvals, totalEmps, activeRoles, employeesList }: any) => {
   // Sort employees by performance for the table
-  const sortedEmployees = [...employeesList].map(emp => {
+  const sortedEmployees = [...employeesList].map((emp: Employee) => {
     const score = analytics.employeeScores[emp.id] || 0;
     return { ...emp, score };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a: any, b: any) => b.score - a.score);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -152,7 +147,7 @@ const DashboardGeral = ({ analytics, totalEvals, totalEmps, activeRoles, employe
         <div className="lg:col-span-2 bg-lidera-800 p-6 rounded-lg border border-lidera-700">
           <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
             <TrendingUp size={20} className="text-lidera-gold" />
-            Engajamento por Setor
+            Engajamento por Setor ({totalEvals})
           </h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -174,7 +169,7 @@ const DashboardGeral = ({ analytics, totalEvals, totalEmps, activeRoles, employe
         <div className="bg-lidera-800 p-6 rounded-lg border border-lidera-700">
           <h3 className="text-lg font-bold text-white mb-4">Destaques do Mês</h3>
           <div className="space-y-4">
-            {sortedEmployees.slice(0, 5).map((emp, i) => (
+            {sortedEmployees.slice(0, 5).map((emp: any, i: number) => (
               <div key={emp.id} className="flex items-center gap-3 p-3 bg-lidera-900 rounded border border-lidera-700">
                 <div className="w-8 h-8 rounded-full bg-lidera-gold text-lidera-900 font-bold flex items-center justify-center text-sm">
                   {i + 1}
@@ -208,7 +203,7 @@ const DashboardGeral = ({ analytics, totalEvals, totalEmps, activeRoles, employe
               </tr>
             </thead>
             <tbody className="divide-y divide-lidera-700 text-gray-300">
-              {sortedEmployees.map(emp => (
+              {sortedEmployees.map((emp: any) => (
                 <tr key={emp.id} className="hover:bg-lidera-700/30 transition-colors">
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold border ${emp.level === 'Líder' ? 'border-yellow-600 text-yellow-500' : 'border-blue-800 text-blue-400'}`}>
@@ -451,6 +446,15 @@ function AppContent() {
     const roles = new Set(employees.map(e => e.role));
     return roles.size;
   }, [employees]);
+
+  const handleStartEvaluation = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedEmployeeId(e.target.value);
+    setEvaluationData({});
+  };
+
+  const handleScoreChange = (metric: string, score: string) => {
+    setEvaluationData(prev => ({ ...prev, [metric]: parseFloat(score) }));
+  };
 
   const submitEvaluation = async () => {
     if (!selectedEmployeeId) return;
