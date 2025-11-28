@@ -7,31 +7,42 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0F0F0F; /* lidera-900 */
-  color: #E5E5E5;
 }
 
-/* Classe utilitária para o Texto Dourado Degradê */
-.text-gold-gradient {
-  background: linear-gradient(to right, #D4AF37, #F2E29F, #D4AF37);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  background-size: 200% auto;
-  font-weight: 700;
-}
-
-/* Scrollbar escura para combinar */
+/* Scrollbar personalizada */
 ::-webkit-scrollbar {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0F0F0F; 
+  @apply bg-skills-light dark:bg-lidera-dark;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333; 
-  border-radius: 4px;
+  @apply bg-skills-blue-primary/50 dark:bg-lidera-gray border-2 border-transparent bg-clip-content rounded-full;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4AF37; 
+  @apply bg-skills-blue-primary dark:bg-lidera-gold;
+}
+
+/* Classe utilitária para Texto Gradiente (Dourado no Dark, Azul no Light) */
+.text-brand-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r;
+  @apply from-skills-blue-primary via-skills-blue-secondary to-skills-blue-primary; /* Light */
+  @apply dark:from-lidera-gold dark:via-lidera-gold-light dark:to-lidera-gold; /* Dark */
+  background-size: 200% auto;
+  font-weight: 700;
+}
+
+.bg-brand-gradient {
+  @apply bg-gradient-to-r;
+  @apply from-skills-blue-primary to-skills-blue-secondary;
+  @apply dark:from-yellow-600 dark:to-yellow-500;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
 }
