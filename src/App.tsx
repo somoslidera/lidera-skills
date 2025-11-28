@@ -447,6 +447,7 @@ function AppContent() {
     return roles.size;
   }, [employees]);
 
+  // HANDLERS DEFINED BEFORE RETURN
   const handleStartEvaluation = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedEmployeeId(e.target.value);
     setEvaluationData({});
