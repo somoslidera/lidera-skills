@@ -75,7 +75,6 @@ function AppContent() {
     { id: 'settings', label: 'Configurações', icon: Settings, hasSub: true },
   ];
 
-  // CORREÇÃO: Adicionado 'as const' nos tipos para satisfazer o TypeScript
   const settingsItems = [
     { 
       id: 'settings-cargos', 
@@ -106,11 +105,11 @@ function AppContent() {
         { key: 'customId', label: 'ID Func.', type: 'text' as const },
         { key: 'name', label: 'Nome Completo', type: 'text' as const },
         { key: 'email', label: 'Email', type: 'email' as const },
-        // Campos Vinculados
         { key: 'role', label: 'Cargo', type: 'select' as const, linkedCollection: 'cargos', linkedField: 'nome' },
         { key: 'sector', label: 'Setor', type: 'select' as const, linkedCollection: 'setores', linkedField: 'nome' },
         { key: 'level', label: 'Nível', type: 'select' as const, options: ['Líder', 'Colaborador'] },
-        { key: 'hiringDate', label: 'Data Contratação', type: 'date' as const },
+        // CORREÇÃO: Label alterada de "Data Contratação" para "Data de Admissão"
+        { key: 'hiringDate', label: 'Data de Admissão', type: 'date' as const },
         { key: 'status', label: 'Status', type: 'select' as const, options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] }
       ] 
     },
