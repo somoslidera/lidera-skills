@@ -75,6 +75,7 @@ function AppContent() {
     { id: 'settings', label: 'Configurações', icon: Settings, hasSub: true },
   ];
 
+  // CORREÇÃO: Adicionado 'as const' nos tipos para satisfazer o TypeScript
   const settingsItems = [
     { 
       id: 'settings-cargos', 
@@ -82,8 +83,8 @@ function AppContent() {
       icon: UserCog, 
       col: 'cargos', 
       cols: [
-        {key: 'nome', label: 'Nome do Cargo'}, 
-        {key: 'nivel', label: 'Nível Hierárquico', type: 'select', options: ['Estratégico', 'Tático', 'Operacional']}
+        {key: 'nome', label: 'Nome do Cargo', type: 'text' as const}, 
+        {key: 'nivel', label: 'Nível Hierárquico', type: 'select' as const, options: ['Estratégico', 'Tático', 'Operacional']}
       ] 
     },
     { 
@@ -92,8 +93,8 @@ function AppContent() {
       icon: Layers, 
       col: 'setores', 
       cols: [
-        {key: 'nome', label: 'Nome do Setor'},
-        {key: 'gestor', label: 'Gestor Responsável'} 
+        {key: 'nome', label: 'Nome do Setor', type: 'text' as const},
+        {key: 'gestor', label: 'Gestor Responsável', type: 'text' as const} 
       ] 
     },
     { 
@@ -102,16 +103,15 @@ function AppContent() {
       icon: Users, 
       col: 'employees', 
       cols: [
-        { key: 'customId', label: 'ID Func.', type: 'text' },
-        { key: 'name', label: 'Nome Completo', type: 'text' },
-        { key: 'email', label: 'Email', type: 'email' },
-        // CAMPO VINCULADO: Busca automaticamente da coleção 'cargos'
-        { key: 'role', label: 'Cargo', type: 'select', linkedCollection: 'cargos', linkedField: 'nome' },
-        // CAMPO VINCULADO: Busca automaticamente da coleção 'setores'
-        { key: 'sector', label: 'Setor', type: 'select', linkedCollection: 'setores', linkedField: 'nome' },
-        { key: 'level', label: 'Nível', type: 'select', options: ['Líder', 'Colaborador'] },
-        { key: 'hiringDate', label: 'Data Contratação', type: 'date' },
-        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] }
+        { key: 'customId', label: 'ID Func.', type: 'text' as const },
+        { key: 'name', label: 'Nome Completo', type: 'text' as const },
+        { key: 'email', label: 'Email', type: 'email' as const },
+        // Campos Vinculados
+        { key: 'role', label: 'Cargo', type: 'select' as const, linkedCollection: 'cargos', linkedField: 'nome' },
+        { key: 'sector', label: 'Setor', type: 'select' as const, linkedCollection: 'setores', linkedField: 'nome' },
+        { key: 'level', label: 'Nível', type: 'select' as const, options: ['Líder', 'Colaborador'] },
+        { key: 'hiringDate', label: 'Data Contratação', type: 'date' as const },
+        { key: 'status', label: 'Status', type: 'select' as const, options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] }
       ] 
     },
     { 
@@ -120,11 +120,12 @@ function AppContent() {
       icon: Users, 
       col: 'users', 
       cols: [
-        {key: 'email', label: 'Email Google'}, 
-        {key: 'role', label: 'Permissão', type: 'select', options: ['Admin', 'Líder', 'Visualizador']}
+        {key: 'email', label: 'Email Google', type: 'email' as const}, 
+        {key: 'role', label: 'Permissão', type: 'select' as const, options: ['Admin', 'Líder', 'Visualizador']}
       ] 
     },
   ];
+
   return (
     <div className="min-h-screen bg-skills-light dark:bg-lidera-dark font-sans text-gray-600 dark:text-gray-300 flex transition-colors duration-300">
        <aside className="w-64 bg-white dark:bg-lidera-dark border-r border-gray-200 dark:border-gray-800 flex flex-col fixed h-full z-20 shadow-xl overflow-y-auto">
@@ -185,10 +186,11 @@ function AppContent() {
 
           {activeView.startsWith('settings-') && (() => {
              const config = settingsItems.find(i => i.id === activeView);
+             // O TypeScript agora deve aceitar config.cols pois usamos 'as const'
              return config ? <GenericDatabaseView collectionName={config.col} title={config.label} columns={config.cols} /> : null;
           })()}
 
-          {/* Fluxo de Avaliação (Simplificado para o exemplo, idealmente mover para src/components/evaluation/Form.tsx) */}
+          {/* Fluxo de Avaliação (Simplificado) */}
           {activeView === 'evaluation-select' && (
              <div className="bg-white dark:bg-lidera-gray p-8 rounded-xl shadow-lg border dark:border-lidera-dark">
                  <h3 className="text-xl font-bold mb-6 dark:text-white">Selecione o Colaborador</h3>
