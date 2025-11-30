@@ -76,12 +76,55 @@ function AppContent() {
   ];
 
   const settingsItems = [
-    { id: 'settings-cargos', label: 'Cargos', icon: UserCog, col: 'cargos', cols: [{key:'nome', label:'Nome'}, {key:'nivel', label:'Nível'}] },
-    { id: 'settings-setores', label: 'Setores', icon: Layers, col: 'setores', cols: [{key:'nome', label:'Nome'}] },
-    { id: 'settings-funcionarios', label: 'Funcionários', icon: Users, col: 'employees', cols: [{key:'name', label:'Nome'}, {key:'role', label:'Cargo'}] },
-    { id: 'settings-usuarios', label: 'Usuários', icon: Users, col: 'users', cols: [{key:'email', label:'Email'}, {key:'role', label:'Permissão'}] },
+    { 
+      id: 'settings-cargos', 
+      label: 'Cargos', 
+      icon: UserCog, 
+      col: 'cargos', 
+      cols: [
+        {key: 'nome', label: 'Nome do Cargo'}, 
+        {key: 'nivel', label: 'Nível Hierárquico', type: 'select', options: ['Estratégico', 'Tático', 'Operacional']}
+      ] 
+    },
+    { 
+      id: 'settings-setores', 
+      label: 'Setores', 
+      icon: Layers, 
+      col: 'setores', 
+      cols: [
+        {key: 'nome', label: 'Nome do Setor'},
+        {key: 'gestor', label: 'Gestor Responsável'} 
+      ] 
+    },
+    { 
+      id: 'settings-funcionarios', 
+      label: 'Funcionários', 
+      icon: Users, 
+      col: 'employees', 
+      cols: [
+        { key: 'customId', label: 'ID Func.', type: 'text' },
+        { key: 'name', label: 'Nome Completo', type: 'text' },
+        { key: 'email', label: 'Email', type: 'email' },
+        // CAMPO VINCULADO: Busca automaticamente da coleção 'cargos'
+        { key: 'role', label: 'Cargo', type: 'select', linkedCollection: 'cargos', linkedField: 'nome' },
+        // CAMPO VINCULADO: Busca automaticamente da coleção 'setores'
+        { key: 'sector', label: 'Setor', type: 'select', linkedCollection: 'setores', linkedField: 'nome' },
+        { key: 'level', label: 'Nível', type: 'select', options: ['Líder', 'Colaborador'] },
+        { key: 'hiringDate', label: 'Data Contratação', type: 'date' },
+        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] }
+      ] 
+    },
+    { 
+      id: 'settings-usuarios', 
+      label: 'Usuários do Sistema', 
+      icon: Users, 
+      col: 'users', 
+      cols: [
+        {key: 'email', label: 'Email Google'}, 
+        {key: 'role', label: 'Permissão', type: 'select', options: ['Admin', 'Líder', 'Visualizador']}
+      ] 
+    },
   ];
-
   return (
     <div className="min-h-screen bg-skills-light dark:bg-lidera-dark font-sans text-gray-600 dark:text-gray-300 flex transition-colors duration-300">
        <aside className="w-64 bg-white dark:bg-lidera-dark border-r border-gray-200 dark:border-gray-800 flex flex-col fixed h-full z-20 shadow-xl overflow-y-auto">
