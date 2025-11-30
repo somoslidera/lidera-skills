@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../../services/firebase';
-import { collection, addDoc, getDocs, writeBatch, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import Papa from 'papaparse';
-import { Database, Upload, Download, Plus, Search, Edit, Trash, Save, Loader2 } from 'lucide-react';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 
 interface Entity {
@@ -26,8 +25,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [currentItem, setCurrentItem] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   
-  // Estado para armazenar opções de campos vinculados (ex: lista de cargos)
-  const [linkedOptions,HZ setLinkedOptions] = useState<Record<string, string[]>>({});
+  // CORREÇÃO AQUI: Removido o erro de digitação "HZ"
+  const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -160,7 +159,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                 <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-lidera-dark/50 transition-colors">
                   {columns.map((col) => (
                     <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                       {/* Renderização especial para Status */}
                        {col.key === 'status' ? (
                           <span className={`px-2 py-1 rounded text-xs font-bold ${
                              item[col.key] === 'Ativo' ? 'bg-green-100 text-green-700' : 
@@ -199,7 +197,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
             {customFieldsAllowed && (
               <div className="pt-4 border-t dark:border-gray-700 mt-4">
                  <h4 className="font-bold mb-2 text-sm text-gray-500">Campos Extras</h4>
-                 {/* Lógica de campos extras mantida simples */}
                  <div className="grid grid-cols-2 gap-2 mb-2">
                     <input id="newKey" placeholder="Novo campo..." className="p-2 border rounded dark:bg-lidera-dark dark:border-gray-700 text-sm" />
                     <button type="button" onClick={() => {
