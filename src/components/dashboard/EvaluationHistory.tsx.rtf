@@ -17,11 +17,10 @@ interface Evaluation \{\
   tipo: 'L\'edder' | 'Colaborador';\
   data: string; // Formato YYYY-MM-DD\
   notaFinal: string;\
-  detalhes: Record<string, string>; // Para guardar as m\'e9tricas espec\'edficas (Assiduidade, Uniforme, etc)\
+  detalhes: Record<string, string>;\
 \}\
 \
-// --- Dados de Exemplo (Mock baseados nos seus CSVs) ---\
-// Na implementa\'e7\'e3o real, voc\'ea preencheria isso lendo os arquivos CSV parseados\
+// --- Dados de Exemplo (Mock) ---\
 const MOCK_DATA: Evaluation[] = [\
   \{\
     id: '4ba1f14d',\
@@ -71,17 +70,15 @@ const MOCK_DATA: Evaluation[] = [\
 ];\
 \
 export const EvaluationHistory = () => \{\
-  // Estado para controlar a navega\'e7\'e3o (Camadas)\
   const [viewLevel, setViewLevel] = useState<1 | 2 | 3>(1);\
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);\
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);\
 \
-  // --- Camada 1: L\'f3gica de Resumo ---\
+  // --- Camada 1: Resumo ---\
   const summaryData = useMemo(() => \{\
     const groups: Record<string, \{ count: number; totalScore: number; date: string \}> = \{\};\
 \
     MOCK_DATA.forEach(item => \{\
-      // Normalizar data para M\'eas/Ano\
       const dateObj = new Date(item.data);\
       const periodKey = dateObj.toLocaleDateString('pt-BR', \{ month: 'long', year: 'numeric' \});\
       const numericScore = parseFloat(item.notaFinal.replace(',', '.'));\
@@ -97,11 +94,11 @@ export const EvaluationHistory = () => \{\
       period,\
       count: data.count,\
       average: (data.totalScore / data.count).toFixed(2).replace('.', ','),\
-      rawDate: data.date // Usado para ordena\'e7\'e3o se necess\'e1rio\
+      rawDate: data.date\
     \}));\
   \}, []);\
 \
-  // --- Camada 2: Filtrar avalia\'e7\'f5es do per\'edodo selecionado ---\
+  // --- Camada 2: Filtro por per\'edodo ---\
   const periodEvaluations = useMemo(() => \{\
     if (!selectedPeriod) return [];\
     return MOCK_DATA.filter(item => \{\
@@ -110,7 +107,7 @@ export const EvaluationHistory = () => \{\
     \});\
   \}, [selectedPeriod]);\
 \
-  // --- Fun\'e7\'f5es de Navega\'e7\'e3o ---\
+  // --- Navega\'e7\'e3o ---\
   const handlePeriodClick = (period: string) => \{\
     setSelectedPeriod(period);\
     setViewLevel(2);\
@@ -131,11 +128,9 @@ export const EvaluationHistory = () => \{\
     \}\
   \};\
 \
-  // --- Renderiza\'e7\'e3o das Tabelas ---\
-\
+  // --- Renderiza\'e7\'e3o ---\
   return (\
     <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-6xl mx-auto">\
-      \{/* Cabe\'e7alho de Navega\'e7\'e3o */\}\
       <div className="flex items-center justify-between mb-6 border-b pb-4">\
         <div className="flex items-center gap-2">\
           \{viewLevel > 1 && (\
@@ -153,7 +148,6 @@ export const EvaluationHistory = () => \{\
           </h2>\
         </div>\
         \
-        \{/* Breadcrumb simples */\}\
         <div className="text-sm text-gray-500">\
           <span className=\{viewLevel === 1 ? "font-bold text-blue-600" : ""\}>Resumo</span>\
           <span className="mx-2">/</span>\
@@ -163,7 +157,7 @@ export const EvaluationHistory = () => \{\
         </div>\
       </div>\
 \
-      \{/* CAMADA 1: Tabela de Resumo por Per\'edodo */\}\
+      \{/* Tabela de Resumo */\}\
       \{viewLevel === 1 && (\
         <div className="overflow-x-auto">\
           <table className="w-full text-left border-collapse">\
@@ -206,7 +200,7 @@ export const EvaluationHistory = () => \{\
         </div>\
       )\}\
 \
-      \{/* CAMADA 2: Lista de Avalia\'e7\'f5es do Per\'edodo */\}\
+      \{/* Lista de Avalia\'e7\'f5es */\}\
       \{viewLevel === 2 && (\
         <div className="overflow-x-auto">\
           <table className="w-full text-left border-collapse">\
@@ -254,10 +248,9 @@ export const EvaluationHistory = () => \{\
         </div>\
       )\}\
 \
-      \{/* CAMADA 3: Detalhes Espec\'edficos (Notas por Crit\'e9rio) */\}\
+      \{/* Detalhes */\}\
       \{viewLevel === 3 && selectedEvaluation && (\
         <div className="animate-fade-in">\
-          \{/* Card de Resumo do Colaborador */\}\
           <div className="bg-gray-50 p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100">\
             <div>\
               <h3 className="text-lg font-bold text-gray-800">\{selectedEvaluation.funcionario\}</h3>\
