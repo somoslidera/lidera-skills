@@ -8,17 +8,19 @@
 \f0\fs24 \cf0 import React, \{ useState, useMemo \} from 'react';\
 import \{ ChevronRight, ArrowLeft, Calendar, User, FileText, TrendingUp \} from 'lucide-react';\
 \
+// --- Tipos baseados nos seus CSVs ---\
 interface Evaluation \{\
   id: string;\
   funcionario: string;\
   cargo: string;\
   setor: string;\
   tipo: 'L\'edder' | 'Colaborador';\
-  data: string;\
+  data: string; // Formato YYYY-MM-DD\
   notaFinal: string;\
   detalhes: Record<string, string>;\
 \}\
 \
+// --- Dados de Exemplo (Mock) ---\
 const MOCK_DATA: Evaluation[] = [\
   \{\
     id: '4ba1f14d',\
@@ -59,9 +61,6 @@ const MOCK_DATA: Evaluation[] = [\
     tipo: 'Colaborador',\
     data: '2025-09-01',\
     notaFinal: '7,50',\
-<<<<<<< HEAD:src/components/dashboard/EvaluationHistory.tsx.rtf
-    detalhes:}
-=======
     detalhes: \{\
       'Assiduidade e Pontualidade': '7,00',\
       'Uso de Uniforme e EPI': '8,00',\
@@ -291,4 +290,3 @@ export const EvaluationHistory = () => \{\
     </div>\
   );\
 \};}
->>>>>>> 63a44a78b35e30952072f69f00757d2891d16901:src/components/dashboard/EvaluationHistory.tsx
