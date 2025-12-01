@@ -25,3 +25,4 @@ dist-ssr
 
 .vercel
 .env*.local
+src/components/dashboard/EvaluationHistory.tsx.rtf
