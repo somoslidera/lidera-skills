@@ -4,9 +4,56 @@ import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
-export const DataImporter = () => {
+// Define os tipos de importação suportados
+type ImportTarget = 'criteria' | 'sectors' | 'roles';
+
+export const DataImporter = ({ target }: { target: ImportTarget }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
+
+  // Configurações específicas para cada tipo de importação
+  const config = {
+    criteria: {
+      label: 'Critérios de Avaliação',
+      collection: 'evaluation_criteria',
+      process: (item: any) => {
+        // Lógica específica para Avaliações (seu código anterior)
+        const type = item.Categoria_Avaliacao === 'Operadores' ? 'Colaborador' : 
+                     item.Categoria_Avaliacao === 'Líderes' ? 'Líder' : null;
+        const name = item.ID_Avaliacao ? item.ID_Avaliacao.replace(/_/g, ' ') : null;
+        
+        if (!type || !name) return null;
+        return { name, type, description: '' };
+      },
+      checkDuplicity: (ref: any, data: any) => 
+        query(ref, where("name", "==", data.name), where("type", "==", data.type))
+    },
+    sectors: {
+      label: 'Setores',
+      collection: 'sectors',
+      process: (item: any) => {
+        // Lógica para Setores: Pega 'Nome_Setor'
+        const name = item.Nome_Setor;
+        if (!name) return null;
+        return { name, manager: '' };
+      },
+      checkDuplicity: (ref: any, data: any) => 
+        query(ref, where("name", "==", data.name))
+    },
+    roles: {
+      label: 'Cargos',
+      collection: 'roles',
+      process: (item: any) => {
+        // Lógica para Cargos: Pega 'Nome_Cargo' e 'Nível'
+        const name = item.Nome_Cargo;
+        const level = item['Nível']; // Acessa com colchetes por causa do acento
+        if (!name) return null;
+        return { name, level: level || 'Colaborador' }; // Padrão 'Colaborador' se vazio
+      },
+      checkDuplicity: (ref: any, data: any) => 
+        query(ref, where("name", "==", data.name))
+    }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -15,37 +62,30 @@ export const DataImporter = () => {
     setLoading(true);
     setStatus({ type: null, msg: 'Lendo arquivo...' });
 
+    const currentConfig = config[target];
+
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      encoding: "UTF-8", // Garante leitura correta de acentos
       complete: async (results) => {
         try {
           const data = results.data as any[];
           let importedCount = 0;
           let skippedCount = 0;
 
-          const criteriaRef = collection(db, 'evaluation_criteria');
+          const collectionRef = collection(db, currentConfig.collection);
 
           for (const item of data) {
-            // 1. Mapeamento dos campos do CSV para o App
-            // CSV: Categoria_Avaliacao (Operadores/Líderes) -> App: type (Colaborador/Líder)
-            const type = item.Categoria_Avaliacao === 'Operadores' ? 'Colaborador' : 
-                         item.Categoria_Avaliacao === 'Líderes' ? 'Líder' : null;
+            const docData = currentConfig.process(item);
 
-            // CSV: ID_Avaliacao (ex: Assiduidade_Pontualidade) -> App: name (Assiduidade Pontualidade)
-            const name = item.ID_Avaliacao ? item.ID_Avaliacao.replace(/_/g, ' ') : null;
-
-            if (type && name) {
-              // Verifica duplicidade antes de adicionar
-              const q = query(criteriaRef, where("name", "==", name), where("type", "==", type));
+            if (docData) {
+              // Verifica duplicidade
+              const q = currentConfig.checkDuplicity(collectionRef, docData);
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
-                await addDoc(criteriaRef, {
-                  name: name,
-                  type: type,
-                  description: '' // Descrição vazia por padrão
-                });
+                await addDoc(collectionRef, docData);
                 importedCount++;
               } else {
                 skippedCount++;
@@ -55,15 +95,14 @@ export const DataImporter = () => {
 
           setStatus({ 
             type: 'success', 
-            msg: `Processo finalizado! ${importedCount} novos critérios importados. (${skippedCount} duplicados ignorados).` 
+            msg: `Sucesso! ${importedCount} ${currentConfig.label} importados. (${skippedCount} ignorados/duplicados).` 
           });
 
         } catch (error) {
           console.error(error);
-          setStatus({ type: 'error', msg: 'Erro ao importar dados. Verifique o console.' });
+          setStatus({ type: 'error', msg: 'Erro ao processar dados. Verifique o arquivo.' });
         } finally {
           setLoading(false);
-          // Limpa o input para permitir selecionar o mesmo arquivo novamente se necessário
           event.target.value = '';
         }
       },
@@ -79,10 +118,10 @@ export const DataImporter = () => {
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
           <h4 className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
-            <Upload size={18} /> Importação Inicial
+            <Upload size={18} /> Importar {config[target].label}
           </h4>
           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-            Selecione o arquivo CSV de Avaliações para preencher o banco de dados automaticamente.
+            Use o arquivo CSV correto para carregar os dados automaticamente.
           </p>
         </div>
         
