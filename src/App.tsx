@@ -1,13 +1,37 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom'; // <--- Adicionado
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
 import { LayoutDashboard, History, LogOut } from 'lucide-react';
+import { fetchCollection } from './services/firebase';
 
 function App() {
   // Estado para controlar qual tela está visível
   const [currentView, setCurrentView] = useState<'dashboard' | 'history'>('dashboard');
+
+  // Estados para armazenar os dados vindos do Firebase
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+
+  // Busca os dados assim que o componente é montado
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        console.log("Iniciando busca de dados...");
+        const evaluationsData = await fetchCollection('evaluations');
+        const employeesData = await fetchCollection('employees');
+        
+        setEvaluations(evaluationsData);
+        setEmployees(employeesData);
+        console.log("Dados carregados com sucesso!");
+      } catch (error) {
+        console.error("Erro ao buscar dados do Firebase:", error);
+      }
+    };
+
+    loadData();
+  }, []);
 
   return (
     <AuthProvider>
@@ -70,7 +94,8 @@ function App() {
           {/* --- Conteúdo Principal --- */}
           <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
             {currentView === 'dashboard' ? (
-              <Dashboard />
+              // AQUI ESTAVA O ERRO: Agora passamos as props corretas para o Dashboard
+              <Dashboard evaluations={evaluations} employees={employees} />
             ) : (
               <div className="animate-fade-in-up">
                 <div className="mb-6">
