@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { 
-  Award, Users, PieChart, TrendingUp, Calendar, Search, Filter, ArrowUp, ArrowDown 
+  Award, Users, PieChart, TrendingUp, Calendar, Search, Filter
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  LineChart, Line, Legend, AreaChart, Area
+  AreaChart, Area
 } from 'recharts';
 import { Card } from '../ui/Card';
 
@@ -15,7 +15,20 @@ const formatMonth = (dateStr: string) => {
   return `${month}/${year}`;
 };
 
-export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
+// Interfaces para tipagem
+interface Employee {
+  id: string;
+  name: string;
+  role?: string;
+  sector?: string;
+}
+
+interface DashboardProps {
+  evaluations: any[];
+  employees: Employee[];
+}
+
+export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) => {
   // --- Estados dos Filtros ---
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
@@ -27,11 +40,10 @@ export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
     if (!evaluations.length) return [];
 
     // Cria um mapa de funcionários para acesso rápido
-    const empMap = new Map(employees.map((e: any) => [e.name, e]));
+    const empMap = new Map(employees.map((e) => [e.name, e]));
 
     return evaluations.map((ev: any) => {
-      // Tenta encontrar o funcionário pelo nome (ou ID se tivesse)
-      // Normaliza strings para evitar erros de case/espaço
+      // Tenta encontrar o funcionário pelo nome
       const empName = ev.employeeName?.trim();
       const registeredEmp = empMap.get(empName);
 
@@ -53,9 +65,9 @@ export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
     return processedData.filter((item: any) => {
       // Filtro de Texto (Nome, ID ou Cargo)
       const searchMatch = !searchTerm || 
-        item.realName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.realName && item.realName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         String(item.realId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.realRole.toLowerCase().includes(searchTerm.toLowerCase());
+        (item.realRole && item.realRole.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Filtro de Setor
       const sectorMatch = !selectedSector || item.realSector === selectedSector;
@@ -81,7 +93,7 @@ export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
     const timelineMap: Record<string, { sum: number; count: number }> = {};
     filteredData.forEach((item: any) => {
       // Chave de ordenação: YYYY-MM
-      const monthKey = item.date.substring(0, 7); 
+      const monthKey = item.date ? item.date.substring(0, 7) : 'Unknown'; 
       if (!timelineMap[monthKey]) timelineMap[monthKey] = { sum: 0, count: 0 };
       timelineMap[monthKey].sum += item.score;
       timelineMap[monthKey].count += 1;
@@ -115,10 +127,10 @@ export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
     return { globalAvg, totalCount, timelineData, sectorData };
   }, [filteredData]);
 
-  // Lista única de setores para o filtro
+  // Lista única de setores para o filtro (Cast explícito para string[])
   const uniqueSectors = useMemo(() => {
     const sectors = new Set(processedData.map((d: any) => d.realSector));
-    return Array.from(sectors).sort();
+    return Array.from(sectors).sort() as string[];
   }, [processedData]);
 
   if (!evaluations.length) {
@@ -152,7 +164,7 @@ export const Dashboard = ({ evaluations = [], employees = [] }: any) => {
               onChange={e => setSelectedSector(e.target.value)}
             >
               <option value="">Todos Setores</option>
-              {uniqueSectors.map(s => <option key={s} value={s}>{s}</option>)}
+              {uniqueSectors.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
