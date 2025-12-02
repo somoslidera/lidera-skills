@@ -3,21 +3,21 @@ import { ChevronRight, ArrowLeft, Calendar, User, FileText, TrendingUp, Upload }
 import { fetchCollection } from '../../services/firebase';
 import { DataImporter } from '../settings/DataImporter';
 
-// Interface atualizada para refletir os dados do Firebase/CSV
+// Interface atualizada e tipada corretamente
 interface Evaluation {
   id: string;
-  employeeName: string; // Nome vindo do CSV ou cadastro
-  cargo?: string; // Opcional, pois pode não vir em alguns casos
-  role?: string;  // Alias para cargo
-  setor?: string; // Alias
-  sector?: string; // Alias
+  employeeName: string; // Campo padrão para o nome
+  cargo?: string;
+  role?: string;
+  setor?: string;
+  sector?: string;
   tipo: 'Líder' | 'Colaborador';
-  type?: string; // Alias para tipo vindo do CSV
+  type?: string;
   data: string;
-  date?: string; // Alias
+  date?: string;
   notaFinal?: string;
-  average?: number; // Nota numérica vinda do CSV
-  detalhes?: Record<string, number>; // Detalhes numéricos
+  average?: number;
+  detalhes?: Record<string, number>;
 }
 
 export const EvaluationHistory = () => {
@@ -25,7 +25,7 @@ export const EvaluationHistory = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [showImporter, setShowImporter] = useState(false); // Estado para mostrar/esconder importador
+  const [showImporter, setShowImporter] = useState(false);
 
   // Carrega dados reais do Firebase ao montar
   useEffect(() => {
@@ -45,14 +45,13 @@ export const EvaluationHistory = () => {
     const groups: Record<string, { count: number; totalScore: number; date: string }> = {};
 
     evaluations.forEach(item => {
-      // Normaliza dados (compatibilidade entre mock antigo e novo import)
+      // Normaliza dados
       const dateVal = item.date || item.data;
       const scoreVal = item.average !== undefined ? item.average : parseFloat((item.notaFinal || '0').replace(',', '.'));
       
       if (!dateVal) return;
 
       const dateObj = new Date(dateVal);
-      // Garante data válida mesmo com formatos string diferentes
       if (isNaN(dateObj.getTime())) return; 
 
       const periodKey = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -69,7 +68,7 @@ export const EvaluationHistory = () => {
       count: data.count,
       average: (data.totalScore / data.count).toFixed(2).replace('.', ','),
       rawDate: data.date
-    })).sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()); // Ordena por data decrescente
+    })).sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
   }, [evaluations]);
 
   // --- Camada 2: Filtro por período ---
@@ -104,11 +103,10 @@ export const EvaluationHistory = () => {
     }
   };
 
-  // --- Renderização ---
   return (
     <div className="bg-white dark:bg-[#1E1E1E] shadow-md rounded-lg p-6 w-full max-w-6xl mx-auto border dark:border-[#121212]">
       
-      {/* Botão de Importação (Toggle) */}
+      {/* Botão de Importação */}
       {viewLevel === 1 && (
         <div className="mb-6">
           <button 
@@ -128,7 +126,7 @@ export const EvaluationHistory = () => {
         </div>
       )}
 
-      {/* Header da Navegação */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
         <div className="flex items-center gap-2">
           {viewLevel > 1 && (
@@ -142,7 +140,8 @@ export const EvaluationHistory = () => {
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">
             {viewLevel === 1 && "Histórico de Avaliações"}
             {viewLevel === 2 && `Avaliações de ${selectedPeriod}`}
-            {viewLevel === 3 && `Detalhes: ${selectedEvaluation?.employeeName || selectedEvaluation?.funcionario}`}
+            {/* CORREÇÃO AQUI: removido .funcionario */}
+            {viewLevel === 3 && `Detalhes: ${selectedEvaluation?.employeeName}`}
           </h2>
         </div>
         
@@ -230,7 +229,8 @@ export const EvaluationHistory = () => {
                 >
                   <td className="p-4 font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
-                    {evaluation.employeeName || evaluation.funcionario}
+                    {/* CORREÇÃO AQUI: removido .funcionario */}
+                    {evaluation.employeeName}
                   </td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">
                     <div className="text-sm font-medium">{evaluation.role || evaluation.cargo}</div>
@@ -264,7 +264,8 @@ export const EvaluationHistory = () => {
           <div className="bg-gray-50 dark:bg-[#121212] p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100 dark:border-gray-800">
             <div>
               <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                {selectedEvaluation.employeeName || selectedEvaluation.funcionario}
+                {/* CORREÇÃO AQUI: removido .funcionario */}
+                {selectedEvaluation.employeeName}
               </h3>
               <p className="text-gray-500 dark:text-gray-400">
                 {selectedEvaluation.role || selectedEvaluation.cargo} - {selectedEvaluation.sector || selectedEvaluation.setor}
