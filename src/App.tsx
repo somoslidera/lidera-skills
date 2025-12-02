@@ -3,85 +3,92 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
-import { LayoutDashboard, History, LogOut } from 'lucide-react';
+import { GenericDatabaseView } from './components/settings/GenericDatabaseView'; // Importando o componente de cadastro
+import { 
+  LayoutDashboard, 
+  History, 
+  LogOut, 
+  Users, 
+  Briefcase, 
+  Layers, 
+  UserCog 
+} from 'lucide-react';
 import { fetchCollection } from './services/firebase';
 
 function App() {
-  // Estado para controlar qual tela está visível
-  const [currentView, setCurrentView] = useState<'dashboard' | 'history'>('dashboard');
+  // Estado para controlar a navegação
+  const [currentView, setCurrentView] = useState<'dashboard' | 'history' | 'sectors' | 'roles' | 'employees' | 'users'>('dashboard');
 
-  // Estados para armazenar os dados vindos do Firebase
+  // Estados para armazenar os dados do Dashboard
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
 
-  // Busca os dados assim que o componente é montado
+  // Carrega dados iniciais para o Dashboard não quebrar
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("Iniciando busca de dados...");
         const evaluationsData = await fetchCollection('evaluations');
         const employeesData = await fetchCollection('employees');
-        
         setEvaluations(evaluationsData);
         setEmployees(employeesData);
-        console.log("Dados carregados com sucesso!");
       } catch (error) {
-        console.error("Erro ao buscar dados do Firebase:", error);
+        console.error("Erro ao carregar dados:", error);
       }
     };
-
     loadData();
-  }, []);
+  }, []); // Executa apenas uma vez ao iniciar
+
+  // Função auxiliar para renderizar o botão do menu
+  const NavButton = ({ view, icon: Icon, label }: { view: typeof currentView, icon: any, label: string }) => (
+    <button
+      onClick={() => setCurrentView(view)}
+      className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-sm font-medium whitespace-nowrap ${
+        currentView === view
+          ? 'bg-blue-50 text-blue-700'
+          : 'text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      <Icon size={18} />
+      {label}
+    </button>
+  );
 
   return (
     <AuthProvider>
-      {/* O Router precisa envolver a aplicação para que links e navegação funcionem */}
       <Router>
         <div className="min-h-screen bg-gray-100 flex flex-col">
           
-          {/* --- Cabeçalho da Aplicação --- */}
+          {/* --- Cabeçalho --- */}
           <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16 items-center">
                 
-                {/* Logo / Título */}
-                <div className="flex items-center gap-3">
+                {/* Logo */}
+                <div className="flex items-center gap-3 mr-4">
                   <div className="bg-blue-600 text-white p-2 rounded-lg">
                     <LayoutDashboard size={20} />
                   </div>
-                  <h1 className="text-xl font-bold text-gray-800">
-                    LideraApp <span className="text-blue-600 font-light">| Gomes RH</span>
+                  <h1 className="text-xl font-bold text-gray-800 hidden md:block">
+                    LideraApp
                   </h1>
                 </div>
 
-                {/* Menu de Navegação */}
-                <nav className="flex items-center space-x-4">
-                  <button
-                    onClick={() => setCurrentView('dashboard')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-sm font-medium ${
-                      currentView === 'dashboard'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <LayoutDashboard size={18} />
-                    Painel Principal
-                  </button>
-
-                  <button
-                    onClick={() => setCurrentView('history')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors text-sm font-medium ${
-                      currentView === 'history'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <History size={18} />
-                    Histórico de Avaliações
-                  </button>
+                {/* Menu de Navegação (Scroll horizontal em mobile) */}
+                <nav className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar mask-gradient px-2">
+                  <NavButton view="dashboard" icon={LayoutDashboard} label="Painel" />
+                  <NavButton view="history" icon={History} label="Histórico" />
+                  
+                  {/* Divisor Visual */}
+                  <div className="h-6 w-px bg-gray-300 mx-2 hidden md:block"></div>
+                  
+                  {/* Menus de Cadastro */}
+                  <NavButton view="sectors" icon={Layers} label="Setores" />
+                  <NavButton view="roles" icon={Briefcase} label="Cargos" />
+                  <NavButton view="employees" icon={Users} label="Funcionários" />
+                  <NavButton view="users" icon={UserCog} label="Usuários" />
                 </nav>
 
-                {/* Área do Usuário / Sair */}
+                {/* Sair */}
                 <div className="flex items-center border-l pl-4 ml-4">
                   <button className="text-gray-400 hover:text-red-600 transition-colors" title="Sair">
                     <LogOut size={20} />
@@ -93,22 +100,74 @@ function App() {
 
           {/* --- Conteúdo Principal --- */}
           <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-            {currentView === 'dashboard' ? (
-              // AQUI ESTAVA O ERRO: Agora passamos as props corretas para o Dashboard
+            
+            {/* 1. Dashboard */}
+            {currentView === 'dashboard' && (
               <Dashboard evaluations={evaluations} employees={employees} />
-            ) : (
+            )}
+
+            {/* 2. Histórico */}
+            {currentView === 'history' && (
               <div className="animate-fade-in-up">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-800">Histórico de Desempenho</h2>
-                  <p className="text-gray-500">
-                    Consulte as avaliações passadas, analise a evolução das notas e veja os detalhes de cada ciclo.
-                  </p>
+                  <p className="text-gray-500">Consulte avaliações passadas e evolução.</p>
                 </div>
                 <EvaluationHistory />
               </div>
             )}
-          </main>
 
+            {/* 3. Cadastros (Usando GenericDatabaseView) */}
+            
+            {/* Setores */}
+            {currentView === 'sectors' && (
+              <GenericDatabaseView 
+                collectionName="sectors" 
+                title="Gerenciar Setores"
+                columns={[{ key: 'name', label: 'Nome do Setor' }]}
+              />
+            )}
+
+            {/* Cargos */}
+            {currentView === 'roles' && (
+              <GenericDatabaseView 
+                collectionName="roles" 
+                title="Gerenciar Cargos"
+                columns={[{ key: 'name', label: 'Título do Cargo' }]}
+              />
+            )}
+
+            {/* Funcionários */}
+            {currentView === 'employees' && (
+              <GenericDatabaseView 
+                collectionName="employees" 
+                title="Gerenciar Funcionários"
+                columns={[
+                  { key: 'name', label: 'Nome Completo' },
+                  { key: 'email', label: 'Email', type: 'email' },
+                  // Conecta com a coleção 'sectors' para criar um dropdown
+                  { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
+                  // Conecta com a coleção 'roles' para criar um dropdown
+                  { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
+                  { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo'] }
+                ]}
+              />
+            )}
+
+            {/* Usuários do Sistema */}
+            {currentView === 'users' && (
+              <GenericDatabaseView 
+                collectionName="users" 
+                title="Usuários do Sistema"
+                columns={[
+                  { key: 'name', label: 'Nome' },
+                  { key: 'email', label: 'Email', type: 'email' },
+                  { key: 'role', label: 'Permissão', type: 'select', options: ['Admin', 'Gestor', 'Líder'] }
+                ]}
+              />
+            )}
+
+          </main>
         </div>
       </Router>
     </AuthProvider>
