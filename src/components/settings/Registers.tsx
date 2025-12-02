@@ -4,9 +4,7 @@ import { DataImporter } from './DataImporter';
 // --- 1. Critérios de Avaliação ---
 export const CriteriaView = () => (
   <div className="space-y-6">
-    {/* Importador configurado para CRITÉRIOS */}
     <DataImporter target="criteria" />
-    
     <GenericDatabaseView 
       collectionName="evaluation_criteria" 
       title="Critérios de Avaliação"
@@ -22,9 +20,7 @@ export const CriteriaView = () => (
 // --- 2. Setores ---
 export const SectorsView = () => (
   <div className="space-y-6">
-    {/* Importador configurado para SETORES */}
     <DataImporter target="sectors" />
-
     <GenericDatabaseView 
       collectionName="sectors" 
       title="Gerenciar Setores"
@@ -39,9 +35,7 @@ export const SectorsView = () => (
 // --- 3. Cargos ---
 export const RolesView = () => (
   <div className="space-y-6">
-    {/* Importador configurado para CARGOS */}
     <DataImporter target="roles" />
-
     <GenericDatabaseView 
       collectionName="roles" 
       title="Gerenciar Cargos"
@@ -53,19 +47,22 @@ export const RolesView = () => (
   </div>
 );
 
-// --- 4. Funcionários (Sem importador por enquanto, ou use a mesma lógica se tiver CSV) ---
+// --- 4. Funcionários (Updated) ---
 export const EmployeesView = () => (
-  <GenericDatabaseView 
-    collectionName="employees" 
-    title="Gerenciar Funcionários"
-    columns={[
-      { key: 'name', label: 'Nome Completo' },
-      { key: 'email', label: 'Email', type: 'email' },
-      { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
-      { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
-      { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo'] }
-    ]}
-  />
+  <div className="space-y-6">
+    <DataImporter target="employees" />
+    <GenericDatabaseView 
+      collectionName="employees" 
+      title="Gerenciar Funcionários"
+      columns={[
+        { key: 'name', label: 'Nome Completo' },
+        { key: 'email', label: 'Email', type: 'email' },
+        { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
+        { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
+        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo'] }
+      ]}
+    />
+  </div>
 );
 
 // --- 5. Usuários do Sistema ---
