@@ -4,20 +4,18 @@ import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
-// Define os tipos de importação suportados
-type ImportTarget = 'criteria' | 'sectors' | 'roles';
+// Added 'employees' to the supported types
+type ImportTarget = 'criteria' | 'sectors' | 'roles' | 'employees';
 
 export const DataImporter = ({ target }: { target: ImportTarget }) => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
 
-  // Configurações específicas para cada tipo de importação
   const config = {
     criteria: {
       label: 'Critérios de Avaliação',
       collection: 'evaluation_criteria',
       process: (item: any) => {
-        // Lógica específica para Avaliações (seu código anterior)
         const type = item.Categoria_Avaliacao === 'Operadores' ? 'Colaborador' : 
                      item.Categoria_Avaliacao === 'Líderes' ? 'Líder' : null;
         const name = item.ID_Avaliacao ? item.ID_Avaliacao.replace(/_/g, ' ') : null;
@@ -32,8 +30,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       label: 'Setores',
       collection: 'sectors',
       process: (item: any) => {
-        // Lógica para Setores: Pega 'Nome_Setor'
-        const name = item.Nome_Setor;
+        const name = item.Nome_Setor || item.Setor || item.Nome;
         if (!name) return null;
         return { name, manager: '' };
       },
@@ -44,14 +41,36 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       label: 'Cargos',
       collection: 'roles',
       process: (item: any) => {
-        // Lógica para Cargos: Pega 'Nome_Cargo' e 'Nível'
-        const name = item.Nome_Cargo;
-        const level = item['Nível']; // Acessa com colchetes por causa do acento
+        const name = item.Nome_Cargo || item.Cargo || item.Nome;
+        const level = item['Nível'] || item.Nivel || 'Colaborador';
         if (!name) return null;
-        return { name, level: level || 'Colaborador' }; // Padrão 'Colaborador' se vazio
+        return { name, level: level };
       },
       checkDuplicity: (ref: any, data: any) => 
         query(ref, where("name", "==", data.name))
+    },
+    // New Configuration for Employees
+    employees: {
+      label: 'Funcionários',
+      collection: 'employees',
+      process: (item: any) => {
+        // Supports multiple header variations
+        const name = item.Nome || item.Name || item.Funcionario || item.Nome_Completo;
+        const email = item.Email || item['E-mail'] || '';
+        const sector = item.Setor || item.Departamento || '';
+        const role = item.Cargo || item.Funcao || '';
+        
+        if (!name) return null;
+        return { 
+          name, 
+          email, 
+          sector, 
+          role, 
+          status: 'Ativo' 
+        };
+      },
+      checkDuplicity: (ref: any, data: any) => 
+        query(ref, where("name", "==", data.name)) // Checks by name to avoid duplicates
     }
   };
 
@@ -67,7 +86,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      encoding: "UTF-8", // Garante leitura correta de acentos
+      encoding: "UTF-8",
       complete: async (results) => {
         try {
           const data = results.data as any[];
@@ -80,7 +99,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             const docData = currentConfig.process(item);
 
             if (docData) {
-              // Verifica duplicidade
               const q = currentConfig.checkDuplicity(collectionRef, docData);
               const querySnapshot = await getDocs(q);
 
@@ -121,7 +139,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             <Upload size={18} /> Importar {config[target].label}
           </h4>
           <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-            Use o arquivo CSV correto para carregar os dados automaticamente.
+            Selecione um arquivo CSV para importar {config[target].label.toLowerCase()}.
           </p>
         </div>
         
