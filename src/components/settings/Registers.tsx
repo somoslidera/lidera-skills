@@ -1,16 +1,23 @@
 import { GenericDatabaseView } from './GenericDatabaseView';
+import { DataImporter } from './DataImporter'; // <--- Importe o novo componente
 
 // --- 1. Critérios de Avaliação ---
 export const CriteriaView = () => (
-  <GenericDatabaseView 
-    collectionName="evaluation_criteria" 
-    title="Critérios de Avaliação"
-    columns={[
-      { key: 'name', label: 'Nome do Critério (ex: Assiduidade)' },
-      { key: 'type', label: 'Nível / Público Alvo', type: 'select', options: ['Líder', 'Colaborador'] },
-      { key: 'description', label: 'Descrição (Opcional)' }
-    ]}
-  />
+  <div className="space-y-6">
+    {/* Área de Importação */}
+    <DataImporter />
+    
+    {/* Tabela de Dados */}
+    <GenericDatabaseView 
+      collectionName="evaluation_criteria" 
+      title="Critérios de Avaliação"
+      columns={[
+        { key: 'name', label: 'Nome do Critério' },
+        { key: 'type', label: 'Nível / Público Alvo', type: 'select', options: ['Líder', 'Colaborador'] },
+        { key: 'description', label: 'Descrição (Opcional)' }
+      ]}
+    />
+  </div>
 );
 
 // --- 2. Setores ---
