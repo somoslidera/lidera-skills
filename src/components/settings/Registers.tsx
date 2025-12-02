@@ -1,13 +1,12 @@
 import { GenericDatabaseView } from './GenericDatabaseView';
-import { DataImporter } from './DataImporter'; // <--- Importe o novo componente
+import { DataImporter } from './DataImporter';
 
 // --- 1. Critérios de Avaliação ---
 export const CriteriaView = () => (
   <div className="space-y-6">
-    {/* Área de Importação */}
-    <DataImporter />
+    {/* Importador configurado para CRITÉRIOS */}
+    <DataImporter target="criteria" />
     
-    {/* Tabela de Dados */}
     <GenericDatabaseView 
       collectionName="evaluation_criteria" 
       title="Critérios de Avaliação"
@@ -22,29 +21,39 @@ export const CriteriaView = () => (
 
 // --- 2. Setores ---
 export const SectorsView = () => (
-  <GenericDatabaseView 
-    collectionName="sectors" 
-    title="Gerenciar Setores"
-    columns={[
-      { key: 'name', label: 'Nome do Setor' },
-      { key: 'manager', label: 'Responsável/Gestor' }
-    ]}
-  />
+  <div className="space-y-6">
+    {/* Importador configurado para SETORES */}
+    <DataImporter target="sectors" />
+
+    <GenericDatabaseView 
+      collectionName="sectors" 
+      title="Gerenciar Setores"
+      columns={[
+        { key: 'name', label: 'Nome do Setor' },
+        { key: 'manager', label: 'Responsável/Gestor' }
+      ]}
+    />
+  </div>
 );
 
 // --- 3. Cargos ---
 export const RolesView = () => (
-  <GenericDatabaseView 
-    collectionName="roles" 
-    title="Gerenciar Cargos"
-    columns={[
-      { key: 'name', label: 'Título do Cargo' },
-      { key: 'level', label: 'Nível Hierárquico', type: 'select', options: ['Líder', 'Colaborador'] }
-    ]}
-  />
+  <div className="space-y-6">
+    {/* Importador configurado para CARGOS */}
+    <DataImporter target="roles" />
+
+    <GenericDatabaseView 
+      collectionName="roles" 
+      title="Gerenciar Cargos"
+      columns={[
+        { key: 'name', label: 'Título do Cargo' },
+        { key: 'level', label: 'Nível Hierárquico', type: 'select', options: ['Líder', 'Colaborador'] }
+      ]}
+    />
+  </div>
 );
 
-// --- 4. Funcionários ---
+// --- 4. Funcionários (Sem importador por enquanto, ou use a mesma lógica se tiver CSV) ---
 export const EmployeesView = () => (
   <GenericDatabaseView 
     collectionName="employees" 
