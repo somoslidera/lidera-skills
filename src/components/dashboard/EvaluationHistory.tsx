@@ -3,96 +3,122 @@ import { ChevronRight, ArrowLeft, Calendar, User, FileText, TrendingUp, Upload }
 import { fetchCollection } from '../../services/firebase';
 import { DataImporter } from '../settings/DataImporter';
 
-// Interface atualizada e tipada corretamente
+// Interface Unificada
 interface Evaluation {
   id: string;
-  employeeName: string; // Campo padrão para o nome
-  cargo?: string;
+  employeeId?: string;
+  employeeName: string;
   role?: string;
-  setor?: string;
   sector?: string;
-  tipo: 'Líder' | 'Colaborador';
-  type?: string;
-  data: string;
-  date?: string;
-  notaFinal?: string;
+  type?: 'Líder' | 'Colaborador';
+  date: string; // YYYY-MM-DD
   average?: number;
+  notaFinal?: string; // Fallback para dados antigos
   detalhes?: Record<string, number>;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  sector: string;
 }
 
 export const EvaluationHistory = () => {
   const [viewLevel, setViewLevel] = useState<1 | 2 | 3>(1);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
-  const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<any | null>(null);
+  
+  // Dados Brutos
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [showImporter, setShowImporter] = useState(false);
 
-  // Carrega dados reais do Firebase ao montar
+  // Carrega dados iniciais
   useEffect(() => {
     const loadData = async () => {
       try {
-        const data = await fetchCollection('evaluations');
-        setEvaluations(data as any[]);
+        const evs = await fetchCollection('evaluations');
+        const emps = await fetchCollection('employees');
+        setEvaluations(evs as any[]);
+        setEmployees(emps as any[]);
       } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
+        console.error("Erro ao carregar dados:", error);
       }
     };
     loadData();
   }, []);
 
-  // --- Camada 1: Resumo ---
+  // --- Processamento e Mesclagem de Dados ---
+  const processedEvaluations = useMemo(() => {
+    // Mapa para busca rápida de funcionário por Nome ou ID
+    const empMapByName = new Map(employees.map(e => [e.name.toLowerCase().trim(), e]));
+    const empMapById = new Map(employees.map(e => [e.id, e]));
+
+    return evaluations.map(ev => {
+      // Tenta encontrar o cadastro oficial
+      let officialEmp = empMapById.get(ev.employeeId || '');
+      if (!officialEmp && ev.employeeName) {
+        officialEmp = empMapByName.get(ev.employeeName.toLowerCase().trim());
+      }
+
+      // Normaliza a nota
+      let finalScore = ev.average;
+      if (finalScore === undefined && ev.notaFinal) {
+        finalScore = parseFloat(ev.notaFinal.replace(',', '.'));
+      }
+
+      return {
+        ...ev,
+        // Prioriza dados do cadastro oficial (atualizados), senão usa o do histórico
+        displayName: officialEmp?.name || ev.employeeName || 'Colaborador Desconhecido',
+        displayId: officialEmp?.id || ev.employeeId || 'N/A',
+        displayRole: officialEmp?.role || ev.role || '-',
+        displaySector: officialEmp?.sector || ev.sector || '-',
+        normalizedScore: finalScore || 0
+      };
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [evaluations, employees]);
+
+  // --- Camada 1: Resumo por Período ---
   const summaryData = useMemo(() => {
-    const groups: Record<string, { count: number; totalScore: number; date: string }> = {};
+    const groups: Record<string, { count: number; totalScore: number; rawDate: string }> = {};
 
-    evaluations.forEach(item => {
-      // Normaliza dados
-      const dateVal = item.date || item.data;
-      const scoreVal = item.average !== undefined ? item.average : parseFloat((item.notaFinal || '0').replace(',', '.'));
-      
-      if (!dateVal) return;
-
-      const dateObj = new Date(dateVal);
-      if (isNaN(dateObj.getTime())) return; 
+    processedEvaluations.forEach(item => {
+      if (!item.date) return;
+      const dateObj = new Date(item.date);
+      if (isNaN(dateObj.getTime())) return;
 
       const periodKey = dateObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
       if (!groups[periodKey]) {
-        groups[periodKey] = { count: 0, totalScore: 0, date: dateVal };
+        groups[periodKey] = { count: 0, totalScore: 0, rawDate: item.date };
       }
       groups[periodKey].count += 1;
-      groups[periodKey].totalScore += scoreVal;
+      groups[periodKey].totalScore += item.normalizedScore;
     });
 
-    return Object.entries(groups).map(([period, data]) => ({
-      period,
-      count: data.count,
-      average: (data.totalScore / data.count).toFixed(2).replace('.', ','),
-      rawDate: data.date
-    })).sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
-  }, [evaluations]);
+    return Object.entries(groups)
+      .map(([period, data]) => ({
+        period,
+        count: data.count,
+        average: (data.totalScore / data.count).toFixed(2).replace('.', ','),
+        rawDate: data.rawDate
+      }))
+      .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
+  }, [processedEvaluations]);
 
-  // --- Camada 2: Filtro por período ---
-  const periodEvaluations = useMemo(() => {
+  // --- Camada 2: Filtro da Lista ---
+  const filteredList = useMemo(() => {
     if (!selectedPeriod) return [];
-    return evaluations.filter(item => {
-      const dateVal = item.date || item.data;
-      if(!dateVal) return false;
-      const itemPeriod = new Date(dateVal).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return processedEvaluations.filter(item => {
+      if (!item.date) return false;
+      const itemPeriod = new Date(item.date).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
       return itemPeriod === selectedPeriod;
     });
-  }, [selectedPeriod, evaluations]);
+  }, [selectedPeriod, processedEvaluations]);
 
-  // --- Navegação ---
-  const handlePeriodClick = (period: string) => {
-    setSelectedPeriod(period);
-    setViewLevel(2);
-  };
-
-  const handleEvaluationClick = (evaluation: Evaluation) => {
-    setSelectedEvaluation(evaluation);
-    setViewLevel(3);
-  };
-
+  // --- Ações ---
   const handleBack = () => {
     if (viewLevel === 3) {
       setViewLevel(2);
@@ -104,7 +130,7 @@ export const EvaluationHistory = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-[#1E1E1E] shadow-md rounded-lg p-6 w-full max-w-6xl mx-auto border dark:border-[#121212]">
+    <div className="bg-white dark:bg-[#1E1E1E] shadow-md rounded-lg p-6 w-full max-w-6xl mx-auto border dark:border-[#121212] animate-fadeIn">
       
       {/* Botão de Importação */}
       {viewLevel === 1 && (
@@ -126,75 +152,53 @@ export const EvaluationHistory = () => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Cabeçalho de Navegação */}
       <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-gray-800 pb-4">
         <div className="flex items-center gap-2">
           {viewLevel > 1 && (
-            <button 
-              onClick={handleBack}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors mr-2"
-            >
+            <button onClick={handleBack} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors mr-2">
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
           )}
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">
             {viewLevel === 1 && "Histórico de Avaliações"}
             {viewLevel === 2 && `Avaliações de ${selectedPeriod}`}
-            {/* CORREÇÃO AQUI: removido .funcionario */}
-            {viewLevel === 3 && `Detalhes: ${selectedEvaluation?.employeeName}`}
+            {viewLevel === 3 && (
+              <div className="flex flex-col">
+                <span>Detalhes da Avaliação</span>
+                <span className="text-xs font-normal text-gray-500 mt-1">ID: {selectedEvaluation?.displayId}</span>
+              </div>
+            )}
           </h2>
-        </div>
-        
-        <div className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
-          <span className={viewLevel === 1 ? "font-bold text-blue-600 dark:text-blue-400" : ""}>Resumo</span>
-          <span className="mx-2">/</span>
-          <span className={viewLevel === 2 ? "font-bold text-blue-600 dark:text-blue-400" : ""}>Lista</span>
-          <span className="mx-2">/</span>
-          <span className={viewLevel === 3 ? "font-bold text-blue-600 dark:text-blue-400" : ""}>Detalhes</span>
         </div>
       </div>
 
-      {/* Tabela de Resumo */}
+      {/* Nível 1: Resumo dos Meses */}
       {viewLevel === 1 && (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 dark:bg-[#121212] text-gray-600 dark:text-gray-400 text-sm uppercase tracking-wider">
                 <th className="p-4 rounded-tl-lg">Período</th>
-                <th className="p-4">Total de Avaliações</th>
-                <th className="p-4">Média Geral</th>
-                <th className="p-4 rounded-tr-lg text-right">Ação</th>
+                <th className="p-4">Volume</th>
+                <th className="p-4">Média da Empresa</th>
+                <th className="p-4 rounded-tr-lg text-right">Ver Lista</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {summaryData.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500 dark:text-gray-400">
-                    Nenhum histórico encontrado. Importe dados CSV acima.
-                  </td>
-                </tr>
+                <tr><td colSpan={4} className="p-8 text-center text-gray-500">Nenhum histórico encontrado.</td></tr>
               ) : (
                 summaryData.map((row) => (
-                  <tr 
-                    key={row.period} 
-                    onClick={() => handlePeriodClick(row.period)}
-                    className="hover:bg-blue-50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group"
-                  >
+                  <tr key={row.period} onClick={() => { setSelectedPeriod(row.period); setViewLevel(2); }} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group">
                     <td className="p-4 font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                      {row.period}
+                      <Calendar className="w-4 h-4 text-blue-500" /> {row.period}
                     </td>
-                    <td className="p-4 text-gray-600 dark:text-gray-400">
-                      {row.count} colaboradores avaliados
-                    </td>
+                    <td className="p-4 text-gray-600 dark:text-gray-400">{row.count} avaliações</td>
                     <td className="p-4">
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        parseFloat(row.average.replace(',','.')) >= 8 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                      }`}>
-                        {row.average}
-                      </span>
+                        parseFloat(row.average.replace(',','.')) >= 8 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>{row.average}</span>
                     </td>
                     <td className="p-4 text-right">
                       <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 inline-block" />
@@ -207,7 +211,7 @@ export const EvaluationHistory = () => {
         </div>
       )}
 
-      {/* Lista de Avaliações */}
+      {/* Nível 2: Lista de Funcionários do Mês */}
       {viewLevel === 2 && (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -216,40 +220,36 @@ export const EvaluationHistory = () => {
                 <th className="p-4 rounded-tl-lg">Colaborador</th>
                 <th className="p-4">Cargo / Setor</th>
                 <th className="p-4">Tipo</th>
-                <th className="p-4">Nota Final</th>
-                <th className="p-4 rounded-tr-lg text-right">Ver Detalhes</th>
+                <th className="p-4">Nota</th>
+                <th className="p-4 rounded-tr-lg text-right">Detalhes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {periodEvaluations.map((evaluation) => (
-                <tr 
-                  key={evaluation.id}
-                  onClick={() => handleEvaluationClick(evaluation)}
-                  className="hover:bg-blue-50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group"
-                >
-                  <td className="p-4 font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    {/* CORREÇÃO AQUI: removido .funcionario */}
-                    {evaluation.employeeName}
+              {filteredList.map((ev) => (
+                <tr key={ev.id} onClick={() => { setSelectedEvaluation(ev); setViewLevel(3); }} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 cursor-pointer transition-colors group">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-full text-gray-500"><User size={18} /></div>
+                      <div>
+                        <div className="font-bold text-gray-800 dark:text-gray-200">{ev.displayName}</div>
+                        <div className="text-xs text-gray-400 font-mono">ID: {ev.displayId}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">
-                    <div className="text-sm font-medium">{evaluation.role || evaluation.cargo}</div>
-                    <div className="text-xs text-gray-400">{evaluation.sector || evaluation.setor}</div>
+                    <div className="text-sm font-medium">{ev.displayRole}</div>
+                    <div className="text-xs text-gray-400">{ev.displaySector}</div>
                   </td>
                   <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded border ${
-                      (evaluation.type || evaluation.tipo) === 'Líder' 
-                        ? 'border-purple-200 text-purple-700 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800' 
-                        : 'border-gray-200 text-gray-600 dark:text-gray-400 dark:border-gray-700'
-                    }`}>
-                      {evaluation.type || evaluation.tipo}
+                    <span className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                      {ev.type || ev.tipo}
                     </span>
                   </td>
                   <td className="p-4 font-bold text-gray-800 dark:text-gray-200">
-                    {evaluation.average !== undefined ? evaluation.average.toFixed(2).replace('.', ',') : evaluation.notaFinal}
+                    {ev.normalizedScore.toFixed(2).replace('.', ',')}
                   </td>
                   <td className="p-4 text-right">
-                    <FileText className="w-5 h-5 text-gray-400 group-hover:text-blue-500 inline-block" />
+                    <FileText className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
                   </td>
                 </tr>
               ))}
@@ -258,54 +258,44 @@ export const EvaluationHistory = () => {
         </div>
       )}
 
-      {/* Detalhes */}
+      {/* Nível 3: Detalhes Individuais */}
       {viewLevel === 3 && selectedEvaluation && (
         <div className="animate-fade-in">
           <div className="bg-gray-50 dark:bg-[#121212] p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100 dark:border-gray-800">
             <div>
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                {/* CORREÇÃO AQUI: removido .funcionario */}
-                {selectedEvaluation.employeeName}
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                {selectedEvaluation.role || selectedEvaluation.cargo} - {selectedEvaluation.sector || selectedEvaluation.setor}
-              </p>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">{selectedEvaluation.displayName}</h3>
+              <div className="flex gap-4 text-sm text-gray-500">
+                <span>{selectedEvaluation.displayRole}</span>
+                <span>•</span>
+                <span>{selectedEvaluation.displaySector}</span>
+              </div>
             </div>
-            <div className="mt-4 md:mt-0 text-center bg-white dark:bg-[#1E1E1E] px-6 py-3 rounded-lg shadow-sm border dark:border-gray-700">
-              <span className="block text-gray-400 text-xs uppercase font-bold">Nota Final</span>
-              <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                {selectedEvaluation.average !== undefined ? selectedEvaluation.average.toFixed(2).replace('.', ',') : selectedEvaluation.notaFinal}
+            <div className="mt-4 md:mt-0 text-center bg-white dark:bg-[#1E1E1E] px-8 py-4 rounded-lg shadow-sm border dark:border-gray-700">
+              <span className="block text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Nota Final</span>
+              <span className={`text-4xl font-bold ${selectedEvaluation.normalizedScore >= 8 ? 'text-green-600' : 'text-blue-600'}`}>
+                {selectedEvaluation.normalizedScore.toFixed(2).replace('.', ',')}
               </span>
             </div>
           </div>
 
           <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Detalhamento dos Critérios
+            <TrendingUp className="w-4 h-4" /> Critérios Avaliados
           </h4>
 
           <div className="border dark:border-gray-800 rounded-lg overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-gray-100 dark:bg-[#121212]">
-                <tr>
-                  <th className="p-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Critério Avaliado</th>
-                  <th className="p-3 text-sm font-semibold text-gray-600 dark:text-gray-400 text-right">Nota</th>
-                </tr>
-              </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-[#1E1E1E]">
                 {selectedEvaluation.detalhes ? (
-                  Object.entries(selectedEvaluation.detalhes).map(([key, value], index) => (
+                  Object.entries(selectedEvaluation.detalhes).map(([key, value]: any, index: number) => (
                     <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="p-3 text-gray-700 dark:text-gray-300">{key}</td>
-                      <td className="p-3 text-right font-medium text-gray-800 dark:text-gray-200">
+                      <td className="p-4 text-gray-700 dark:text-gray-300">{key}</td>
+                      <td className="p-4 text-right font-medium text-gray-800 dark:text-gray-200">
                         {typeof value === 'number' ? value.toFixed(2).replace('.', ',') : value}
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={2} className="p-4 text-center text-gray-500">Detalhes não disponíveis para este registro importado.</td>
-                  </tr>
+                  <tr><td className="p-4 text-center text-gray-500">Sem detalhes disponíveis.</td></tr>
                 )}
               </tbody>
             </table>
