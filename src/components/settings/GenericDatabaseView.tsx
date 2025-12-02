@@ -22,10 +22,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [data, setData] = useState<Entity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Sort State
+  // Estado para Ordenação e Filtros
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-
-  // Filters State
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,7 +78,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     fetchData();
   };
 
-  // --- Sorting Logic ---
+  // --- Lógica de Ordenação ---
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -89,12 +87,10 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     setSortConfig({ key, direction });
   };
 
-  // --- Advanced Filtering Logic ---
-  // Calculates unique values from data for ALL columns to allow filtering
+  // --- Lógica de Filtros Dinâmicos ---
   const columnOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
     columns.forEach(col => {
-      // Get unique values from current data
       const values = Array.from(new Set(data.map(item => item[col.key]).filter(val => val !== undefined && val !== ''))).sort();
       options[col.key] = values as string[];
     });
@@ -103,32 +99,28 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
 
   const filteredData = useMemo(() => {
     let processed = data.filter(item => {
-      // 1. Global Text Search
+      // Busca Global
       const matchesSearch = Object.values(item).some(val => 
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-
-      // 2. Specific Column Filters
+      // Filtros de Coluna
       const matchesFilters = Object.entries(activeFilters).every(([key, filterVal]) => {
         if (!filterVal) return true;
         return String(item[key]) === filterVal;
       });
-
       return matchesSearch && matchesFilters;
     });
 
-    // 3. Sorting
+    // Ordenação
     if (sortConfig) {
       processed.sort((a, b) => {
         const valA = a[sortConfig.key] ? String(a[sortConfig.key]).toLowerCase() : '';
         const valB = b[sortConfig.key] ? String(b[sortConfig.key]).toLowerCase() : '';
-        
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-
     return processed;
   }, [data, searchTerm, activeFilters, sortConfig]);
 
@@ -163,46 +155,45 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   return (
     <> 
       <div className="space-y-6 animate-fadeIn">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-lidera-gray p-6 rounded-lg shadow-sm border border-gray-200 dark:border-lidera-dark">
+        {/* Cabeçalho e Botão Novo */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212]">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-             <Database size={24} className="text-skills-blue-primary dark:text-lidera-gold" /> {title}
+             <Database size={24} className="text-blue-600" /> {title}
           </h2>
-          <button onClick={() => { setCurrentItem({}); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-skills-blue-primary hover:bg-blue-700 text-white rounded font-bold shadow-lg shadow-blue-500/20 transition-all">
+          <button onClick={() => { setCurrentItem({}); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold shadow-md transition-all">
              <Plus size={16} /> Novo Registro
           </button>
         </div>
 
-        {/* Filters Bar */}
-        <div className="bg-white dark:bg-lidera-gray rounded-lg shadow-lg border border-gray-200 dark:border-lidera-dark overflow-hidden">
+        {/* Barra de Ferramentas (Busca e Filtros) */}
+        <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-lg border border-gray-200 dark:border-[#121212] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex flex-col gap-4">
-             {/* Search */}
+             {/* Campo de Busca */}
              <div className="relative w-full">
                <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                <input 
                   type="text" 
-                  placeholder="Buscar por qualquer termo..." 
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-lidera-dark border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 ring-skills-blue-primary outline-none"
+                  placeholder="Buscar..." 
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 ring-blue-500/50 outline-none transition-all"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                />
              </div>
              
-             {/* Advanced Filters: Generated for all columns */}
+             {/* Filtros Dinâmicos */}
              <div className="flex gap-2 w-full overflow-x-auto pb-2 scrollbar-thin">
                 {columns.map(col => {
                    const options = columnOptions[col.key] || [];
-                   // Only show filter if there are options
                    if(options.length === 0 && !activeFilters[col.key]) return null;
 
                    return (
                      <div key={col.key} className="relative min-w-[140px]">
                         <Filter size={12} className="absolute left-2 top-3 text-gray-400" />
                         <select 
-                           className={`w-full pl-6 pr-2 py-2 text-sm border rounded-lg outline-none cursor-pointer appearance-none ${
+                           className={`w-full pl-6 pr-2 py-2 text-sm border rounded-lg outline-none cursor-pointer appearance-none transition-colors ${
                              activeFilters[col.key] 
-                               ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium' 
-                               : 'bg-gray-50 dark:bg-lidera-dark dark:border-gray-700'
+                               ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300' 
+                               : 'bg-gray-50 dark:bg-[#121212] dark:border-gray-700 dark:text-gray-300'
                            }`}
                            value={activeFilters[col.key] || ''}
                            onChange={(e) => setActiveFilters({...activeFilters, [col.key]: e.target.value})}
@@ -224,11 +215,14 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
              </div>
           </div>
 
-          {/* Table */}
+          {/* Tabela de Dados */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 dark:bg-lidera-dark text-gray-500 uppercase text-xs">
+              <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 dark:text-gray-400 uppercase text-xs">
                 <tr>
+                  {/* Coluna ID Fixa */}
+                  <th className="px-6 py-4 whitespace-nowrap w-24">ID</th>
+                  
                   {columns.map((col) => (
                     <th 
                       key={col.key} 
@@ -241,7 +235,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                           {sortConfig?.key === col.key ? (
                             sortConfig.direction === 'asc' ? <ArrowUp size={14} className="text-blue-500" /> : <ArrowDown size={14} className="text-blue-500" />
                           ) : (
-                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50" />
+                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
                           )}
                         </span>
                       </div>
@@ -250,31 +244,39 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-[#1E1E1E]">
                 {isLoading ? (
-                  <tr><td colSpan={columns.length + 1} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
+                  <tr><td colSpan={columns.length + 2} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
                 ) : filteredData.length === 0 ? (
-                  <tr><td colSpan={columns.length + 1} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
+                  <tr><td colSpan={columns.length + 2} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
                 ) : filteredData.map(item => (
-                  <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-lidera-dark/50 transition-colors">
+                  <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
+                    
+                    {/* Visualização do ID */}
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded select-all">
+                        {item.id.slice(0, 5)}...
+                      </span>
+                    </td>
+
                     {columns.map((col) => (
                       <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                          {col.key === 'status' ? (
                             <span className={`px-2 py-1 rounded text-xs font-bold ${
-                               item[col.key] === 'Ativo' ? 'bg-green-100 text-green-700' : 
-                               item[col.key] === 'Inativo' ? 'bg-red-100 text-red-700' : 
-                               'bg-gray-100 text-gray-700'
+                               item[col.key] === 'Ativo' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
+                               item[col.key] === 'Inativo' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 
+                               'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
                                {item[col.key]}
                             </span>
                          ) : (
-                            item[col.key] || '-'
+                            <span className="font-medium">{item[col.key] || '-'}</span>
                          )}
                       </td>
                     ))}
                     <td className="px-6 py-4 flex justify-end gap-2">
-                      <button onClick={() => { setCurrentItem(item); setIsModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors"><Edit size={16} /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"><Trash size={16} /></button>
+                      <button onClick={() => { setCurrentItem(item); setIsModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded transition-colors"><Edit size={16} /></button>
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"><Trash size={16} /></button>
                     </td>
                   </tr>
                 ))}
@@ -299,7 +301,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
               <div className="pt-4 border-t dark:border-gray-700 mt-4">
                  <h4 className="font-bold mb-2 text-sm text-gray-500">Campos Extras</h4>
                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input id="newKey" placeholder="Novo campo..." className="p-2 border rounded dark:bg-lidera-dark dark:border-gray-700 text-sm" />
+                    <input id="newKey" placeholder="Novo campo..." className="p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-sm outline-none" />
                     <button type="button" onClick={() => {
                         const key = (document.getElementById('newKey') as HTMLInputElement).value;
                         if(key) {
@@ -310,9 +312,9 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                  </div>
                  {Object.keys(currentItem).filter(k => !columns.find(c => c.key === k) && k !== 'id').map(key => (
                     <div key={key} className="flex gap-2 items-center mb-2">
-                       <span className="text-xs font-bold w-1/3 truncate" title={key}>{key}:</span>
+                       <span className="text-xs font-bold w-1/3 truncate text-gray-600 dark:text-gray-400" title={key}>{key}:</span>
                        <input 
-                          className="w-2/3 p-2 border rounded dark:bg-lidera-dark dark:border-gray-700 text-sm"
+                          className="w-2/3 p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-sm outline-none"
                           value={currentItem[key]}
                           onChange={(e) => setCurrentItem({...currentItem, [key]: e.target.value})}
                        />
@@ -321,7 +323,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
               </div>
             )}
 
-            <button onClick={handleSave} className="w-full py-3 bg-skills-blue-primary text-white font-bold rounded-lg mt-6 flex justify-center items-center gap-2 hover:bg-blue-700 transition-colors">
+            <button onClick={handleSave} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-6 flex justify-center items-center gap-2 transition-all shadow-md">
                <Save size={18} /> Salvar Registro
             </button>
          </div>
