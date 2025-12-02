@@ -11,6 +11,7 @@ interface Evaluation {
   role?: string;
   sector?: string;
   type?: 'Líder' | 'Colaborador';
+  tipo?: string; // <--- ADICIONADO PARA CORRIGIR O ERRO
   date: string; // YYYY-MM-DD
   average?: number;
   notaFinal?: string; // Fallback para dados antigos
