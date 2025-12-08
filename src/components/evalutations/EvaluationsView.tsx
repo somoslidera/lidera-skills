@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, TrendingUp
+  Calendar, TrendingUp, CheckCircle, AlertCircle
 } from 'lucide-react';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -114,7 +114,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colaborador</label>
           <select 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700"
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
           >
@@ -128,7 +128,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Referência</label>
           <input 
             type="date" 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700"
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
             value={evalDate}
             onChange={(e) => setEvalDate(e.target.value)}
           />
@@ -136,10 +136,10 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       </div>
 
       {currentEmployee && (
-        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg mb-6 flex flex-wrap gap-4 text-sm">
+        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg mb-6 flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
           <div><span className="font-bold">Cargo:</span> {currentEmployee.role}</div>
           <div><span className="font-bold">Setor:</span> {currentEmployee.sector}</div>
-          <div><span className="font-bold">Tipo de Avaliação:</span> <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded">{formType}</span></div>
+          <div><span className="font-bold">Tipo de Avaliação:</span> <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">{formType}</span></div>
         </div>
       )}
 
@@ -149,7 +149,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <div className="grid grid-cols-1 gap-4">
             {activeCriteria.length > 0 ? (
               activeCriteria.map(crit => (
-                <div key={crit.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <div key={crit.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <div className="mb-2 md:mb-0 md:w-2/3">
                     <p className="font-medium text-gray-800 dark:text-gray-200">{crit.name}</p>
                     {crit.description && <p className="text-xs text-gray-500">{crit.description}</p>}
@@ -163,7 +163,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                     />
                     <input 
                       type="number" min="0" max="10"
-                      className="w-16 p-1 text-center border rounded dark:bg-[#121212] dark:border-gray-700"
+                      className="w-16 p-1 text-center border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
                       value={scores[crit.name] || 0}
                       onChange={(e) => setScores({...scores, [crit.name]: parseFloat(e.target.value)})}
                     />
@@ -171,14 +171,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-yellow-600 bg-yellow-50 rounded">
-                Nenhum critério encontrado para o tipo &quot;{formType}&quot;. Vá em Configurações &gt; Critérios e cadastre.
+              <div className="p-4 text-center text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                Nenhum critério encontrado para o tipo "{formType}". Vá em Configurações &gt; Critérios e cadastre.
               </div>
             )}
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mt-6">
-            <div className="text-lg">
+            <div className="text-lg text-gray-800 dark:text-gray-200">
               Média Final: <span className={`font-bold text-2xl ${currentAverage >= 8 ? 'text-green-600' : currentAverage >= 6 ? 'text-yellow-600' : 'text-red-600'}`}>{currentAverage.toFixed(2)}</span>
             </div>
             <button 
@@ -255,7 +255,7 @@ const EvaluationsTable = () => {
             <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500" size={18} />
             <input 
               placeholder="Buscar por nome..."
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 outline-none focus:ring-2 ring-blue-500/20"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
               value={filterName}
               onChange={e => setFilterName(e.target.value)}
             />
@@ -263,7 +263,7 @@ const EvaluationsTable = () => {
           <div className="relative w-48 hidden md:block">
             <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 outline-none appearance-none"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none"
               value={filterSector}
               onChange={e => setFilterSector(e.target.value)}
             >
@@ -301,14 +301,14 @@ const EvaluationsTable = () => {
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
                   <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded border ${ev.type === 'Líder' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
+                    <span className={`text-xs px-2 py-1 rounded border ${ev.type === 'Líder' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'}`}>
                       {ev.type}
                     </span>
                   </td>
                   <td className="p-4 text-right">
                     <span className={`font-bold px-2 py-1 rounded ${
-                      ev.average >= 8 ? 'bg-green-100 text-green-700' : 
-                      ev.average >= 6 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      ev.average >= 8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
+                      ev.average >= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                     }`}>
                       {typeof ev.average === 'number' ? ev.average.toFixed(2) : ev.average}
                     </span>
