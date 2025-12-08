@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Treemap, Legend
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { Card } from '../../ui/Card';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
@@ -69,7 +69,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                    paddingAngle={5} 
                    dataKey="value"
                  >
-                   {sectorDistribution.map((_, index) => (
+                   {sectorDistribution.map((_: any, index: number) => (
                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                    ))}
                  </Pie>
@@ -94,7 +94,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                    paddingAngle={5} 
                    dataKey="value"
                  >
-                   {roleDistribution.map((_, index) => (
+                   {roleDistribution.map((_: any, index: number) => (
                      <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                    ))}
                  </Pie>
@@ -124,9 +124,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                     {/* Mostrando Top 10 para não poluir, ou poderia ser paginado */}
-                     {/* Aqui usamos os dados filtrados passados via props no Dashboard principal se quisermos a lista completa */}
-                     {/* Mas o hook já retorna filteredData. Vamos usar um slice. */}
+                     {/* Dados dinâmicos aqui se necessário */}
                   </tbody>
                </table>
                <div className="p-4 text-center text-gray-500 text-xs">

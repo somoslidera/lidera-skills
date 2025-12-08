@@ -1,4 +1,3 @@
-// src/hooks/useDashboardAnalytics.ts
 import { useMemo } from 'react';
 
 // Tipos auxiliares
@@ -116,27 +115,33 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
 
     filteredData.forEach(ev => {
         // Matriz
-        Object.entries(ev.details).forEach(([criteria, value]: [string, number]) => {
-            allCriteria.add(criteria);
-            if (!compMatrix[criteria]) compMatrix[criteria] = {};
-            if (!compMatrix[criteria][ev.realSector]) compMatrix[criteria][ev.realSector] = { sum: 0, count: 0 };
-            
-            compMatrix[criteria][ev.realSector].sum += value;
-            compMatrix[criteria][ev.realSector].count += 1;
-        });
+        if (ev.details) {
+            Object.entries(ev.details).forEach(([criteria, value]: [string, any]) => {
+                const numericValue = Number(value) || 0; // Conversão segura
+                
+                allCriteria.add(criteria);
+                if (!compMatrix[criteria]) compMatrix[criteria] = {};
+                if (!compMatrix[criteria][ev.realSector]) compMatrix[criteria][ev.realSector] = { sum: 0, count: 0 };
+                
+                compMatrix[criteria][ev.realSector].sum += numericValue;
+                compMatrix[criteria][ev.realSector].count += 1;
+            });
+        }
 
         // Evolução
-        const monthKey = ev.date.substring(0, 7); // YYYY-MM
-        if (!timelineMap[monthKey]) timelineMap[monthKey] = { leaderSum: 0, leaderCount: 0, colabSum: 0, colabCount: 0 };
-        
-        const isLeader = ev.type === 'Líder' || ev.role?.toLowerCase().includes('líder') || ev.role?.toLowerCase().includes('lider');
-        
-        if (isLeader) {
-            timelineMap[monthKey].leaderSum += ev.score;
-            timelineMap[monthKey].leaderCount++;
-        } else {
-            timelineMap[monthKey].colabSum += ev.score;
-            timelineMap[monthKey].colabCount++;
+        const monthKey = ev.date ? ev.date.substring(0, 7) : 'N/A'; // YYYY-MM
+        if (monthKey !== 'N/A') {
+            if (!timelineMap[monthKey]) timelineMap[monthKey] = { leaderSum: 0, leaderCount: 0, colabSum: 0, colabCount: 0 };
+            
+            const isLeader = ev.type === 'Líder' || (ev.role && (ev.role.toLowerCase().includes('líder') || ev.role.toLowerCase().includes('lider')));
+            
+            if (isLeader) {
+                timelineMap[monthKey].leaderSum += ev.score;
+                timelineMap[monthKey].leaderCount++;
+            } else {
+                timelineMap[monthKey].colabSum += ev.score;
+                timelineMap[monthKey].colabCount++;
+            }
         }
     });
 
@@ -159,9 +164,9 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     // Formatar Evolução
     const evolutionData = Object.entries(timelineMap).sort().map(([date, vals]) => ({
         date,
-        Líderes: vals.leaderCount ? vals.leaderSum / vals.leaderCount : null,
-        Colaboradores: vals.colabCount ? vals.colabSum / vals.colabCount : null,
-        Geral: (vals.leaderSum + vals.colabSum) / (vals.leaderCount + vals.colabCount),
+        Líderes: vals.leaderCount ? vals.leaderSum / vals.leaderCount : 0,
+        Colaboradores: vals.colabCount ? vals.colabSum / vals.colabCount : 0,
+        Geral: (vals.leaderCount + vals.colabCount) > 0 ? (vals.leaderSum + vals.colabSum) / (vals.leaderCount + vals.colabCount) : 0,
         Meta: 9.0 // Meta fixa exemplo
     }));
 
