@@ -35,10 +35,59 @@ export const loginGoogle = async () => {
 export const logout = () => signOut(auth);
 
 // Carregar Coleção Inteira (Genérico)
-export const fetchCollection = async (collectionName: string) => {
-  const querySnapshot = await getDocs(collection(db, collectionName));
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { getFirestore, collection, getDocs, query, where, addDoc } from "firebase/firestore";
+
+// ... (Mantenha suas configurações do firebaseConfig)
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
+
+// --- FUNÇÕES DE AJUDA ---
+
+export const loginGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Erro no login:", error);
+    throw error;
+  }
+};
+
+export const logout = () => signOut(auth);
+
+// NOVA: Função para criar uma empresa
+export const createCompany = async (name: string) => {
+  await addDoc(collection(db, 'companies'), {
+    name,
+    createdAt: new Date().toISOString()
+  });
+};
+
+// ATUALIZADA: Busca filtrada por empresa
+export const fetchCollection = async (collectionName: string, companyId?: string | null) => {
+  try {
+    let q;
+    
+    // Se passar companyId, filtra. Se for 'users' ou 'companies', traz tudo (ou filtra por user)
+    if (companyId && collectionName !== 'companies' && collectionName !== 'users') {
+      q = query(collection(db, collectionName), where("companyId", "==", companyId));
+    } else {
+      q = collection(db, collectionName);
+    }
+
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error(`Erro ao buscar ${collectionName}:`, error);
+    return [];
+  }
+};
 };

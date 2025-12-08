@@ -135,6 +135,53 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     }
   };
 
+// ... importações existentes
+import { useCompany } from '../../contexts/CompanyContext'; // <--- IMPORTANTE
+
+export const DataImporter = ({ target }: { target: ImportTarget }) => {
+  const { currentCompany } = useCompany(); // <--- IMPORTANTE
+  // ... estados
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // ... validações iniciais
+
+    if (!currentCompany) {
+      alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
+      return;
+    }
+
+    // ... lógica do Papa.parse
+      complete: async (results) => {
+        // ...
+          for (const item of data) {
+            const processedItem = currentConfig.process(item); // Processa
+
+            if (processedItem) {
+              // --- AQUI ESTÁ A MÁGICA ---
+              const docData = {
+                ...processedItem,
+                companyId: currentCompany.id, // Vínculo automático
+                importedAt: new Date().toISOString()
+              };
+              
+              // Adiciona verificação de duplicidade filtrando TAMBÉM pela empresa
+              const q = query(
+                 collectionRef, 
+                 where("companyId", "==", currentCompany.id), // Filtra só desta empresa
+                 // ... adicione as outras cláusulas do checkDuplicity aqui se necessário
+                 // Sugestão: Atualizar o config.checkDuplicity para aceitar companyId
+              );
+              
+              // ... addDoc(collectionRef, docData);
+            }
+          }
+        // ...
+      }
+    // ...
+  };
+  // ...
+};
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
