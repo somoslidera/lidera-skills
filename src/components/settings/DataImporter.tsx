@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import Papa from 'papaparse';
 import { db } from '../../services/firebase';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, CollectionReference, DocumentData } from 'firebase/firestore';
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useCompany } from '../../contexts/CompanyContext';
 
-// Adicionando os novos tipos de importação
+// Tipos de importação
 type ImportTarget = 'criteria' | 'sectors' | 'roles' | 'employees' | 'evaluations_leaders' | 'evaluations_collaborators';
 
 export const DataImporter = ({ target }: { target: ImportTarget }) => {
+  const { currentCompany } = useCompany();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
 
@@ -17,6 +19,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     return parseFloat(val.replace(',', '.')) || 0;
   };
 
+  // Configuração de processamento para cada tipo de importação
   const config = {
     criteria: {
       label: 'Critérios de Avaliação',
@@ -28,7 +31,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!type || !name) return null;
         return { name, type, description: '' };
       },
-      checkDuplicity: (ref: any, data: any) => query(ref, where("name", "==", data.name), where("type", "==", data.type))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("name", "==", data.name), where("type", "==", data.type), where("companyId", "==", companyId))
     },
     sectors: {
       label: 'Setores',
@@ -38,7 +42,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, manager: '' };
       },
-      checkDuplicity: (ref: any, data: any) => query(ref, where("name", "==", data.name))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
     },
     roles: {
       label: 'Cargos',
@@ -49,7 +54,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, level: level };
       },
-      checkDuplicity: (ref: any, data: any) => query(ref, where("name", "==", data.name))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
     },
     employees: {
       label: 'Funcionários',
@@ -62,20 +68,19 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, email, sector, role, status: 'Ativo' };
       },
-      checkDuplicity: (ref: any, data: any) => query(ref, where("name", "==", data.name))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
     },
-    // --- IMPORTAÇÃO DE AVALIAÇÕES DE LÍDERES ---
     evaluations_leaders: {
       label: 'Histórico (Líderes)',
       collection: 'evaluations',
       process: (item: any) => {
         const name = item.Nome_Lider_Avaliado || item.Nome_Colaborador;
-        const dateRaw = item.Mes_Referencia; // Esperado YYYY-MM-DD ou DD/MM/YYYY
+        const dateRaw = item.Mes_Referencia; // Esperado YYYY-MM-DD
         if (!name || !dateRaw) return null;
 
         const average = parseScore(item.Pontuacao_Lider);
         
-        // Mapear detalhes específicos de líderes
         const details = {
           'Comunicação': parseScore(item.Comunicacao_Clara_Coerente),
           'Gestão de Equipe': parseScore(item.Acompanhamento_Membros_Equipe),
@@ -85,32 +90,29 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         };
 
         return {
-          employeeName: name, // Nome temporário para exibição
-          employeeId: item.ID_Funcionario || '', // ID se houver
+          employeeName: name,
+          employeeId: item.ID_Funcionario || '',
           role: item.Cargo,
           sector: item.Setor,
           type: 'Líder',
-          date: dateRaw, // Formato string YYYY-MM-DD é ideal para ordenação
+          date: dateRaw,
           average: average,
           details: details
         };
       },
-      checkDuplicity: (ref: any, data: any) => 
-        query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
     },
-    // --- IMPORTAÇÃO DE AVALIAÇÕES DE COLABORADORES ---
     evaluations_collaborators: {
       label: 'Histórico (Colaboradores)',
       collection: 'evaluations',
       process: (item: any) => {
-        // Tenta pegar o nome ou usa o ID como fallback se o nome estiver vazio no CSV
         const name = item.Nome_Colaborador || `Func. ${item.ID_Funcionario}`;
         const dateRaw = item.Mes_Referencia;
         if (!dateRaw) return null;
 
         const average = parseScore(item.Pontuacao_Colaborador);
 
-        // Mapear detalhes específicos de colaboradores
         const details = {
           'Assiduidade': parseScore(item.Assiduidade_Pontualidade),
           'Tarefas': parseScore(item.Cumprimento_Tarefas),
@@ -130,61 +132,20 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           details: details
         };
       },
-      checkDuplicity: (ref: any, data: any) => 
-        query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
     }
   };
-
-// ... importações existentes
-import { useCompany } from '../../contexts/CompanyContext'; // <--- IMPORTANTE
-
-export const DataImporter = ({ target }: { target: ImportTarget }) => {
-  const { currentCompany } = useCompany(); // <--- IMPORTANTE
-  // ... estados
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // ... validações iniciais
-
-    if (!currentCompany) {
-      alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
-      return;
-    }
-
-    // ... lógica do Papa.parse
-      complete: async (results) => {
-        // ...
-          for (const item of data) {
-            const processedItem = currentConfig.process(item); // Processa
-
-            if (processedItem) {
-              // --- AQUI ESTÁ A MÁGICA ---
-              const docData = {
-                ...processedItem,
-                companyId: currentCompany.id, // Vínculo automático
-                importedAt: new Date().toISOString()
-              };
-              
-              // Adiciona verificação de duplicidade filtrando TAMBÉM pela empresa
-              const q = query(
-                 collectionRef, 
-                 where("companyId", "==", currentCompany.id), // Filtra só desta empresa
-                 // ... adicione as outras cláusulas do checkDuplicity aqui se necessário
-                 // Sugestão: Atualizar o config.checkDuplicity para aceitar companyId
-              );
-              
-              // ... addDoc(collectionRef, docData);
-            }
-          }
-        // ...
-      }
-    // ...
-  };
-  // ...
-};
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!currentCompany) {
+      alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
+      event.target.value = ''; // Limpa o input para permitir selecionar o mesmo arquivo novamente
+      return;
+    }
 
     setLoading(true);
     setStatus({ type: null, msg: 'Lendo arquivo...' });
@@ -195,7 +156,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
-      complete: async (results) => {
+      complete: async (results: any) => { // Tipagem explícita para evitar erro TS7006
         try {
           const data = results.data as any[];
           let importedCount = 0;
@@ -204,13 +165,20 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           const collectionRef = collection(db, currentConfig.collection);
 
           for (const item of data) {
-            const docData = currentConfig.process(item);
+            const processedData = currentConfig.process(item);
 
-            if (docData) {
-              const q = currentConfig.checkDuplicity(collectionRef, docData);
+            if (processedData) {
+              // Verifica duplicidade considerando a Empresa atual
+              const q = currentConfig.checkDuplicity(collectionRef, processedData, currentCompany.id);
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
+                // Injeta o ID da empresa no documento antes de salvar
+                const docData = {
+                  ...processedData,
+                  companyId: currentCompany.id,
+                  importedAt: new Date().toISOString()
+                };
                 await addDoc(collectionRef, docData);
                 importedCount++;
               } else {
@@ -221,18 +189,18 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
           setStatus({ 
             type: 'success', 
-            msg: `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados/duplicados).` 
+            msg: `Sucesso! ${importedCount} registros importados em "${currentCompany.name}". (${skippedCount} ignorados/duplicados).` 
           });
 
-        } catch (error) {
+        } catch (error: any) {
           console.error(error);
-          setStatus({ type: 'error', msg: 'Erro ao processar dados.' });
+          setStatus({ type: 'error', msg: 'Erro ao processar dados: ' + (error.message || error) });
         } finally {
           setLoading(false);
           event.target.value = '';
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         setLoading(false);
         setStatus({ type: 'error', msg: `Erro ao ler CSV: ${error.message}` });
       }
