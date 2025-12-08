@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, addDoc } from "firebase/firestore";
 
 // Configuração fornecida por você
 const firebaseConfig = {
@@ -34,32 +34,6 @@ export const loginGoogle = async () => {
 // Logout
 export const logout = () => signOut(auth);
 
-// Carregar Coleção Inteira (Genérico)
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, query, where, addDoc } from "firebase/firestore";
-
-// ... (Mantenha suas configurações do firebaseConfig)
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
-
-// --- FUNÇÕES DE AJUDA ---
-
-export const loginGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error) {
-    console.error("Erro no login:", error);
-    throw error;
-  }
-};
-
-export const logout = () => signOut(auth);
-
 // NOVA: Função para criar uma empresa
 export const createCompany = async (name: string) => {
   await addDoc(collection(db, 'companies'), {
@@ -89,5 +63,4 @@ export const fetchCollection = async (collectionName: string, companyId?: string
     console.error(`Erro ao buscar ${collectionName}:`, error);
     return [];
   }
-};
 };
