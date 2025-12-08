@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  User, CheckCircle, AlertCircle, Calendar 
+  Calendar, TrendingUp
 } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
@@ -172,7 +172,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               ))
             ) : (
               <div className="p-4 text-center text-yellow-600 bg-yellow-50 rounded">
-                Nenhum critério encontrado para o tipo "{formType}". Vá em Configurações > Critérios e cadastre.
+                Nenhum critério encontrado para o tipo &quot;{formType}&quot;. Vá em Configurações &gt; Critérios e cadastre.
               </div>
             )}
           </div>
