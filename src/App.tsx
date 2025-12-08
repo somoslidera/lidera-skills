@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { CompanyProvider, useCompany } from './contexts/CompanyContext'; // Contexto de Empresa
-import { CompanySelector } from './components/layout/CompanySelector'; // Seletor Visual
+import { CompanyProvider, useCompany } from './contexts/CompanyContext';
+import { CompanySelector } from './components/layout/CompanySelector';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
+import { EvaluationsView } from './components/evaluations/EvaluationsView'; // <--- Import Novo
+import { HelpView } from './components/help/HelpView';
 import { fetchCollection } from './services/firebase';
 
-// Import Views
+// Import Views de Settings
 import { 
   CriteriaView, 
   SectorsView, 
@@ -28,27 +30,26 @@ import {
   UserCog,
   ClipboardList,
   Menu,
-  X
+  X,
+  FileCheck, // Icone para Avaliações
+  HelpCircle
 } from 'lucide-react';
 
-// Componente Principal Interno (Onde a mágica acontece)
 function MainApp() {
-  const { currentCompany } = useCompany(); // Hook da Empresa
+  const { currentCompany } = useCompany();
   
-  const [currentView, setCurrentView] = useState<'dashboard' | 'history' | 'settings'>('dashboard');
+  // Adicione 'evaluations' e 'help' ao tipo
+  const [currentView, setCurrentView] = useState<'dashboard' | 'evaluations' | 'history' | 'settings' | 'help'>('dashboard');
   const [settingsView, setSettingsView] = useState<'criteria' | 'sectors' | 'roles' | 'employees' | 'users'>('criteria');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
 
-  // Carrega dados filtrados pela empresa selecionada
   useEffect(() => {
     const loadData = async () => {
-      if (!currentCompany) return; // Não carrega se não tiver empresa
-
+      if (!currentCompany) return;
       try {
-        // Passa o ID da empresa para filtrar no Firebase
         const evaluationsData = await fetchCollection('evaluations', currentCompany.id);
         const employeesData = await fetchCollection('employees', currentCompany.id);
         
@@ -59,9 +60,8 @@ function MainApp() {
       }
     };
     loadData();
-  }, [currentCompany]); // Recarrega sempre que mudar a empresa
+  }, [currentCompany]); 
 
-  // Se não tiver empresa selecionada, mostra tela de boas-vindas/seleção
   if (!currentCompany) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-[#121212] text-center p-4">
@@ -81,7 +81,6 @@ function MainApp() {
     );
   }
 
-  // --- Botões de Navegação ---
   const NavButton = ({ view, icon: Icon, label }: { view: typeof currentView, icon: any, label: string }) => (
     <button
       onClick={() => setCurrentView(view)}
@@ -114,12 +113,10 @@ function MainApp() {
     <Router>
       <div className="min-h-screen bg-gray-100 dark:bg-[#121212] flex flex-col font-sans">
         
-        {/* --- TOP HEADER --- */}
         <header className="bg-white dark:bg-[#1E1E1E] shadow-sm border-b border-gray-200 dark:border-[#121212] sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-between h-16 items-center">
               
-              {/* Logo e Seletor de Empresa */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-blue-600 text-white p-2 rounded-lg shadow-lg shadow-blue-600/20">
@@ -129,22 +126,20 @@ function MainApp() {
                     LideraApp
                   </h1>
                 </div>
-                {/* Separador */}
                 <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
-                {/* Seletor de Empresa no Header */}
                 <div className="hidden md:block">
                   <CompanySelector />
                 </div>
               </div>
 
-              {/* Main Nav Items */}
-              <nav className="flex items-center gap-1 md:gap-4">
+              <nav className="flex items-center gap-1 md:gap-2">
                 <NavButton view="dashboard" icon={LayoutDashboard} label="Painel" />
-                <NavButton view="history" icon={History} label="Histórico" />
+                <NavButton view="evaluations" icon={FileCheck} label="Avaliações" /> {/* Novo Botão */}
+                <NavButton view="history" icon={History} label="Histórico Antigo" />
                 <NavButton view="settings" icon={Settings} label="Configurações" />
+                <NavButton view="help" icon={HelpCircle} label="Ajuda" />
               </nav>
 
-              {/* User / Logout */}
               <div className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-4 ml-2 md:ml-4">
                 <button className="text-gray-400 hover:text-red-600 transition-colors" title="Sair">
                   <LogOut size={20} />
@@ -154,35 +149,35 @@ function MainApp() {
           </div>
         </header>
 
-        {/* --- MAIN CONTENT AREA --- */}
         <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
           
-          {/* VIEW: DASHBOARD */}
           {currentView === 'dashboard' && (
             <Dashboard evaluations={evaluations} employees={employees} />
           )}
 
-          {/* VIEW: HISTORY */}
+          {/* NOVA VIEW DE AVALIAÇÕES */}
+          {currentView === 'evaluations' && (
+            <EvaluationsView />
+          )}
+
           {currentView === 'history' && (
             <div className="animate-fade-in-up">
               <div className="mb-6 flex justify-between items-end">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Histórico de Desempenho</h2>
-                  <p className="text-gray-500 dark:text-gray-400">Consulte avaliações passadas e evolução.</p>
-                </div>
-                <div className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
-                  Empresa: <span className="font-bold text-gray-600 dark:text-gray-300">{currentCompany.name}</span>
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Histórico Legado</h2>
+                  <p className="text-gray-500 dark:text-gray-400">Visualização de avaliações importadas antigas.</p>
                 </div>
               </div>
               <EvaluationHistory />
             </div>
           )}
 
-          {/* VIEW: SETTINGS */}
+          {currentView === 'help' && (
+             <HelpView />
+          )}
+
           {currentView === 'settings' && (
             <div className="flex flex-col md:flex-row gap-6 animate-fadeIn">
-              
-              {/* Mobile Sidebar Toggle */}
               <div className="md:hidden mb-4">
                 <button 
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -195,11 +190,7 @@ function MainApp() {
                 </button>
               </div>
 
-              {/* Sidebar */}
-              <aside className={`
-                md:w-64 flex-shrink-0 
-                ${isSidebarOpen ? 'block' : 'hidden md:block'}
-              `}>
+              <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
                 <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] p-4 sticky top-24">
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
                   <div className="space-y-1">
@@ -214,7 +205,6 @@ function MainApp() {
                 </div>
               </aside>
 
-              {/* Content Area */}
               <section className="flex-1 min-w-0">
                 {settingsView === 'criteria' && <CriteriaView />}
                 {settingsView === 'sectors' && <SectorsView />}
@@ -222,7 +212,6 @@ function MainApp() {
                 {settingsView === 'employees' && <EmployeesView />}
                 {settingsView === 'users' && <UsersView />}
               </section>
-
             </div>
           )}
 
@@ -232,7 +221,6 @@ function MainApp() {
   );
 }
 
-// App Wrapper com os Providers
 function App() {
   return (
     <AuthProvider>
