@@ -1,23 +1,56 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, TrendingUp, CheckCircle, AlertCircle
+  Calendar, Loader2
 } from 'lucide-react';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
 
+// --- Interfaces para Tipagem ---
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  sector: string;
+  companyId: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  level: 'Líder' | 'Colaborador';
+}
+
+interface Criteria {
+  id: string;
+  name: string;
+  type: 'Líder' | 'Colaborador';
+  description?: string;
+}
+
+interface EvaluationData {
+  id?: string;
+  employeeName: string;
+  role: string;
+  sector: string;
+  type: string;
+  date: string;
+  average: number;
+  details: Record<string, number>;
+}
+
 // --- Subcomponente: Formulário de Avaliação ---
 const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const { currentCompany } = useCompany();
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [criteriaList, setCriteriaList] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [criteriaList, setCriteriaList] = useState<Criteria[]>([]);
   
   // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [currentEmployee, setCurrentEmployee] = useState<any>(null);
+  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [formType, setFormType] = useState<'Líder' | 'Colaborador' | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
@@ -27,17 +60,19 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   useEffect(() => {
     if (!currentCompany) return;
     const loadAux = async () => {
-      // Carrega Funcionários
-      const empSnap = await getDocs(query(collection(db, 'employees'), where("companyId", "==", currentCompany.id)));
-      setEmployees(empSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      
-      // Carrega Cargos (para saber o nível)
-      const roleSnap = await getDocs(query(collection(db, 'roles'), where("companyId", "==", currentCompany.id)));
-      setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      try {
+        const [empSnap, roleSnap, critSnap] = await Promise.all([
+          getDocs(query(collection(db, 'employees'), where("companyId", "==", currentCompany.id))),
+          getDocs(query(collection(db, 'roles'), where("companyId", "==", currentCompany.id))),
+          getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", currentCompany.id)))
+        ]);
 
-      // Carrega Critérios
-      const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", currentCompany.id)));
-      setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setEmployees(empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee)));
+        setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
+        setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
+      } catch (error) {
+        console.error("Erro ao carregar dados auxiliares", error);
+      }
     };
     loadAux();
   }, [currentCompany]);
@@ -47,6 +82,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     if (!selectedEmployeeId) {
       setCurrentEmployee(null);
       setFormType(null);
+      setScores({});
       return;
     }
     const emp = employees.find(e => e.id === selectedEmployeeId);
@@ -56,7 +92,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       const roleData = roles.find(r => r.name === emp.role);
       const level = roleData?.level === 'Líder' ? 'Líder' : 'Colaborador';
       setFormType(level);
-      setScores({}); // Limpa notas
+      setScores({});
     }
   }, [selectedEmployeeId, employees, roles]);
 
@@ -75,26 +111,31 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   }, [scores]);
 
   const handleSubmit = async () => {
-    if (!currentEmployee || !evalDate) return;
+    if (!currentEmployee || !evalDate || !currentCompany) return;
     
+    // Validação simples
+    if (activeCriteria.length > 0 && Object.keys(scores).length !== activeCriteria.length) {
+      if(!confirm("Alguns critérios estão sem nota (serão considerados 0). Deseja continuar?")) return;
+    }
+
     setLoading(true);
     try {
       const payload = {
-        companyId: currentCompany?.id,
+        companyId: currentCompany.id,
         employeeId: currentEmployee.id,
         employeeName: currentEmployee.name,
         role: currentEmployee.role,
         sector: currentEmployee.sector,
         type: formType,
         date: evalDate,
-        average: currentAverage,
-        details: scores, // Salva nota de cada critério
+        average: Number(currentAverage.toFixed(2)),
+        details: scores,
         createdAt: new Date().toISOString()
       };
 
       await addDoc(collection(db, 'evaluations'), payload);
       alert("Avaliação salva com sucesso!");
-      onSuccess(); // Limpa/Muda aba
+      onSuccess();
     } catch (error) {
       console.error(error);
       alert("Erro ao salvar avaliação.");
@@ -114,7 +155,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colaborador</label>
           <select 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
           >
@@ -128,7 +169,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Referência</label>
           <input 
             type="date" 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={evalDate}
             onChange={(e) => setEvalDate(e.target.value)}
           />
@@ -136,57 +177,64 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       </div>
 
       {currentEmployee && (
-        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg mb-6 flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300">
+        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg mb-6 flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300 border border-blue-100 dark:border-blue-800">
           <div><span className="font-bold">Cargo:</span> {currentEmployee.role}</div>
           <div><span className="font-bold">Setor:</span> {currentEmployee.sector}</div>
-          <div><span className="font-bold">Tipo de Avaliação:</span> <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">{formType}</span></div>
+          <div><span className="font-bold">Tipo:</span> <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">{formType}</span></div>
         </div>
       )}
 
       {/* Critérios Dinâmicos */}
       {formType && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-3">
             {activeCriteria.length > 0 ? (
               activeCriteria.map(crit => (
-                <div key={crit.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border dark:border-gray-700 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <div key={crit.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <div className="mb-2 md:mb-0 md:w-2/3">
                     <p className="font-medium text-gray-800 dark:text-gray-200">{crit.name}</p>
                     {crit.description && <p className="text-xs text-gray-500">{crit.description}</p>}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
                     <input 
-                      type="range" min="0" max="10" step="0.1"
-                      className="w-32"
+                      type="range" min="0" max="10" step="0.5"
+                      className="w-32 accent-blue-600"
                       value={scores[crit.name] || 0}
                       onChange={(e) => setScores({...scores, [crit.name]: parseFloat(e.target.value)})}
                     />
-                    <input 
-                      type="number" min="0" max="10"
-                      className="w-16 p-1 text-center border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300"
-                      value={scores[crit.name] || 0}
-                      onChange={(e) => setScores({...scores, [crit.name]: parseFloat(e.target.value)})}
-                    />
+                    <div className="relative">
+                      <input 
+                        type="number" min="0" max="10" step="0.1"
+                        className="w-20 p-2 pl-3 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700 text-gray-800 dark:text-white"
+                        value={scores[crit.name] || 0}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if(val >= 0 && val <= 10) setScores({...scores, [crit.name]: val});
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                Nenhum critério encontrado para o tipo "{formType}". Vá em Configurações &gt; Critérios e cadastre.
+              <div className="p-6 text-center text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-100 dark:border-yellow-800">
+                Nenhum critério encontrado para o tipo "{formType}". <br/>
+                Vá em <strong>Configurações &gt; Critérios</strong> e cadastre novos itens.
               </div>
             )}
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-lg mt-6">
-            <div className="text-lg text-gray-800 dark:text-gray-200">
-              Média Final: <span className={`font-bold text-2xl ${currentAverage >= 8 ? 'text-green-600' : currentAverage >= 6 ? 'text-yellow-600' : 'text-red-600'}`}>{currentAverage.toFixed(2)}</span>
+          <div className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 p-6 rounded-lg mt-6 border border-gray-200 dark:border-gray-700">
+            <div className="text-lg text-gray-800 dark:text-gray-200 mb-4 md:mb-0">
+              Média Final: <span className={`font-bold text-3xl ml-2 ${currentAverage >= 8 ? 'text-green-600' : currentAverage >= 6 ? 'text-yellow-600' : 'text-red-600'}`}>{currentAverage.toFixed(2)}</span>
             </div>
             <button 
               onClick={handleSubmit}
               disabled={loading || activeCriteria.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mt-4 md:mt-0 w-full md:w-auto justify-center"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
             >
-              {loading ? 'Salvando...' : <><Save size={20} /> Salvar Avaliação</>}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+              {loading ? 'Salvando...' : 'Salvar Avaliação'}
             </button>
           </div>
         </div>
@@ -198,20 +246,28 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 // --- Subcomponente: Tabela Histórica (Core Table) ---
 const EvaluationsTable = () => {
   const { currentCompany } = useCompany();
-  const [data, setData] = useState<any[]>([]);
-  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [data, setData] = useState<EvaluationData[]>([]);
+  const [filteredData, setFilteredData] = useState<EvaluationData[]>([]);
   const [filterName, setFilterName] = useState('');
   const [filterSector, setFilterSector] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     if (!currentCompany) return;
     const load = async () => {
-      const snap = await getDocs(query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id)));
-      const raw = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Ordenar por data desc
-      raw.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setData(raw);
-      setFilteredData(raw);
+      setIsLoading(true);
+      try {
+        const snap = await getDocs(query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id)));
+        const raw = snap.docs.map(d => ({ id: d.id, ...d.data() } as EvaluationData));
+        // Ordenar por data desc
+        raw.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setData(raw);
+        setFilteredData(raw);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
     };
     load();
   }, [currentCompany]);
@@ -225,6 +281,7 @@ const EvaluationsTable = () => {
   }, [filterName, filterSector, data]);
 
   const handleExportCSV = () => {
+    if (filteredData.length === 0) return;
     const csv = Papa.unparse(filteredData.map(d => ({
       Nome: d.employeeName,
       Cargo: d.role,
@@ -239,7 +296,7 @@ const EvaluationsTable = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `avaliacoes_export_${new Date().toISOString()}.csv`);
+    link.setAttribute('download', `avaliacoes_export_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
   };
@@ -250,9 +307,9 @@ const EvaluationsTable = () => {
     <div className="space-y-4">
       {/* Filtros Toolbar */}
       <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col md:flex-row gap-4 justify-between items-end">
-        <div className="flex gap-4 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative group w-full md:w-64">
-            <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500" size={18} />
+            <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input 
               placeholder="Buscar por nome..."
               className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
@@ -260,10 +317,10 @@ const EvaluationsTable = () => {
               onChange={e => setFilterName(e.target.value)}
             />
           </div>
-          <div className="relative w-48 hidden md:block">
+          <div className="relative w-full sm:w-48">
             <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               value={filterSector}
               onChange={e => setFilterSector(e.target.value)}
             >
@@ -272,7 +329,11 @@ const EvaluationsTable = () => {
             </select>
           </div>
         </div>
-        <button onClick={handleExportCSV} className="flex items-center gap-2 text-green-600 hover:text-green-700 font-medium px-4 py-2 hover:bg-green-50 rounded transition-colors">
+        <button 
+          onClick={handleExportCSV} 
+          disabled={filteredData.length === 0}
+          className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
+        >
           <Download size={18} /> Exportar CSV
         </button>
       </div>
@@ -281,7 +342,7 @@ const EvaluationsTable = () => {
       <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase font-medium">
+            <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase font-medium border-b dark:border-gray-800">
               <tr>
                 <th className="p-4">Data</th>
                 <th className="p-4">Colaborador</th>
@@ -292,21 +353,25 @@ const EvaluationsTable = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredData.map((ev) => (
+              {isLoading ? (
+                <tr><td colSpan={6} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
+              ) : filteredData.length === 0 ? (
+                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
+              ) : filteredData.map((ev) => (
                 <tr key={ev.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
                   <td className="p-4 text-gray-500 whitespace-nowrap">
-                    <div className="flex items-center gap-2"><Calendar size={14}/> {new Date(ev.date).toLocaleDateString('pt-BR')}</div>
+                    <div className="flex items-center gap-2"><Calendar size={14}/> {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</div>
                   </td>
                   <td className="p-4 font-bold text-gray-800 dark:text-white">{ev.employeeName}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
                   <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded border ${ev.type === 'Líder' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'}`}>
+                    <span className={`text-xs px-2 py-1 rounded border font-medium ${ev.type === 'Líder' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'}`}>
                       {ev.type}
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    <span className={`font-bold px-2 py-1 rounded ${
+                    <span className={`font-bold px-3 py-1 rounded-full ${
                       ev.average >= 8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
                       ev.average >= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                     }`}>
@@ -315,9 +380,6 @@ const EvaluationsTable = () => {
                   </td>
                 </tr>
               ))}
-              {filteredData.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
-              )}
             </tbody>
           </table>
         </div>
