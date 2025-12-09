@@ -1,0 +1,58 @@
+Nome_Colaborador,ID_Funcionario,Mes_Referencia,Cargo,Setor,Pontuacao_Colaborador,Assiduidade_Pontualidade,Cumprimento_Tarefas,Proatividade,Organizacao_Limpeza,Uso_Uniforme_EPI
+Roberto Alves,007,2024-01-15,Desenvolvedor,Tecnologia da Informação,8.5,9.0,8.5,8.0,8.5,8.5
+Juliana Pereira,008,2024-01-15,Analista de RH,Recursos Humanos,9.0,9.5,9.0,8.5,9.0,9.0
+Lucas Martins,009,2024-01-15,Analista de Vendas,Vendas,8.3,8.5,8.5,8.0,8.5,8.0
+Patricia Souza,010,2024-01-15,Designer Gráfico,Marketing,8.7,9.0,8.5,9.0,8.5,8.5
+Ricardo Gomes,011,2024-01-15,Assistente Administrativo,Operações,8.2,8.5,8.0,8.0,8.5,8.0
+Beatriz Rocha,012,2024-01-15,Operador de Produção,Produção,8.8,9.0,8.5,8.5,9.0,8.5
+Marcos Barbosa,013,2024-01-15,Auxiliar de Logística,Logística,8.4,8.5,8.5,8.0,8.5,8.5
+Camila Dias,014,2024-01-15,Atendente,Atendimento ao Cliente,8.6,9.0,8.5,8.5,8.5,8.5
+Gustavo Nunes,015,2024-01-15,Analista de RH,Qualidade,8.5,8.5,8.5,8.5,8.5,8.5
+Larissa Mendes,016,2024-01-15,Assistente Administrativo,Financeiro,8.7,9.0,8.5,8.5,8.5,9.0
+Thiago Castro,017,2024-01-15,Desenvolvedor,Tecnologia da Informação,8.9,9.0,9.0,8.5,9.0,9.0
+Vanessa Ribeiro,018,2024-01-15,Analista de Vendas,Vendas,8.5,8.5,8.5,8.5,8.5,8.5
+Bruno Cardoso,019,2024-01-15,Operador de Produção,Produção,8.3,8.5,8.0,8.5,8.5,8.0
+Amanda Freitas,020,2024-01-15,Designer Gráfico,Marketing,8.8,9.0,8.5,9.0,8.5,8.5
+Roberto Alves,007,2024-02-15,Desenvolvedor,Tecnologia da Informação,8.7,9.0,8.5,8.5,9.0,8.5
+Juliana Pereira,008,2024-02-15,Analista de RH,Recursos Humanos,9.1,9.5,9.0,9.0,9.0,9.0
+Lucas Martins,009,2024-02-15,Analista de Vendas,Vendas,8.5,8.5,8.5,8.5,8.5,8.5
+Patricia Souza,010,2024-02-15,Designer Gráfico,Marketing,8.9,9.0,9.0,9.0,8.5,9.0
+Ricardo Gomes,011,2024-02-15,Assistente Administrativo,Operações,8.4,8.5,8.5,8.0,8.5,8.5
+Beatriz Rocha,012,2024-02-15,Operador de Produção,Produção,9.0,9.0,9.0,8.5,9.5,9.0
+Marcos Barbosa,013,2024-02-15,Auxiliar de Logística,Logística,8.6,8.5,8.5,8.5,8.5,8.5
+Camila Dias,014,2024-02-15,Atendente,Atendimento ao Cliente,8.8,9.0,8.5,9.0,8.5,8.5
+Gustavo Nunes,015,2024-02-15,Analista de RH,Qualidade,8.7,8.5,8.5,9.0,8.5,8.5
+Larissa Mendes,016,2024-02-15,Assistente Administrativo,Financeiro,8.9,9.0,9.0,8.5,8.5,9.5
+Thiago Castro,017,2024-02-15,Desenvolvedor,Tecnologia da Informação,9.1,9.0,9.5,9.0,9.0,9.0
+Vanessa Ribeiro,018,2024-02-15,Analista de Vendas,Vendas,8.7,8.5,8.5,9.0,8.5,8.5
+Bruno Cardoso,019,2024-02-15,Operador de Produção,Produção,8.5,8.5,8.5,8.5,8.5,8.5
+Amanda Freitas,020,2024-02-15,Designer Gráfico,Marketing,9.0,9.0,9.0,9.0,9.0,9.0
+Roberto Alves,007,2024-03-15,Desenvolvedor,Tecnologia da Informação,8.9,9.0,9.0,8.5,9.0,9.0
+Juliana Pereira,008,2024-03-15,Analista de RH,Recursos Humanos,9.2,9.5,9.0,9.5,9.0,9.0
+Lucas Martins,009,2024-03-15,Analista de Vendas,Vendas,8.7,8.5,8.5,9.0,8.5,8.5
+Patricia Souza,010,2024-03-15,Designer Gráfico,Marketing,9.1,9.0,9.0,9.5,9.0,9.0
+Ricardo Gomes,011,2024-03-15,Assistente Administrativo,Operações,8.6,8.5,8.5,8.5,8.5,8.5
+Beatriz Rocha,012,2024-03-15,Operador de Produção,Produção,9.1,9.0,9.0,9.0,9.5,9.0
+Marcos Barbosa,013,2024-03-15,Auxiliar de Logística,Logística,8.8,8.5,9.0,8.5,8.5,9.0
+Camila Dias,014,2024-03-15,Atendente,Atendimento ao Cliente,9.0,9.0,9.0,9.0,8.5,9.0
+Gustavo Nunes,015,2024-03-15,Analista de RH,Qualidade,8.9,8.5,9.0,9.0,8.5,8.5
+Larissa Mendes,016,2024-03-15,Assistente Administrativo,Financeiro,9.1,9.0,9.0,9.0,8.5,9.5
+Thiago Castro,017,2024-03-15,Desenvolvedor,Tecnologia da Informação,9.3,9.5,9.5,9.0,9.0,9.5
+Vanessa Ribeiro,018,2024-03-15,Analista de Vendas,Vendas,8.9,8.5,9.0,9.0,8.5,8.5
+Bruno Cardoso,019,2024-03-15,Operador de Produção,Produção,8.7,8.5,8.5,9.0,8.5,8.5
+Amanda Freitas,020,2024-03-15,Designer Gráfico,Marketing,9.2,9.0,9.5,9.0,9.0,9.5
+Roberto Alves,007,2024-04-15,Desenvolvedor,Tecnologia da Informação,9.1,9.0,9.0,9.0,9.0,9.5
+Juliana Pereira,008,2024-04-15,Analista de RH,Recursos Humanos,9.4,9.5,9.5,9.5,9.0,9.5
+Lucas Martins,009,2024-04-15,Analista de Vendas,Vendas,8.9,8.5,9.0,9.0,8.5,9.0
+Patricia Souza,010,2024-04-15,Designer Gráfico,Marketing,9.3,9.0,9.5,9.5,9.0,9.5
+Ricardo Gomes,011,2024-04-15,Assistente Administrativo,Operações,8.8,8.5,9.0,8.5,8.5,9.0
+Beatriz Rocha,012,2024-04-15,Operador de Produção,Produção,9.2,9.0,9.5,9.0,9.5,9.0
+Marcos Barbosa,013,2024-04-15,Auxiliar de Logística,Logística,9.0,8.5,9.0,9.0,8.5,9.5
+Camila Dias,014,2024-04-15,Atendente,Atendimento ao Cliente,9.2,9.0,9.0,9.5,8.5,9.5
+Gustavo Nunes,015,2024-04-15,Analista de RH,Qualidade,9.1,8.5,9.5,9.0,8.5,9.0
+Larissa Mendes,016,2024-04-15,Assistente Administrativo,Financeiro,9.3,9.0,9.5,9.0,8.5,9.5
+Thiago Castro,017,2024-04-15,Desenvolvedor,Tecnologia da Informação,9.5,9.5,9.5,9.5,9.0,9.5
+Vanessa Ribeiro,018,2024-04-15,Analista de Vendas,Vendas,9.1,8.5,9.5,9.0,8.5,9.5
+Bruno Cardoso,019,2024-04-15,Operador de Produção,Produção,8.9,8.5,9.0,9.0,8.5,9.0
+Amanda Freitas,020,2024-04-15,Designer Gráfico,Marketing,9.4,9.0,9.5,9.5,9.0,9.5
+

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { useCompany } from '../../contexts/CompanyContext';
 
 interface Entity {
   id: string;
@@ -19,6 +20,7 @@ interface ColumnConfig {
 }
 
 export const GenericDatabaseView = ({ collectionName, title, columns, customFieldsAllowed = true }: { collectionName: string, title: string, columns: ColumnConfig[], customFieldsAllowed?: boolean }) => {
+  const { currentCompany } = useCompany();
   const [data, setData] = useState<Entity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -32,21 +34,52 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
   const fetchData = useCallback(async () => {
+    if (!currentCompany) {
+      setData([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
-    const snap = await getDocs(collection(db, collectionName));
-    setData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    setIsLoading(false);
-  }, [collectionName]);
+    try {
+      // Collections que não precisam de filtro por empresa (companies, users)
+      const needsCompanyFilter = collectionName !== 'companies' && collectionName !== 'users';
+      
+      let q;
+      if (needsCompanyFilter) {
+        q = query(collection(db, collectionName), where("companyId", "==", currentCompany.id));
+      } else {
+        q = collection(db, collectionName);
+      }
+      
+      const snap = await getDocs(q);
+      setData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error);
+      setData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [collectionName, currentCompany]);
 
   useEffect(() => {
     fetchData();
     const loadLinkedData = async () => {
+      if (!currentCompany) return;
+      
       const newLinkedOptions: Record<string, string[]> = {};
       for (const col of columns) {
         if (col.linkedCollection) {
           try {
-            const snap = await getDocs(collection(db, col.linkedCollection));
-            const field = col.linkedField || 'nome';
+            const needsCompanyFilter = col.linkedCollection !== 'companies' && col.linkedCollection !== 'users';
+            let q;
+            if (needsCompanyFilter) {
+              q = query(collection(db, col.linkedCollection), where("companyId", "==", currentCompany.id));
+            } else {
+              q = collection(db, col.linkedCollection);
+            }
+            const snap = await getDocs(q);
+            const field = col.linkedField || 'name';
             newLinkedOptions[col.key] = snap.docs.map(d => d.data()[field]).filter(Boolean);
           } catch (error) {
             console.error(`Erro ao carregar dados vinculados de ${col.linkedCollection}:`, error);
@@ -56,16 +89,27 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       setLinkedOptions(newLinkedOptions);
     };
     loadLinkedData();
-  }, [fetchData, columns]);
+  }, [fetchData, columns, currentCompany]);
 
   const handleSave = async () => {
+    if (!currentCompany) {
+      alert("Por favor, selecione uma empresa primeiro.");
+      return;
+    }
+    
     try {
+      const needsCompanyFilter = collectionName !== 'companies' && collectionName !== 'users';
+      const itemToSave = needsCompanyFilter && !currentItem.id 
+        ? { ...currentItem, companyId: currentCompany.id }
+        : currentItem;
+        
       if (currentItem.id) {
-        await updateDoc(doc(db, collectionName, currentItem.id), currentItem);
+        await updateDoc(doc(db, collectionName, currentItem.id), itemToSave);
       } else {
-        await addDoc(collection(db, collectionName), currentItem);
+        await addDoc(collection(db, collectionName), itemToSave);
       }
       setIsModalOpen(false);
+      setCurrentItem({});
       fetchData();
     } catch (error) {
       alert("Erro ao salvar: " + error);

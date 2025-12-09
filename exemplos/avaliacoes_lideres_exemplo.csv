@@ -1,0 +1,26 @@
+Nome_Lider_Avaliado,ID_Funcionario,Mes_Referencia,Cargo,Setor,Pontuacao_Lider,Comunicacao_Clara_Coerente,Acompanhamento_Membros_Equipe,Cumprimento_Metas_Setor,Capacidade_Decisao_Resolucao,Assiduidade_Pontualidade_Lider
+João Silva,001,2024-01-15,Gerente de TI,Tecnologia da Informação,8.5,9.0,8.5,8.0,9.0,8.0
+Maria Santos,002,2024-01-15,Gerente de RH,Recursos Humanos,9.2,9.5,9.0,9.0,9.5,8.5
+Pedro Oliveira,003,2024-01-15,Gerente de Vendas,Vendas,8.8,9.0,8.5,9.0,8.5,8.5
+Ana Costa,004,2024-01-15,Gerente de Marketing,Marketing,8.3,8.5,8.0,8.5,8.0,8.5
+Carlos Ferreira,005,2024-01-15,Coordenador de Operações,Operações,8.7,8.5,9.0,8.5,8.5,8.5
+Fernanda Lima,006,2024-01-15,Supervisor de Produção,Produção,9.0,9.0,9.0,9.0,9.0,9.0
+João Silva,001,2024-02-15,Gerente de TI,Tecnologia da Informação,8.7,9.0,8.5,8.5,9.0,8.5
+Maria Santos,002,2024-02-15,Gerente de RH,Recursos Humanos,9.3,9.5,9.5,9.0,9.5,8.5
+Pedro Oliveira,003,2024-02-15,Gerente de Vendas,Vendas,9.0,9.0,9.0,9.0,9.0,9.0
+Ana Costa,004,2024-02-15,Gerente de Marketing,Marketing,8.5,8.5,8.5,8.5,8.5,8.5
+Carlos Ferreira,005,2024-02-15,Coordenador de Operações,Operações,8.8,8.5,9.0,9.0,8.5,8.5
+Fernanda Lima,006,2024-02-15,Supervisor de Produção,Produção,9.1,9.0,9.0,9.5,9.0,9.0
+João Silva,001,2024-03-15,Gerente de TI,Tecnologia da Informação,8.9,9.0,9.0,8.5,9.0,9.0
+Maria Santos,002,2024-03-15,Gerente de RH,Recursos Humanos,9.4,9.5,9.5,9.5,9.5,9.0
+Pedro Oliveira,003,2024-03-15,Gerente de Vendas,Vendas,9.2,9.5,9.0,9.0,9.5,9.0
+Ana Costa,004,2024-03-15,Gerente de Marketing,Marketing,8.7,9.0,8.5,8.5,9.0,8.5
+Carlos Ferreira,005,2024-03-15,Coordenador de Operações,Operações,9.0,9.0,9.0,9.0,9.0,9.0
+Fernanda Lima,006,2024-03-15,Supervisor de Produção,Produção,9.2,9.5,9.0,9.0,9.5,9.0
+João Silva,001,2024-04-15,Gerente de TI,Tecnologia da Informação,9.0,9.0,9.0,9.0,9.0,9.0
+Maria Santos,002,2024-04-15,Gerente de RH,Recursos Humanos,9.5,9.5,9.5,9.5,9.5,9.5
+Pedro Oliveira,003,2024-04-15,Gerente de Vendas,Vendas,9.3,9.5,9.0,9.5,9.0,9.5
+Ana Costa,004,2024-04-15,Gerente de Marketing,Marketing,8.9,9.0,8.5,9.0,9.0,8.5
+Carlos Ferreira,005,2024-04-15,Coordenador de Operações,Operações,9.1,9.0,9.5,9.0,9.0,9.0
+Fernanda Lima,006,2024-04-15,Supervisor de Produção,Produção,9.3,9.5,9.0,9.5,9.0,9.5
+

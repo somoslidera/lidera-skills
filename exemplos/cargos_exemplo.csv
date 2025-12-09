@@ -1,0 +1,17 @@
+Nome_Cargo,Nível
+Diretor Geral,Líder
+Gerente de RH,Líder
+Gerente de TI,Líder
+Gerente de Vendas,Líder
+Gerente de Marketing,Líder
+Coordenador de Operações,Líder
+Supervisor de Produção,Líder
+Analista de RH,Colaborador
+Desenvolvedor,Colaborador
+Analista de Vendas,Colaborador
+Designer Gráfico,Colaborador
+Assistente Administrativo,Colaborador
+Operador de Produção,Colaborador
+Auxiliar de Logística,Colaborador
+Atendente,Colaborador
+

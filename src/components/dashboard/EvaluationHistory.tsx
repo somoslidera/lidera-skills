@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronRight, ArrowLeft, Calendar, User, FileText, TrendingUp, Upload } from 'lucide-react';
 import { fetchCollection } from '../../services/firebase';
 import { DataImporter } from '../settings/DataImporter';
+import { useCompany } from '../../contexts/CompanyContext';
 
 // Interface Unificada
 interface Evaluation {
@@ -35,12 +36,16 @@ export const EvaluationHistory = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showImporter, setShowImporter] = useState(false);
 
+  const { currentCompany } = useCompany();
+
   // Carrega dados iniciais
   useEffect(() => {
+    if (!currentCompany) return;
     const loadData = async () => {
       try {
-        const evs = await fetchCollection('evaluations');
-        const emps = await fetchCollection('employees');
+        const evs = await fetchCollection('evaluations', currentCompany.id);
+        const emps = await fetchCollection('employees', currentCompany.id);
+        // Histórico mostra TODOS os funcionários (ativos e inativos)
         setEvaluations(evs as any[]);
         setEmployees(emps as any[]);
       } catch (error) {
@@ -48,7 +53,7 @@ export const EvaluationHistory = () => {
       }
     };
     loadData();
-  }, []);
+  }, [currentCompany]);
 
   // --- Processamento e Mesclagem de Dados ---
   const processedEvaluations = useMemo(() => {

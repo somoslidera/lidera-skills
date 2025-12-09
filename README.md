@@ -78,7 +78,16 @@ O **LideraApp** é uma plataforma SaaS multi-tenant desenvolvida para empresas g
 
 #### Pessoas
 - **Funcionários**: Cadastro completo com nome, email, setor, cargo e status
+  - Status "Ativo" ou "Inativo"
+  - Funcionários inativos não aparecem no formulário de novas avaliações
+  - Funcionários inativos continuam visíveis no histórico (preservação de dados)
 - **Usuários do Sistema**: Gestão de usuários e permissões
+
+**Recursos de Edição:**
+- Todos os cadastros são **editáveis** e **excluíveis**
+- Edição inline com modal
+- Validação de campos obrigatórios
+- Suporte a campos customizados (campos extras)
 
 ### 📥 Importação de Dados
 
@@ -96,6 +105,18 @@ Sistema robusto de importação CSV com suporte para:
 - Feedback visual de sucesso/erro
 - Tratamento de dados com vírgula decimal
 
+### 📁 Arquivos de Exemplo
+
+Arquivos CSV de exemplo estão disponíveis na pasta `exemplos/`:
+- `criterios_exemplo.csv` - 10 critérios (5 para Líderes, 5 para Colaboradores)
+- `setores_exemplo.csv` - 10 setores diferentes
+- `cargos_exemplo.csv` - 15 cargos (6 líderes, 9 colaboradores)
+- `funcionarios_exemplo.csv` - 20 funcionários distribuídos pelos setores
+- `avaliacoes_lideres_exemplo.csv` - Histórico de 4 meses para 6 líderes
+- `avaliacoes_colaboradores_exemplo.csv` - Histórico de 4 meses para 14 colaboradores
+
+Consulte `exemplos/LEIA-ME.md` para instruções detalhadas de uso.
+
 ### 🏢 Multi-Tenancy
 
 - Suporte a múltiplas empresas clientes
@@ -103,6 +124,8 @@ Sistema robusto de importação CSV com suporte para:
 - Seletor visual de empresa no header
 - Criação rápida de novas empresas
 - Persistência da empresa selecionada (localStorage)
+- Todos os cadastros e avaliações são filtrados automaticamente por empresa
+- Dados de uma empresa não são visíveis para outras empresas
 
 ### 🎨 Interface Moderna
 

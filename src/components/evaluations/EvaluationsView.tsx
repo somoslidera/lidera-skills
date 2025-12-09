@@ -67,7 +67,10 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", currentCompany.id)))
         ]);
 
-        setEmployees(empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee)));
+        // Filtrar apenas funcionários ATIVOS para o formulário de avaliação
+        const allEmployees = empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee));
+        const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
+        setEmployees(activeEmployees);
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
       } catch (error) {
@@ -159,10 +162,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
           >
-            <option value="">Selecione...</option>
-            {employees.map(e => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
+            <option value="">Selecione um funcionário ativo...</option>
+            {employees.length === 0 ? (
+              <option disabled>Nenhum funcionário ativo encontrado</option>
+            ) : (
+              employees.map(e => (
+                <option key={e.id} value={e.id}>{e.name} - {e.role}</option>
+              ))
+            )}
           </select>
         </div>
         <div>
