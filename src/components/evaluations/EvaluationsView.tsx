@@ -15,6 +15,7 @@ interface Employee {
   role: string;
   sector: string;
   companyId: string;
+  status?: string; // <--- ADICIONE ESTA LINHA AQUI
 }
 
 interface Role {
