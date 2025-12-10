@@ -50,8 +50,9 @@ function MainApp() {
     const loadData = async () => {
       if (!currentCompany) return;
       try {
+        // Avaliações são filtradas por empresa, funcionários são gerais
         const evaluationsData = await fetchCollection('evaluations', currentCompany.id);
-        const employeesData = await fetchCollection('employees', currentCompany.id);
+        const employeesData = await fetchCollection('employees'); // Sem filtro de empresa
         
         setEvaluations(evaluationsData);
         setEmployees(employeesData);

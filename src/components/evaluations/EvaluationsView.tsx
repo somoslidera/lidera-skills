@@ -44,7 +44,7 @@ interface EvaluationData {
 
 // --- Subcomponente: Formulário de Avaliação ---
 const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
-  const { currentCompany } = useCompany();
+  const { currentCompany, companies } = useCompany();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [criteriaList, setCriteriaList] = useState<Criteria[]>([]);
@@ -57,15 +57,25 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
 
+  // Estado para empresa selecionada no formulário (pode ser diferente da empresa atual)
+  // Inicializa com a empresa atual se disponível
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id || '');
+
+  // Sincroniza com a empresa atual quando ela mudar
+  useEffect(() => {
+    if (currentCompany?.id && !selectedCompanyId) {
+      setSelectedCompanyId(currentCompany.id);
+    }
+  }, [currentCompany]);
+
   // Carregar dados iniciais
   useEffect(() => {
-    if (!currentCompany) return;
     const loadAux = async () => {
       try {
-        const [empSnap, roleSnap, critSnap] = await Promise.all([
-          getDocs(query(collection(db, 'employees'), where("companyId", "==", currentCompany.id))),
-          getDocs(query(collection(db, 'roles'), where("companyId", "==", currentCompany.id))),
-          getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", currentCompany.id)))
+        // Funcionários, cargos e setores são gerais (não filtrados por empresa)
+        const [empSnap, roleSnap] = await Promise.all([
+          getDocs(collection(db, 'employees')),
+          getDocs(collection(db, 'roles'))
         ]);
 
         // Filtrar apenas funcionários ATIVOS para o formulário de avaliação
@@ -73,13 +83,20 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
         setEmployees(activeEmployees);
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
-        setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
+        
+        // Critérios são filtrados pela empresa selecionada no formulário
+        if (selectedCompanyId) {
+          const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", selectedCompanyId)));
+          setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
+        } else {
+          setCriteriaList([]);
+        }
       } catch (error) {
         console.error("Erro ao carregar dados auxiliares", error);
       }
     };
     loadAux();
-  }, [currentCompany]);
+  }, [selectedCompanyId]);
 
   // Ao selecionar funcionário
   useEffect(() => {
@@ -115,7 +132,10 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   }, [scores]);
 
   const handleSubmit = async () => {
-    if (!currentEmployee || !evalDate || !currentCompany) return;
+    if (!currentEmployee || !evalDate || !selectedCompanyId) {
+      alert("Por favor, selecione uma empresa e um funcionário antes de salvar.");
+      return;
+    }
     
     // Validação simples
     if (activeCriteria.length > 0 && Object.keys(scores).length !== activeCriteria.length) {
@@ -125,7 +145,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     setLoading(true);
     try {
       const payload = {
-        companyId: currentCompany.id,
+        companyId: selectedCompanyId,
         employeeId: currentEmployee.id,
         employeeName: currentEmployee.name,
         role: currentEmployee.role,
@@ -155,7 +175,25 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       </h3>
 
       {/* Seleção */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Empresa <span className="text-red-500">*</span></label>
+          <select 
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+            value={selectedCompanyId}
+            onChange={(e) => {
+              setSelectedCompanyId(e.target.value);
+              // Limpa critérios e scores ao mudar empresa
+              setCriteriaList([]);
+              setScores({});
+            }}
+          >
+            <option value="">Selecione uma empresa...</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colaborador</label>
           <select 

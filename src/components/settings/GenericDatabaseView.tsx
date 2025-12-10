@@ -34,19 +34,24 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
   const fetchData = useCallback(async () => {
-    if (!currentCompany) {
-      setData([]);
-      setIsLoading(false);
-      return;
-    }
-    
     setIsLoading(true);
     try {
-      // Collections que não precisam de filtro por empresa (companies, users)
-      const needsCompanyFilter = collectionName !== 'companies' && collectionName !== 'users';
+      // Collections que não precisam de filtro por empresa (companies, users, sectors, roles, employees)
+      // Critérios de avaliação precisam de filtro por empresa
+      const needsCompanyFilter = collectionName !== 'companies' && 
+                                  collectionName !== 'users' && 
+                                  collectionName !== 'sectors' && 
+                                  collectionName !== 'roles' && 
+                                  collectionName !== 'employees' &&
+                                  collectionName === 'evaluation_criteria';
       
       let q;
       if (needsCompanyFilter) {
+        if (!currentCompany) {
+          setData([]);
+          setIsLoading(false);
+          return;
+        }
         q = query(collection(db, collectionName), where("companyId", "==", currentCompany.id));
       } else {
         q = collection(db, collectionName);
@@ -65,15 +70,19 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   useEffect(() => {
     fetchData();
     const loadLinkedData = async () => {
-      if (!currentCompany) return;
-      
       const newLinkedOptions: Record<string, string[]> = {};
       for (const col of columns) {
         if (col.linkedCollection) {
           try {
-            const needsCompanyFilter = col.linkedCollection !== 'companies' && col.linkedCollection !== 'users';
+            // Collections que não precisam de filtro por empresa (companies, users, sectors, roles, employees)
+            const needsCompanyFilter = col.linkedCollection !== 'companies' && 
+                                      col.linkedCollection !== 'users' && 
+                                      col.linkedCollection !== 'sectors' && 
+                                      col.linkedCollection !== 'roles' && 
+                                      col.linkedCollection !== 'employees';
             let q;
             if (needsCompanyFilter) {
+              if (!currentCompany) continue;
               q = query(collection(db, col.linkedCollection), where("companyId", "==", currentCompany.id));
             } else {
               q = collection(db, col.linkedCollection);
@@ -92,14 +101,16 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   }, [fetchData, columns, currentCompany]);
 
   const handleSave = async () => {
-    if (!currentCompany) {
+    // Collections que precisam de empresa: apenas evaluation_criteria
+    const needsCompanyFilter = collectionName === 'evaluation_criteria';
+    
+    if (needsCompanyFilter && !currentCompany) {
       alert("Por favor, selecione uma empresa primeiro.");
       return;
     }
     
     try {
-      const needsCompanyFilter = collectionName !== 'companies' && collectionName !== 'users';
-      const itemToSave = needsCompanyFilter && !currentItem.id 
+      const itemToSave = needsCompanyFilter && !currentItem.id && currentCompany
         ? { ...currentItem, companyId: currentCompany.id }
         : currentItem;
         

@@ -43,8 +43,9 @@ export const EvaluationHistory = () => {
     if (!currentCompany) return;
     const loadData = async () => {
       try {
+        // Avaliações são filtradas por empresa, funcionários são gerais
         const evs = await fetchCollection('evaluations', currentCompany.id);
-        const emps = await fetchCollection('employees', currentCompany.id);
+        const emps = await fetchCollection('employees'); // Sem filtro de empresa
         // Histórico mostra TODOS os funcionários (ativos e inativos)
         setEvaluations(evs as any[]);
         setEmployees(emps as any[]);

@@ -42,8 +42,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, manager: '' };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
-        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+        query(ref, where("name", "==", data.name))
     },
     roles: {
       label: 'Cargos',
@@ -54,8 +54,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, level: level };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
-        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+        query(ref, where("name", "==", data.name))
     },
     employees: {
       label: 'Funcionários',
@@ -68,8 +68,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, email, sector, role, status: 'Ativo' };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
-        query(ref, where("name", "==", data.name), where("companyId", "==", companyId))
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+        query(ref, where("name", "==", data.name))
     },
     evaluations_leaders: {
       label: 'Histórico (Líderes)',
@@ -141,7 +141,10 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!currentCompany) {
+    // Apenas critérios e avaliações precisam de empresa selecionada
+    const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+    
+    if (needsCompanyId && !currentCompany) {
       alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
       event.target.value = ''; // Limpa o input para permitir selecionar o mesmo arquivo novamente
       return;
@@ -164,21 +167,34 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
           const collectionRef = collection(db, currentConfig.collection);
 
+          // Determina se precisa de companyId (apenas para criteria e evaluations)
+          const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+
           for (const item of data) {
             const processedData = currentConfig.process(item);
 
             if (processedData) {
-              // Verifica duplicidade considerando a Empresa atual
-              const q = currentConfig.checkDuplicity(collectionRef, processedData, currentCompany.id);
+              // Verifica duplicidade
+              let q;
+              if (needsCompanyId) {
+                q = currentConfig.checkDuplicity(collectionRef, processedData, currentCompany.id);
+              } else {
+                q = currentConfig.checkDuplicity(collectionRef, processedData);
+              }
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
-                // Injeta o ID da empresa no documento antes de salvar
-                const docData = {
-                  ...processedData,
-                  companyId: currentCompany.id,
-                  importedAt: new Date().toISOString()
-                };
+                // Injeta o ID da empresa apenas se necessário
+                const docData = needsCompanyId
+                  ? {
+                      ...processedData,
+                      companyId: currentCompany.id,
+                      importedAt: new Date().toISOString()
+                    }
+                  : {
+                      ...processedData,
+                      importedAt: new Date().toISOString()
+                    };
                 await addDoc(collectionRef, docData);
                 importedCount++;
               } else {
@@ -187,9 +203,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             }
           }
 
+          const successMsg = needsCompanyId
+            ? `Sucesso! ${importedCount} registros importados em "${currentCompany.name}". (${skippedCount} ignorados/duplicados).`
+            : `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados/duplicados).`;
+          
           setStatus({ 
             type: 'success', 
-            msg: `Sucesso! ${importedCount} registros importados em "${currentCompany.name}". (${skippedCount} ignorados/duplicados).` 
+            msg: successMsg
           });
 
         } catch (error: any) {
