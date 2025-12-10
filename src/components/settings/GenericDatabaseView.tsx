@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
-import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 
