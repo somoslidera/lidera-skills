@@ -2,11 +2,45 @@ import { GenericDatabaseView } from './GenericDatabaseView';
 import { DataImporter } from './DataImporter';
 import { useCompany } from '../../contexts/CompanyContext';
 
+// Lista de perfis DISC (Req 9)
+const DISC_OPTIONS = [
+  'D', 'I', 'S', 'C',
+  'D/I', 'D/S', 'D/C', 'I/D', 'I/S', 'I/C', 'S/D', 'S/I', 'S/C', 'C/D', 'C/I', 'C/S',
+  'D/I/S', 'D/I/C', 'D/S/C', 'I/D/S', 'I/D/C', 'I/S/C', 'S/D/I', 'S/D/C', 'S/I/C', 'C/D/I', 'C/D/S', 'C/I/S',
+  'D/I/S/C'
+];
+
+// --- 1. Critérios de Avaliação ---
+export const CriteriaView = () => (
+  <div className="space-y-6 animate-fadeIn">
+    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+      <h3 className="font-bold text-blue-800 dark:text-blue-300">Configuração de Critérios</h3>
+      <p className="text-sm text-blue-600 dark:text-blue-400">
+        Defina as perguntas que aparecerão no formulário. Separe por Nível Hierárquico.
+      </p>
+    </div>
+    <DataImporter target="criteria" />
+    <GenericDatabaseView 
+      collectionName="evaluation_criteria" 
+      title="Critérios de Avaliação"
+      columns={[
+        { key: 'name', label: 'Competência / Pergunta' },
+        { 
+          key: 'type', 
+          label: 'Nível Alvo', 
+          type: 'select', 
+          options: ['Estratégico', 'Tático', 'Operacional'] 
+        },
+        { key: 'description', label: 'Descrição da Competência' }
+      ]}
+    />
+  </div>
+);
+
 // --- 2. Setores (Universal com Seleção de Empresas) ---
 export const SectorsView = () => {
   const { isMaster } = useCompany();
   
-  // Apenas Master vê a opção de vincular empresas em massa
   const columns: any[] = [
      { key: 'name', label: 'Nome do Setor' }
   ];
@@ -21,6 +55,9 @@ export const SectorsView = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm text-gray-500">
+        Setores são universais e compartilhados entre todas as empresas.
+      </div>
       <DataImporter target="sectors" />
       <GenericDatabaseView 
         collectionName="sectors" 
@@ -55,6 +92,12 @@ export const RolesView = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
+        <h3 className="font-bold text-yellow-800 dark:text-yellow-300">Atenção aos Níveis</h3>
+        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+          Cargos são universais. O <strong>"Nível Hierárquico"</strong> define qual formulário de avaliação será usado.
+        </p>
+      </div>
       <DataImporter target="roles" />
       <GenericDatabaseView 
         collectionName="roles" 
@@ -65,9 +108,41 @@ export const RolesView = () => {
   );
 };
 
-// ... (Outros exports como CriteriaView, EmployeesView, UsersView mantidos)
+// --- 4. Funcionários ---
+export const EmployeesView = () => (
+  <div className="space-y-6 animate-fadeIn">
+    <DataImporter target="employees" />
+    <GenericDatabaseView 
+      collectionName="employees" 
+      title="Gerenciar Funcionários"
+      columns={[
+        { key: 'name', label: 'Nome Completo' },
+        { key: 'email', label: 'Email Corporativo', type: 'email' },
+        { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
+        { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
+        { key: 'admissionDate', label: 'Data de Admissão', type: 'date' },
+        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] },
+        // Perfil DISC Adicionado
+        { key: 'discProfile', label: 'Perfil DISC', type: 'select', options: DISC_OPTIONS }
+      ]}
+    />
+  </div>
+);
 
-// --- 6. Gestão de Empresas (Req 9) ---
+// --- 5. Usuários ---
+export const UsersView = () => (
+  <GenericDatabaseView 
+    collectionName="users" 
+    title="Usuários com Acesso ao Sistema"
+    columns={[
+      { key: 'name', label: 'Nome' },
+      { key: 'email', label: 'Email', type: 'email' },
+      { key: 'role', label: 'Permissão', type: 'select', options: ['Admin', 'Gestor', 'Líder'] }
+    ]}
+  />
+);
+
+// --- 6. Gestão de Empresas ---
 export const CompaniesView = () => (
   <GenericDatabaseView 
     collectionName="companies" 
