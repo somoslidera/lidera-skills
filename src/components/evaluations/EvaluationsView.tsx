@@ -37,7 +37,7 @@ interface EvaluationData {
   role: string;
   sector: string;
   type: string;
-  date: string; // Armazenaremos como YYYY-MM-DD (dia 01) para compatibilidade
+  date: string;
   average: number;
   details: Record<string, number>;
 }
@@ -52,10 +52,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
-  
-  // Níveis hierárquicos atualizados
   const [formType, setFormType] = useState<'Estratégico' | 'Tático' | 'Operacional' | null>(null);
-  
   const [scores, setScores] = useState<Record<string, number>>({});
   
   // Data padrão: Mês passado
@@ -81,7 +78,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         
         if (selectedCompanyId) {
-          // Filtra funcionários pela empresa selecionada (Req 1)
           const empQuery = query(collection(db, 'employees'), where("companyId", "==", selectedCompanyId));
           const empSnap = await getDocs(empQuery);
           
@@ -89,7 +85,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
           setEmployees(activeEmployees);
 
-          // Critérios filtrados pela empresa
           const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", selectedCompanyId)));
           setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
         } else {
@@ -114,15 +109,12 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (emp) {
       setCurrentEmployee(emp);
-      
       const roleData = roles.find(r => r.name === emp.role);
       
-      // Mapeamento automático do nível
       if (roleData?.level) {
-         const level = roleData.level as 'Estratégico' | 'Tático' | 'Operacional';
-         setFormType(level);
+         setFormType(roleData.level);
       } else {
-         setFormType('Operacional'); // Fallback padrão
+         setFormType('Operacional');
       }
       setScores({});
     }
@@ -159,7 +151,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         role: currentEmployee.role,
         sector: currentEmployee.sector,
         type: formType,
-        date: `${evalMonth}-01`, // Salva sempre como dia 01 do mês
+        date: `${evalMonth}-01`,
         average: Number(currentAverage.toFixed(2)),
         details: scores,
         createdAt: new Date().toISOString()
@@ -182,7 +174,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <FileText className="text-blue-600" /> Nova Avaliação de Desempenho
       </h3>
 
-      {/* Seleção */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Empresa <span className="text-red-500">*</span></label>
@@ -247,7 +238,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         </div>
       )}
 
-      {/* Critérios Dinâmicos */}
       {formType && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3">
@@ -259,7 +249,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                     {crit.description && <p className="text-xs text-gray-500">{crit.description}</p>}
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* Req 3: Notas Inteiras */}
                     <input 
                       type="range" min="0" max="10" step="1"
                       className="w-32 accent-blue-600"
@@ -307,7 +296,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   );
 };
 
-// --- Subcomponente: Tabela Histórica (Core Table) ---
 const EvaluationsTable = () => {
   const { currentCompany } = useCompany();
   const [data, setData] = useState<EvaluationData[]>([]);
@@ -323,10 +311,8 @@ const EvaluationsTable = () => {
       try {
         let q;
         if (currentCompany.id === 'all') {
-            // Master: Busca tudo
             q = collection(db, 'evaluations');
         } else {
-            // Cliente: Busca só da empresa
             q = query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id));
         }
         
@@ -344,7 +330,6 @@ const EvaluationsTable = () => {
     load();
   }, [currentCompany]);
 
-  // Filtros
   useEffect(() => {
     let res = data;
     if (filterName) res = res.filter(d => d.employeeName.toLowerCase().includes(filterName.toLowerCase()));
@@ -377,7 +362,6 @@ const EvaluationsTable = () => {
 
   return (
     <div className="space-y-4">
-      {/* Filtros Toolbar */}
       <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col md:flex-row gap-4 justify-between items-end">
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative group w-full md:w-64">
@@ -410,7 +394,6 @@ const EvaluationsTable = () => {
         </button>
       </div>
 
-      {/* Tabela */}
       <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -462,6 +445,51 @@ const EvaluationsTable = () => {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  );
+};
+
+export const EvaluationsView = () => {
+  const [activeTab, setActiveTab] = useState<'new' | 'list'>('list');
+
+  return (
+    <div className="space-y-6 animate-fadeIn pb-10">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-[#1E1E1E] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão de Avaliações</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Central de lançamento e histórico de desempenho.</p>
+        </div>
+        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mt-4 md:mt-0">
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
+              activeTab === 'list' 
+              ? 'bg-white dark:bg-[#121212] text-blue-600 shadow-sm' 
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+            }`}
+          >
+            Histórico Completo
+          </button>
+          <button
+            onClick={() => setActiveTab('new')}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'new' 
+              ? 'bg-blue-600 text-white shadow-sm' 
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+            }`}
+          >
+            <Plus size={16} /> Nova Avaliação
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        {activeTab === 'new' ? (
+          <EvaluationForm onSuccess={() => setActiveTab('list')} />
+        ) : (
+          <EvaluationsTable />
+        )}
       </div>
     </div>
   );
