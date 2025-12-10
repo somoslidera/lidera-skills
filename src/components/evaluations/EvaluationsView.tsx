@@ -68,32 +68,32 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [loading, setLoading] = useState(false);
 
   // Estado para empresa selecionada no formulário
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id || '');
-
-  useEffect(() => {
-    if (currentCompany?.id && !selectedCompanyId) {
-      setSelectedCompanyId(currentCompany.id);
-    }
-  }, [currentCompany]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id === 'all' ? '' : currentCompany?.id || '');
 
   // Carregar dados iniciais
   useEffect(() => {
     const loadAux = async () => {
       try {
-        const [empSnap, roleSnap] = await Promise.all([
-          getDocs(collection(db, 'employees')),
+        const [roleSnap] = await Promise.all([
           getDocs(collection(db, 'roles'))
         ]);
-
-        const allEmployees = empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee));
-        const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
-        setEmployees(activeEmployees);
+        
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         
         if (selectedCompanyId) {
+          // Filtra funcionários pela empresa selecionada (Req 1)
+          const empQuery = query(collection(db, 'employees'), where("companyId", "==", selectedCompanyId));
+          const empSnap = await getDocs(empQuery);
+          
+          const allEmployees = empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee));
+          const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
+          setEmployees(activeEmployees);
+
+          // Critérios filtrados pela empresa
           const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", selectedCompanyId)));
           setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
         } else {
+          setEmployees([]);
           setCriteriaList([]);
         }
       } catch (error) {
@@ -119,7 +119,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       
       // Mapeamento automático do nível
       if (roleData?.level) {
-         // Garante que o valor venha tipado corretamente, ou usa fallback
          const level = roleData.level as 'Estratégico' | 'Tático' | 'Operacional';
          setFormType(level);
       } else {
@@ -192,6 +191,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             value={selectedCompanyId}
             onChange={(e) => {
               setSelectedCompanyId(e.target.value);
+              setSelectedEmployeeId('');
               setCriteriaList([]);
               setScores({});
             }}
@@ -208,15 +208,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            disabled={!selectedCompanyId}
           >
-            <option value="">Selecione um funcionário ativo...</option>
-            {employees.length === 0 ? (
-              <option disabled>Nenhum funcionário ativo encontrado</option>
-            ) : (
-              employees.map(e => (
-                <option key={e.id} value={e.id}>{e.name} - {e.role}</option>
-              ))
-            )}
+            <option value="">
+                {selectedCompanyId ? "Selecione um funcionário..." : "Selecione a empresa primeiro"}
+            </option>
+            {employees.map(e => (
+              <option key={e.id} value={e.id}>{e.name} - {e.role}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -260,19 +259,20 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                     {crit.description && <p className="text-xs text-gray-500">{crit.description}</p>}
                   </div>
                   <div className="flex items-center gap-4">
+                    {/* Req 3: Notas Inteiras */}
                     <input 
-                      type="range" min="0" max="10" step="0.5"
+                      type="range" min="0" max="10" step="1"
                       className="w-32 accent-blue-600"
                       value={scores[crit.name] || 0}
-                      onChange={(e) => setScores({...scores, [crit.name]: parseFloat(e.target.value)})}
+                      onChange={(e) => setScores({...scores, [crit.name]: parseInt(e.target.value)})}
                     />
                     <div className="relative">
                       <input 
-                        type="number" min="0" max="10" step="0.1"
-                        className="w-20 p-2 pl-3 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700 text-gray-800 dark:text-white"
+                        type="number" min="0" max="10" step="1"
+                        className="w-16 p-2 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700 text-gray-800 dark:text-white"
                         value={scores[crit.name] || 0}
                         onChange={(e) => {
-                          const val = parseFloat(e.target.value);
+                          const val = parseInt(e.target.value);
                           if(val >= 0 && val <= 10) setScores({...scores, [crit.name]: val});
                         }}
                       />
@@ -282,7 +282,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               ))
             ) : (
               <div className="p-6 text-center text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-100 dark:border-yellow-800">
-                Nenhum critério encontrado para o nível "{formType}". <br/>
+                Nenhum critério encontrado para o nível "{formType}" nesta empresa. <br/>
                 Vá em <strong>Configurações &gt; Critérios</strong> e cadastre novos itens.
               </div>
             )}
@@ -321,9 +321,17 @@ const EvaluationsTable = () => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const snap = await getDocs(query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id)));
+        let q;
+        if (currentCompany.id === 'all') {
+            // Master: Busca tudo
+            q = collection(db, 'evaluations');
+        } else {
+            // Cliente: Busca só da empresa
+            q = query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id));
+        }
+        
+        const snap = await getDocs(q);
         const raw = snap.docs.map(d => ({ id: d.id, ...d.data() } as EvaluationData));
-        // Ordenar por data desc
         raw.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setData(raw);
         setFilteredData(raw);
@@ -454,54 +462,6 @@ const EvaluationsTable = () => {
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Componente Principal da View ---
-export const EvaluationsView = () => {
-  const [activeTab, setActiveTab] = useState<'new' | 'list'>('list');
-
-  return (
-    <div className="space-y-6 animate-fadeIn pb-10">
-      {/* Header com Abas */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-[#1E1E1E] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão de Avaliações</h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Central de lançamento e histórico de desempenho.</p>
-        </div>
-        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mt-4 md:mt-0">
-          <button
-            onClick={() => setActiveTab('list')}
-            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-              activeTab === 'list' 
-              ? 'bg-white dark:bg-[#121212] text-blue-600 shadow-sm' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            Histórico Completo
-          </button>
-          <button
-            onClick={() => setActiveTab('new')}
-            className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${
-              activeTab === 'new' 
-              ? 'bg-blue-600 text-white shadow-sm' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            <Plus size={16} /> Nova Avaliação
-          </button>
-        </div>
-      </div>
-
-      {/* Conteúdo */}
-      <div className="mt-6">
-        {activeTab === 'new' ? (
-          <EvaluationForm onSuccess={() => setActiveTab('list')} />
-        ) : (
-          <EvaluationsTable />
-        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Tag as TagIcon, X } from 'lucide-react';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 
@@ -20,7 +20,7 @@ interface ColumnConfig {
 }
 
 export const GenericDatabaseView = ({ collectionName, title, columns, customFieldsAllowed = true }: { collectionName: string, title: string, columns: ColumnConfig[], customFieldsAllowed?: boolean }) => {
-  const { currentCompany } = useCompany();
+  const { currentCompany, companies } = useCompany();
   const [data, setData] = useState<Entity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -28,62 +28,60 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   
+  // Seleção em Massa (Req 7)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
+  // Lógica de coleções universais (Req 6)
+  const isUniversalCollection = collectionName === 'sectors' || collectionName === 'roles' || collectionName === 'companies';
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const needsCompanyFilter = collectionName !== 'companies' && 
-                                  collectionName !== 'users' && 
-                                  collectionName !== 'sectors' && 
-                                  collectionName !== 'roles' && 
-                                  collectionName !== 'employees' &&
-                                  collectionName === 'evaluation_criteria';
-      
       let q;
-      if (needsCompanyFilter) {
+      
+      // Se for universal, pega tudo. Se for específico, filtra pela empresa atual.
+      if (isUniversalCollection) {
+        q = collection(db, collectionName);
+      } else {
         if (!currentCompany) {
           setData([]);
           setIsLoading(false);
           return;
         }
-        q = query(collection(db, collectionName), where("companyId", "==", currentCompany.id));
-      } else {
-        q = collection(db, collectionName);
+        // Se for "Todas as Empresas" (Master), pega tudo, senão filtra
+        if (currentCompany.id === 'all') {
+           q = collection(db, collectionName);
+        } else {
+           q = query(collection(db, collectionName), where("companyId", "==", currentCompany.id));
+        }
       }
       
       const snap = await getDocs(q);
       setData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setSelectedIds(new Set()); // Limpa seleção ao recarregar
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       setData([]);
     } finally {
       setIsLoading(false);
     }
-  }, [collectionName, currentCompany]);
+  }, [collectionName, currentCompany, isUniversalCollection]);
 
   useEffect(() => {
     fetchData();
+    // Carregar opções vinculadas (ex: Setores para Funcionários)
     const loadLinkedData = async () => {
       const newLinkedOptions: Record<string, string[]> = {};
       for (const col of columns) {
         if (col.linkedCollection) {
           try {
-            const needsCompanyFilter = col.linkedCollection !== 'companies' && 
-                                      col.linkedCollection !== 'users' && 
-                                      col.linkedCollection !== 'sectors' && 
-                                      col.linkedCollection !== 'roles' && 
-                                      col.linkedCollection !== 'employees';
-            let q;
-            if (needsCompanyFilter) {
-              if (!currentCompany) continue;
-              q = query(collection(db, col.linkedCollection), where("companyId", "==", currentCompany.id));
-            } else {
-              q = collection(db, col.linkedCollection);
-            }
+            // Coleções vinculadas geralmente são universais (cargos/setores)
+            const q = collection(db, col.linkedCollection);
             const snap = await getDocs(q);
             const field = col.linkedField || 'name';
             newLinkedOptions[col.key] = snap.docs.map(d => d.data()[field]).filter(Boolean);
@@ -95,21 +93,25 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       setLinkedOptions(newLinkedOptions);
     };
     loadLinkedData();
-  }, [fetchData, columns, currentCompany]);
+  }, [fetchData, columns]);
 
   const handleSave = async () => {
-    const needsCompanyFilter = collectionName === 'evaluation_criteria';
-    
-    if (needsCompanyFilter && !currentCompany) {
-      alert("Por favor, selecione uma empresa primeiro.");
-      return;
+    if (!isUniversalCollection && (!currentCompany || currentCompany.id === 'all')) {
+      // Se estiver criando funcionário/avaliação, precisa vincular a uma empresa específica
+      if (!currentItem.companyId) {
+         alert("Por favor, selecione a empresa vinculada a este registro.");
+         return;
+      }
     }
     
     try {
-      const itemToSave = needsCompanyFilter && !currentItem.id && currentCompany
-        ? { ...currentItem, companyId: currentCompany.id }
-        : currentItem;
-        
+      let itemToSave = { ...currentItem };
+
+      // Se não for universal e não tiver empresa selecionada no form (caso de edição simples), injeta a atual
+      if (!isUniversalCollection && !itemToSave.companyId && currentCompany && currentCompany.id !== 'all') {
+         itemToSave.companyId = currentCompany.id;
+      }
+
       if (currentItem.id) {
         await updateDoc(doc(db, collectionName, currentItem.id), itemToSave);
       } else {
@@ -127,6 +129,42 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     if (!confirm("Tem certeza que deseja excluir este registro?")) return;
     await deleteDoc(doc(db, collectionName, id));
     fetchData();
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Tem certeza que deseja excluir ${selectedIds.size} registros selecionados?`)) return;
+
+    setIsLoading(true);
+    try {
+      // Firestore batch só aceita 500 operações, para simplicidade faremos loop aqui
+      // Em produção ideal usar batch com chunks
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        const ref = doc(db, collectionName, id);
+        batch.delete(ref);
+      });
+      await batch.commit();
+      fetchData();
+    } catch (error) {
+      alert("Erro ao excluir em massa: " + error);
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filteredData.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredData.map(d => d.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
   };
 
   const handleSort = (key: string) => {
@@ -202,9 +240,16 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     <> 
       <div className="space-y-6 animate-fadeIn">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212]">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-             <Database size={24} className="text-blue-600" /> {title}
-          </h2>
+          <div className="flex items-center gap-4">
+             <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                <Database size={24} className="text-blue-600" /> {title}
+             </h2>
+             {selectedIds.size > 0 && (
+                <button onClick={handleBulkDelete} className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full font-bold hover:bg-red-200 transition-colors flex items-center gap-1">
+                   <Trash size={12}/> Excluir ({selectedIds.size})
+                </button>
+             )}
+          </div>
           <button onClick={() => { setCurrentItem({}); setIsModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold shadow-md transition-all">
              <Plus size={16} /> Novo Registro
           </button>
@@ -261,7 +306,16 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 dark:text-gray-400 uppercase text-xs">
                 <tr>
+                  {/* Coluna Checkbox */}
+                  <th className="px-6 py-4 w-10">
+                    <button onClick={handleSelectAll} className="text-gray-400 hover:text-blue-500">
+                       {selectedIds.size > 0 && selectedIds.size === filteredData.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
+                  </th>
+                  
+                  {/* Coluna ID */}
                   <th className="px-6 py-4 whitespace-nowrap w-24">ID</th>
+                  
                   {columns.map((col) => (
                     <th 
                       key={col.key} 
@@ -285,16 +339,24 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-[#1E1E1E]">
                 {isLoading ? (
-                  <tr><td colSpan={columns.length + 2} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
+                  <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
                 ) : filteredData.length === 0 ? (
-                  <tr><td colSpan={columns.length + 2} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
+                  <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
                 ) : filteredData.map(item => (
-                  <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
+                  <tr key={item.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                    
+                    <td className="px-6 py-4">
+                       <button onClick={() => toggleSelect(item.id)} className="text-gray-400 hover:text-blue-500">
+                          {selectedIds.has(item.id) ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} />}
+                       </button>
+                    </td>
+
                     <td className="px-6 py-4">
                       <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded select-all">
                         {item.id.slice(0, 5)}...
                       </span>
                     </td>
+
                     {columns.map((col) => (
                       <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                          {col.key === 'status' ? (
@@ -324,6 +386,21 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={currentItem.id ? "Editar Registro" : "Novo Registro"}>
          <div className="space-y-4">
+            {/* Vinculação de Empresa (Req 8) - Apenas se não for universal */}
+            {!isUniversalCollection && (
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700">
+                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Vinculado à Empresa</label>
+                    <select 
+                        className="w-full p-2 bg-white dark:bg-black border rounded text-sm"
+                        value={currentItem.companyId || (currentCompany?.id !== 'all' ? currentCompany?.id : '')}
+                        onChange={e => setCurrentItem({...currentItem, companyId: e.target.value})}
+                    >
+                        <option value="">Selecione a empresa...</option>
+                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {columns.map((col) => (
                 <div key={col.key} className={col.type === 'email' || col.label.includes('Nome') ? 'md:col-span-2' : ''}>
@@ -358,23 +435,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                       }
                     }}
                   />
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                        const input = document.getElementById('newTagInput') as HTMLInputElement;
-                        const val = input.value.trim();
-                        if (val) {
-                          const currentTags = currentItem.tags || [];
-                          if (!currentTags.includes(val)) {
-                            setCurrentItem({...currentItem, tags: [...currentTags, val]});
-                          }
-                          input.value = '';
-                        }
-                    }} 
-                    className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors"
-                  >
-                    + Add
-                  </button>
                </div>
 
                <div className="flex flex-wrap gap-2 min-h-[30px]">

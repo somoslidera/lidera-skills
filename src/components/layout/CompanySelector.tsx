@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useCompany } from '../../contexts/CompanyContext';
-import { Building2, Plus, Check } from 'lucide-react';
+import { Building2, Check } from 'lucide-react';
 
 export const CompanySelector = () => {
-  const { companies, currentCompany, setCompany, addNewCompany } = useCompany();
+  const { companies, currentCompany, setCompany, addNewCompany, isMaster } = useCompany();
   const [isCreating, setIsCreating] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
 
@@ -42,6 +42,8 @@ export const CompanySelector = () => {
             onChange={(e) => {
               if (e.target.value === 'new') {
                 setIsCreating(true);
+              } else if (e.target.value === 'all') {
+                setCompany({ id: 'all', name: 'Todas as Empresas' });
               } else {
                 const selected = companies.find(c => c.id === e.target.value);
                 setCompany(selected || null);
@@ -49,10 +51,19 @@ export const CompanySelector = () => {
             }}
           >
             <option value="" disabled>Selecione...</option>
+            
+            {/* Opção TODAS AS EMPRESAS (Apenas para Master) */}
+            {isMaster && (
+              <option value="all" className="font-bold text-blue-600">🌐 Todas as Empresas</option>
+            )}
+
             {companies.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
-            <option value="new" className="text-blue-600 font-bold">+ Nova Empresa</option>
+            
+            {isMaster && (
+              <option value="new" className="text-green-600 font-bold">+ Nova Empresa</option>
+            )}
           </select>
         )}
       </div>

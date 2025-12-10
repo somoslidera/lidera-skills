@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { fetchCollection, createCompany } from '../services/firebase';
-import { useAuth } from './AuthContext'; // Integrado para verificação de Master
+import { useAuth } from './AuthContext';
 
 interface Company {
   id: string;
@@ -14,14 +14,13 @@ interface CompanyContextType {
   refreshCompanies: () => void;
   addNewCompany: (name: string) => Promise<void>;
   loading: boolean;
-  isMaster: boolean; // Flag para UI
+  isMaster: boolean;
 }
 
-// Lista de e-mails Master (Super Admins)
 const MASTER_EMAILS = [
   'admin@somoslidera.com.br', 
   'suporte@lidera.com',
-  // Adicione seu e-mail de teste aqui se necessário
+  // Adicione seu e-mail aqui para testar
 ];
 
 const CompanyContext = createContext<CompanyContextType>({} as CompanyContextType);
@@ -37,16 +36,12 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Verifica se o usuário logado é Master
   const isMasterUser = () => {
     return user && user.email && MASTER_EMAILS.includes(user.email);
   };
 
   const loadCompanies = async () => {
     setLoading(true);
-    // Nota: Por padrão, fetchCollection('companies') já busca tudo no firebase.ts
-    // Se no futuro houver restrição por usuário no backend, aqui seria o lugar para
-    // passar um parâmetro extra se for Master.
     const data = await fetchCollection('companies');
     setCompanies(data as Company[]);
     setLoading(false);
@@ -54,7 +49,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadCompanies();
-  }, [user]); // Recarrega se o usuário mudar
+  }, [user]);
 
   const setCompany = (company: Company | null) => {
     setCurrentCompanyState(company);

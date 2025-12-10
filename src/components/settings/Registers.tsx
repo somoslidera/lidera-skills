@@ -1,10 +1,23 @@
 import { GenericDatabaseView } from './GenericDatabaseView';
 import { DataImporter } from './DataImporter';
 
+// Lista de perfis DISC (Req 9)
+const DISC_OPTIONS = [
+  'D', 'I', 'S', 'C',
+  'D/I', 'D/S', 'D/C', 'I/D', 'I/S', 'I/C', 'S/D', 'S/I', 'S/C', 'C/D', 'C/I', 'C/S',
+  'D/I/S', 'D/I/C', 'D/S/C', 'I/D/S', 'I/D/C', 'I/S/C', 'S/D/I', 'S/D/C', 'S/I/C', 'C/D/I', 'C/D/S', 'C/I/S',
+  'D/I/S/C'
+];
+
 // --- 1. Critérios de Avaliação ---
 export const CriteriaView = () => (
   <div className="space-y-6 animate-fadeIn">
-    {/* ... header ... */}
+    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+      <h3 className="font-bold text-blue-800 dark:text-blue-300">Configuração de Critérios</h3>
+      <p className="text-sm text-blue-600 dark:text-blue-400">
+        Defina as perguntas que aparecerão no formulário. Separe por Nível Hierárquico.
+      </p>
+    </div>
     <DataImporter target="criteria" />
     <GenericDatabaseView 
       collectionName="evaluation_criteria" 
@@ -15,7 +28,6 @@ export const CriteriaView = () => (
           key: 'type', 
           label: 'Nível Alvo', 
           type: 'select', 
-          // MUDANÇA AQUI: Novos níveis
           options: ['Estratégico', 'Tático', 'Operacional'] 
         },
         { key: 'description', label: 'Descrição da Competência' }
@@ -24,13 +36,16 @@ export const CriteriaView = () => (
   </div>
 );
 
-// --- 2. Setores ---
+// --- 2. Setores (Universal) ---
 export const SectorsView = () => (
   <div className="space-y-6 animate-fadeIn">
+    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm text-gray-500">
+      Setores são universais e compartilhados entre todas as empresas.
+    </div>
     <DataImporter target="sectors" />
     <GenericDatabaseView 
       collectionName="sectors" 
-      title="Gerenciar Setores"
+      title="Gerenciar Setores (Universal)"
       columns={[
         { key: 'name', label: 'Nome do Setor' },
         { key: 'manager', label: 'Gestor Responsável' }
@@ -39,24 +54,28 @@ export const SectorsView = () => (
   </div>
 );
 
-// --- 3. Cargos ---
+// --- 3. Cargos (Universal) ---
 export const RolesView = () => (
   <div className="space-y-6 animate-fadeIn">
-    {/* ... header ... */}
+    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
+      <h3 className="font-bold text-yellow-800 dark:text-yellow-300">Atenção aos Níveis</h3>
+      <p className="text-sm text-yellow-700 dark:text-yellow-400">
+        Cargos são universais. O <strong>"Nível Hierárquico"</strong> define qual formulário de avaliação será usado.
+      </p>
+    </div>
     <DataImporter target="roles" />
     <GenericDatabaseView 
       collectionName="roles" 
-      title="Gerenciar Cargos"
+      title="Gerenciar Cargos (Universal)"
       columns={[
         { key: 'name', label: 'Título do Cargo' },
         { 
           key: 'level', 
           label: 'Nível Hierárquico', 
           type: 'select', 
-          // MUDANÇA AQUI: Novos níveis para vincular o cargo ao formulário correto
           options: ['Estratégico', 'Tático', 'Operacional'] 
-        },
-        { key: 'cbo', label: 'CBO (Opcional)' }
+        }
+        // CBO Removido (Req 5)
       ]}
     />
   </div>
@@ -75,7 +94,9 @@ export const EmployeesView = () => (
         { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
         { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
         { key: 'admissionDate', label: 'Data de Admissão', type: 'date' },
-        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] }
+        { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] },
+        // Perfil DISC Adicionado (Req 9)
+        { key: 'discProfile', label: 'Perfil DISC', type: 'select', options: DISC_OPTIONS }
       ]}
     />
   </div>
