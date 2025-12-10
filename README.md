@@ -555,3 +555,9 @@ Para suporte, abra uma issue no repositório ou entre em contato com a equipe de
 ---
 
 **Desenvolvido por Lidera para facilitar a gestão de avaliações de desempenho**
+
+## 🔮 Roadmap e Evolução
+
+Estamos constantemente evoluindo o Lidera Skills. Para uma visão detalhada sobre a arquitetura atual, análises de segurança e funcionalidades planejadas para o futuro, consulte nosso documento técnico:
+
+👉 **[Acesse o Roadmap e Análise Técnica](ROADMAP.md)**
