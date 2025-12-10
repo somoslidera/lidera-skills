@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
-import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 
@@ -360,16 +360,19 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                   <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
                 ) : filteredData.map(item => (
                   <tr key={item.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                    
                     <td className="px-6 py-4">
                        <button onClick={() => toggleSelect(item.id)} className="text-gray-400 hover:text-blue-500">
                           {selectedIds.has(item.id) ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} />}
                        </button>
                     </td>
+
                     <td className="px-6 py-4">
                       <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded select-all">
                         {item.id.slice(0, 5)}...
                       </span>
                     </td>
+
                     {columns.map((col) => (
                       <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                          {col.key === 'status' ? (

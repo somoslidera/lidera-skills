@@ -2,7 +2,7 @@ import { GenericDatabaseView } from './GenericDatabaseView';
 import { DataImporter } from './DataImporter';
 import { useCompany } from '../../contexts/CompanyContext';
 
-// Lista de perfis DISC (Req 9)
+// Lista de perfis DISC
 const DISC_OPTIONS = [
   'D', 'I', 'S', 'C',
   'D/I', 'D/S', 'D/C', 'I/D', 'I/S', 'I/C', 'S/D', 'S/I', 'S/C', 'C/D', 'C/I', 'C/S',

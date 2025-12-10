@@ -32,7 +32,8 @@ import {
   Menu,
   X,
   FileCheck,
-  HelpCircle
+  HelpCircle,
+  Building // Novo ícone
 } from 'lucide-react';
 
 function MainApp() {
