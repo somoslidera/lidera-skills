@@ -15,19 +15,19 @@ interface Employee {
   role: string;
   sector: string;
   companyId: string;
-  status?: string; // <--- ADICIONE ESTA LINHA AQUI
+  status?: string;
 }
 
 interface Role {
   id: string;
   name: string;
-  level: 'Líder' | 'Colaborador';
+  level: 'Estratégico' | 'Tático' | 'Operacional';
 }
 
 interface Criteria {
   id: string;
   name: string;
-  type: 'Líder' | 'Colaborador';
+  type: 'Estratégico' | 'Tático' | 'Operacional';
   description?: string;
 }
 
@@ -37,7 +37,7 @@ interface EvaluationData {
   role: string;
   sector: string;
   type: string;
-  date: string;
+  date: string; // Armazenaremos como YYYY-MM-DD (dia 01) para compatibilidade
   average: number;
   details: Record<string, number>;
 }
@@ -52,16 +52,24 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
-  const [formType, setFormType] = useState<'Líder' | 'Colaborador' | null>(null);
+  
+  // Níveis hierárquicos atualizados
+  const [formType, setFormType] = useState<'Estratégico' | 'Tático' | 'Operacional' | null>(null);
+  
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [evalDate, setEvalDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Data padrão: Mês passado
+  const [evalMonth, setEvalMonth] = useState(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - 1);
+    return date.toISOString().slice(0, 7); // YYYY-MM
+  });
+
   const [loading, setLoading] = useState(false);
 
-  // Estado para empresa selecionada no formulário (pode ser diferente da empresa atual)
-  // Inicializa com a empresa atual se disponível
+  // Estado para empresa selecionada no formulário
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id || '');
 
-  // Sincroniza com a empresa atual quando ela mudar
   useEffect(() => {
     if (currentCompany?.id && !selectedCompanyId) {
       setSelectedCompanyId(currentCompany.id);
@@ -72,19 +80,16 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   useEffect(() => {
     const loadAux = async () => {
       try {
-        // Funcionários, cargos e setores são gerais (não filtrados por empresa)
         const [empSnap, roleSnap] = await Promise.all([
           getDocs(collection(db, 'employees')),
           getDocs(collection(db, 'roles'))
         ]);
 
-        // Filtrar apenas funcionários ATIVOS para o formulário de avaliação
         const allEmployees = empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee));
         const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
         setEmployees(activeEmployees);
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         
-        // Critérios são filtrados pela empresa selecionada no formulário
         if (selectedCompanyId) {
           const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", selectedCompanyId)));
           setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
@@ -98,7 +103,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     loadAux();
   }, [selectedCompanyId]);
 
-  // Ao selecionar funcionário
+  // Ao selecionar funcionário, define o tipo de formulário baseado no cargo
   useEffect(() => {
     if (!selectedEmployeeId) {
       setCurrentEmployee(null);
@@ -109,21 +114,26 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     const emp = employees.find(e => e.id === selectedEmployeeId);
     if (emp) {
       setCurrentEmployee(emp);
-      // Descobrir nível do cargo
+      
       const roleData = roles.find(r => r.name === emp.role);
-      const level = roleData?.level === 'Líder' ? 'Líder' : 'Colaborador';
-      setFormType(level);
+      
+      // Mapeamento automático do nível
+      if (roleData?.level) {
+         // Garante que o valor venha tipado corretamente, ou usa fallback
+         const level = roleData.level as 'Estratégico' | 'Tático' | 'Operacional';
+         setFormType(level);
+      } else {
+         setFormType('Operacional'); // Fallback padrão
+      }
       setScores({});
     }
   }, [selectedEmployeeId, employees, roles]);
 
-  // Filtrar critérios pelo tipo
   const activeCriteria = useMemo(() => {
     if (!formType) return [];
     return criteriaList.filter(c => c.type === formType);
   }, [formType, criteriaList]);
 
-  // Calcular média em tempo real
   const currentAverage = useMemo(() => {
     const values = Object.values(scores);
     if (values.length === 0) return 0;
@@ -132,12 +142,11 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   }, [scores]);
 
   const handleSubmit = async () => {
-    if (!currentEmployee || !evalDate || !selectedCompanyId) {
+    if (!currentEmployee || !evalMonth || !selectedCompanyId) {
       alert("Por favor, selecione uma empresa e um funcionário antes de salvar.");
       return;
     }
     
-    // Validação simples
     if (activeCriteria.length > 0 && Object.keys(scores).length !== activeCriteria.length) {
       if(!confirm("Alguns critérios estão sem nota (serão considerados 0). Deseja continuar?")) return;
     }
@@ -151,7 +160,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         role: currentEmployee.role,
         sector: currentEmployee.sector,
         type: formType,
-        date: evalDate,
+        date: `${evalMonth}-01`, // Salva sempre como dia 01 do mês
         average: Number(currentAverage.toFixed(2)),
         details: scores,
         createdAt: new Date().toISOString()
@@ -183,7 +192,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             value={selectedCompanyId}
             onChange={(e) => {
               setSelectedCompanyId(e.target.value);
-              // Limpa critérios e scores ao mudar empresa
               setCriteriaList([]);
               setScores({});
             }}
@@ -212,13 +220,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Referência</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês de Referência</label>
           <input 
-            type="date" 
+            type="month" 
             className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
-            value={evalDate}
-            onChange={(e) => setEvalDate(e.target.value)}
+            value={evalMonth}
+            onChange={(e) => setEvalMonth(e.target.value)}
           />
+          <p className="text-xs text-gray-400 mt-1">Geralmente avalia-se o mês anterior.</p>
         </div>
       </div>
 
@@ -226,7 +235,16 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg mb-6 flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300 border border-blue-100 dark:border-blue-800">
           <div><span className="font-bold">Cargo:</span> {currentEmployee.role}</div>
           <div><span className="font-bold">Setor:</span> {currentEmployee.sector}</div>
-          <div><span className="font-bold">Tipo:</span> <span className="bg-blue-200 dark:bg-blue-800 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">{formType}</span></div>
+          <div>
+            <span className="font-bold">Nível:</span>{' '}
+            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase
+              ${formType === 'Estratégico' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                formType === 'Tático' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
+                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+              }`}>
+              {formType}
+            </span>
+          </div>
         </div>
       )}
 
@@ -264,7 +282,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               ))
             ) : (
               <div className="p-6 text-center text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-100 dark:border-yellow-800">
-                Nenhum critério encontrado para o tipo "{formType}". <br/>
+                Nenhum critério encontrado para o nível "{formType}". <br/>
                 Vá em <strong>Configurações &gt; Critérios</strong> e cadastre novos itens.
               </div>
             )}
@@ -332,10 +350,10 @@ const EvaluationsTable = () => {
       Nome: d.employeeName,
       Cargo: d.role,
       Setor: d.sector,
-      Tipo: d.type,
+      Nível: d.type,
       Data: d.date,
       Nota_Final: typeof d.average === 'number' ? d.average.toFixed(2) : d.average,
-      ...d.details // Expande as colunas de critérios
+      ...d.details
     })));
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -394,7 +412,7 @@ const EvaluationsTable = () => {
                 <th className="p-4">Colaborador</th>
                 <th className="p-4">Cargo</th>
                 <th className="p-4">Setor</th>
-                <th className="p-4">Tipo</th>
+                <th className="p-4">Nível</th>
                 <th className="p-4 text-right">Nota Média</th>
               </tr>
             </thead>
@@ -406,13 +424,20 @@ const EvaluationsTable = () => {
               ) : filteredData.map((ev) => (
                 <tr key={ev.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
                   <td className="p-4 text-gray-500 whitespace-nowrap">
-                    <div className="flex items-center gap-2"><Calendar size={14}/> {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</div>
+                    <div className="flex items-center gap-2">
+                        <Calendar size={14}/> 
+                        {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', month: 'short', year: 'numeric'})}
+                    </div>
                   </td>
                   <td className="p-4 font-bold text-gray-800 dark:text-white">{ev.employeeName}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
                   <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded border font-medium ${ev.type === 'Líder' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'}`}>
+                    <span className={`text-xs px-2 py-1 rounded border font-medium 
+                        ${ev.type === 'Estratégico' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 
+                          ev.type === 'Tático' ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800' :
+                          'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                        }`}>
                       {ev.type}
                     </span>
                   </td>

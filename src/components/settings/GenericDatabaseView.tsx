@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUpDown, ArrowUp, ArrowDown, Tag as TagIcon, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 
@@ -36,8 +36,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Collections que não precisam de filtro por empresa (companies, users, sectors, roles, employees)
-      // Critérios de avaliação precisam de filtro por empresa
       const needsCompanyFilter = collectionName !== 'companies' && 
                                   collectionName !== 'users' && 
                                   collectionName !== 'sectors' && 
@@ -74,7 +72,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       for (const col of columns) {
         if (col.linkedCollection) {
           try {
-            // Collections que não precisam de filtro por empresa (companies, users, sectors, roles, employees)
             const needsCompanyFilter = col.linkedCollection !== 'companies' && 
                                       col.linkedCollection !== 'users' && 
                                       col.linkedCollection !== 'sectors' && 
@@ -101,7 +98,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   }, [fetchData, columns, currentCompany]);
 
   const handleSave = async () => {
-    // Collections que precisam de empresa: apenas evaluation_criteria
     const needsCompanyFilter = collectionName === 'evaluation_criteria';
     
     if (needsCompanyFilter && !currentCompany) {
@@ -133,7 +129,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     fetchData();
   };
 
-  // --- Lógica de Ordenação ---
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -142,7 +137,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     setSortConfig({ key, direction });
   };
 
-  // --- Lógica de Filtros Dinâmicos ---
   const columnOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
     columns.forEach(col => {
@@ -154,11 +148,9 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
 
   const filteredData = useMemo(() => {
     let processed = data.filter(item => {
-      // Busca Global
       const matchesSearch = Object.values(item).some(val => 
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      // Filtros de Coluna
       const matchesFilters = Object.entries(activeFilters).every(([key, filterVal]) => {
         if (!filterVal) return true;
         return String(item[key]) === filterVal;
@@ -166,7 +158,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       return matchesSearch && matchesFilters;
     });
 
-    // Ordenação
     if (sortConfig) {
       processed.sort((a, b) => {
         const valA = a[sortConfig.key] ? String(a[sortConfig.key]).toLowerCase() : '';
@@ -210,7 +201,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   return (
     <> 
       <div className="space-y-6 animate-fadeIn">
-        {/* Cabeçalho e Botão Novo */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212]">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
              <Database size={24} className="text-blue-600" /> {title}
@@ -220,10 +210,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
           </button>
         </div>
 
-        {/* Barra de Ferramentas (Busca e Filtros) */}
         <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-lg border border-gray-200 dark:border-[#121212] overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex flex-col gap-4">
-             {/* Campo de Busca */}
              <div className="relative w-full">
                <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                <input 
@@ -235,7 +223,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                />
              </div>
              
-             {/* Filtros Dinâmicos */}
              <div className="flex gap-2 w-full overflow-x-auto pb-2 scrollbar-thin">
                 {columns.map(col => {
                    const options = columnOptions[col.key] || [];
@@ -270,14 +257,11 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
              </div>
           </div>
 
-          {/* Tabela de Dados */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 dark:text-gray-400 uppercase text-xs">
                 <tr>
-                  {/* Coluna ID Fixa */}
                   <th className="px-6 py-4 whitespace-nowrap w-24">ID</th>
-                  
                   {columns.map((col) => (
                     <th 
                       key={col.key} 
@@ -306,14 +290,11 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                   <tr><td colSpan={columns.length + 2} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
                 ) : filteredData.map(item => (
                   <tr key={item.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
-                    
-                    {/* Visualização do ID */}
                     <td className="px-6 py-4">
                       <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded select-all">
                         {item.id.slice(0, 5)}...
                       </span>
                     </td>
-
                     {columns.map((col) => (
                       <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                          {col.key === 'status' ? (
@@ -352,31 +333,71 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                 ))}
             </div>
             
-            {customFieldsAllowed && (
-              <div className="pt-4 border-t dark:border-gray-700 mt-4">
-                 <h4 className="font-bold mb-2 text-sm text-gray-500">Campos Extras</h4>
-                 <div className="grid grid-cols-2 gap-2 mb-2">
-                    <input id="newKey" placeholder="Novo campo..." className="p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-sm outline-none" />
-                    <button type="button" onClick={() => {
-                        const key = (document.getElementById('newKey') as HTMLInputElement).value;
-                        if(key) {
-                           setCurrentItem({...currentItem, [key]: ''});
-                           (document.getElementById('newKey') as HTMLInputElement).value = '';
+            {/* Sistema de Tags */}
+            <div className="pt-4 border-t dark:border-gray-700 mt-4">
+               <h4 className="font-bold mb-2 text-sm text-gray-500 flex items-center gap-2">
+                 <TagIcon size={14}/> Tags / Categorias
+               </h4>
+               
+               <div className="flex gap-2 mb-3">
+                  <input 
+                    id="newTagInput" 
+                    placeholder="Adicionar tag (ex: Proativo, SQL, Inglês)..." 
+                    className="flex-1 p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-sm outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = e.currentTarget.value.trim();
+                        if (val) {
+                          const currentTags = currentItem.tags || [];
+                          if (!currentTags.includes(val)) {
+                            setCurrentItem({...currentItem, tags: [...currentTags, val]});
+                          }
+                          e.currentTarget.value = '';
                         }
-                    }} className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors">+ Add</button>
-                 </div>
-                 {Object.keys(currentItem).filter(k => !columns.find(c => c.key === k) && k !== 'id').map(key => (
-                    <div key={key} className="flex gap-2 items-center mb-2">
-                       <span className="text-xs font-bold w-1/3 truncate text-gray-600 dark:text-gray-400" title={key}>{key}:</span>
-                       <input 
-                          className="w-2/3 p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-sm outline-none"
-                          value={currentItem[key]}
-                          onChange={(e) => setCurrentItem({...currentItem, [key]: e.target.value})}
-                       />
-                    </div>
+                      }
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                        const input = document.getElementById('newTagInput') as HTMLInputElement;
+                        const val = input.value.trim();
+                        if (val) {
+                          const currentTags = currentItem.tags || [];
+                          if (!currentTags.includes(val)) {
+                            setCurrentItem({...currentItem, tags: [...currentTags, val]});
+                          }
+                          input.value = '';
+                        }
+                    }} 
+                    className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded text-xs font-bold hover:bg-gray-200 transition-colors"
+                  >
+                    + Add
+                  </button>
+               </div>
+
+               <div className="flex flex-wrap gap-2 min-h-[30px]">
+                 {(currentItem.tags || []).map((tag: string, idx: number) => (
+                   <span key={idx} className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                     {tag}
+                     <button 
+                       type="button"
+                       onClick={() => {
+                         const newTags = currentItem.tags.filter((t: string) => t !== tag);
+                         setCurrentItem({...currentItem, tags: newTags});
+                       }}
+                       className="hover:text-red-500"
+                     >
+                       <X size={12} />
+                     </button>
+                   </span>
                  ))}
-              </div>
-            )}
+                 {(!currentItem.tags || currentItem.tags.length === 0) && (
+                   <span className="text-xs text-gray-400 italic">Nenhuma tag adicionada.</span>
+                 )}
+               </div>
+            </div>
 
             <button onClick={handleSave} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg mt-6 flex justify-center items-center gap-2 transition-all shadow-md">
                <Save size={18} /> Salvar Registro
