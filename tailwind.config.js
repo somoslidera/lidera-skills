@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class', // Ativa o modo escuro via classe CSS
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -8,21 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Cores do Tema Escuro (Dark)
         lidera: {
-          dark: '#121212', // Aprox 93-95% Gray/Black
-          gray: '#1E1E1E', // Painéis
-          gold: '#D4AF37',
-          'gold-light': '#F2E29F',
+          dark: '#0a0a0a', // Preto profundo
+          gray: '#171717', // Cinza muito escuro para cards
+          gold: {
+            DEFAULT: '#D4AF37', // Dourado Clássico
+            light: '#F3E5AB', // Champanhe
+            dim: '#AA8C2C', // Dourado escuro
+          }
         },
-        // Cores do Tema Claro (Light)
         skills: {
-          light: '#F8FAFC', // Branco gelo fundo
-          white: '#FFFFFF', // Painéis
+          light: '#F0F4F8', // Branco azulado (gelo)
           blue: {
-            primary: '#0F52BA', // Azul Safira
-            secondary: '#4CA1AF', // Azul degradê
-            dark: '#1e3a8a'
+            primary: '#0047AB', // Azul Cobalto
+            secondary: '#007FFF', // Azul Azure
+            dark: '#002E63'
           }
         }
       },

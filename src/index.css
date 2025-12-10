@@ -5,44 +5,41 @@
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  @apply bg-skills-light text-gray-800 dark:bg-lidera-dark dark:text-gray-100 transition-colors duration-300;
 }
 
-/* Scrollbar personalizada */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-skills-light dark:bg-lidera-dark;
+  @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-skills-blue-primary/50 dark:bg-lidera-gray border-2 border-transparent bg-clip-content rounded-full;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-skills-blue-primary dark:bg-lidera-gold;
+  @apply bg-skills-blue-primary/30 dark:bg-lidera-gold/30 rounded-full hover:bg-skills-blue-primary dark:hover:bg-lidera-gold;
 }
 
-/* Classe utilitária para Texto Gradiente (Dourado no Dark, Azul no Light) */
+/* Textos com Gradiente */
 .text-brand-gradient {
   @apply bg-clip-text text-transparent bg-gradient-to-r;
-  @apply from-skills-blue-primary via-skills-blue-secondary to-skills-blue-primary; /* Light */
-  @apply dark:from-lidera-gold dark:via-lidera-gold-light dark:to-lidera-gold; /* Dark */
-  background-size: 200% auto;
+  /* Light Mode: Azul Profundo -> Azul Vibrante */
+  @apply from-skills-blue-primary to-skills-blue-secondary;
+  /* Dark Mode: Dourado -> Champanhe */
+  @apply dark:from-lidera-gold dark:to-lidera-gold-light;
   font-weight: 700;
 }
 
+/* Bordas/Fundos com Gradiente (para botões/cards ativos) */
 .bg-brand-gradient {
-  @apply bg-gradient-to-r;
-  @apply from-skills-blue-primary to-skills-blue-secondary;
-  @apply dark:from-yellow-600 dark:to-yellow-500;
+  @apply bg-gradient-to-r from-skills-blue-primary to-skills-blue-secondary dark:from-lidera-gold/80 dark:to-lidera-gold-dim;
+  @apply text-white dark:text-black; /* Contraste no Dark Mode */
 }
 
-/* Animações */
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-.animate-fadeIn {
-  animation: fadeIn 0.4s ease-out forwards;
 }
