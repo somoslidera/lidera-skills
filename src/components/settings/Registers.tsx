@@ -4,19 +4,20 @@ import { DataImporter } from './DataImporter';
 // --- 1. Critérios de Avaliação ---
 export const CriteriaView = () => (
   <div className="space-y-6 animate-fadeIn">
-    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-      <h3 className="font-bold text-blue-800 dark:text-blue-300">Configuração de Critérios</h3>
-      <p className="text-sm text-blue-600 dark:text-blue-400">
-        Defina as perguntas que aparecerão no formulário. Separe por "Líder" ou "Colaborador".
-      </p>
-    </div>
+    {/* ... header ... */}
     <DataImporter target="criteria" />
     <GenericDatabaseView 
       collectionName="evaluation_criteria" 
       title="Critérios de Avaliação"
       columns={[
         { key: 'name', label: 'Competência / Pergunta' },
-        { key: 'type', label: 'Público Alvo', type: 'select', options: ['Líder', 'Colaborador'] },
+        { 
+          key: 'type', 
+          label: 'Nível Alvo', 
+          type: 'select', 
+          // MUDANÇA AQUI: Novos níveis
+          options: ['Estratégico', 'Tático', 'Operacional'] 
+        },
         { key: 'description', label: 'Descrição da Competência' }
       ]}
     />
@@ -38,22 +39,23 @@ export const SectorsView = () => (
   </div>
 );
 
-// --- 3. Cargos (CRUCIAL: Define o formulário) ---
+// --- 3. Cargos ---
 export const RolesView = () => (
   <div className="space-y-6 animate-fadeIn">
-    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
-      <h3 className="font-bold text-yellow-800 dark:text-yellow-300">Atenção aos Níveis</h3>
-      <p className="text-sm text-yellow-700 dark:text-yellow-400">
-        O campo <strong>"Nível Hierárquico"</strong> define qual formulário de avaliação será aberto para o funcionário.
-      </p>
-    </div>
+    {/* ... header ... */}
     <DataImporter target="roles" />
     <GenericDatabaseView 
       collectionName="roles" 
       title="Gerenciar Cargos"
       columns={[
         { key: 'name', label: 'Título do Cargo' },
-        { key: 'level', label: 'Nível Hierárquico', type: 'select', options: ['Líder', 'Colaborador'] },
+        { 
+          key: 'level', 
+          label: 'Nível Hierárquico', 
+          type: 'select', 
+          // MUDANÇA AQUI: Novos níveis para vincular o cargo ao formulário correto
+          options: ['Estratégico', 'Tático', 'Operacional'] 
+        },
         { key: 'cbo', label: 'CBO (Opcional)' }
       ]}
     />
