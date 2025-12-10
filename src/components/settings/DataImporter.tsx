@@ -20,6 +20,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   };
 
   // Configuração de processamento para cada tipo de importação
+  // Padronizamos checkDuplicity para sempre receber (ref, data, companyId)
   const config = {
     criteria: {
       label: 'Critérios de Avaliação',
@@ -42,7 +43,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, manager: '' };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, _companyId: string) => 
         query(ref, where("name", "==", data.name))
     },
     roles: {
@@ -54,7 +55,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, level: level };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, _companyId: string) => 
         query(ref, where("name", "==", data.name))
     },
     employees: {
@@ -68,7 +69,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         if (!name) return null;
         return { name, email, sector, role, status: 'Ativo' };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any) => 
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, _companyId: string) => 
         query(ref, where("name", "==", data.name))
     },
     evaluations_leaders: {
@@ -169,18 +170,23 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
           // Determina se precisa de companyId (apenas para criteria e evaluations)
           const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+          
+          // Snapshot seguro dos dados da empresa para uso no loop assíncrono
+          const safeCompanyId = currentCompany?.id || '';
+          const safeCompanyName = currentCompany?.name || '';
+
+          if (needsCompanyId && !safeCompanyId) {
+             throw new Error("ID da empresa não encontrado.");
+          }
 
           for (const item of data) {
             const processedData = currentConfig.process(item);
 
             if (processedData) {
-              // Verifica duplicidade
-              let q;
-              if (needsCompanyId) {
-                q = currentConfig.checkDuplicity(collectionRef, processedData, currentCompany.id);
-              } else {
-                q = currentConfig.checkDuplicity(collectionRef, processedData);
-              }
+              // Verifica duplicidade usando o ID seguro
+              // Agora todos os checkDuplicity aceitam 3 argumentos, então passamos safeCompanyId sempre
+              const q = currentConfig.checkDuplicity(collectionRef, processedData, safeCompanyId);
+              
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
@@ -188,7 +194,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
                 const docData = needsCompanyId
                   ? {
                       ...processedData,
-                      companyId: currentCompany.id,
+                      companyId: safeCompanyId,
                       importedAt: new Date().toISOString()
                     }
                   : {
@@ -204,7 +210,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           }
 
           const successMsg = needsCompanyId
-            ? `Sucesso! ${importedCount} registros importados em "${currentCompany.name}". (${skippedCount} ignorados/duplicados).`
+            ? `Sucesso! ${importedCount} registros importados em "${safeCompanyName}". (${skippedCount} ignorados/duplicados).`
             : `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados/duplicados).`;
           
           setStatus({ 
