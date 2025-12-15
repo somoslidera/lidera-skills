@@ -18,9 +18,9 @@ interface CompanyContextType {
 }
 
 const MASTER_EMAILS = [
-  'contato@somoslidera.com.br', 
-  'rodrigo.ribas1991@gmail.com'
-  'guilherme.emerim10@gmail.com''
+  'contato@somoslidera.com.br',
+  'rodrigo.ribas1991@gmail.com',
+  'guilherme.emerim10@gmail.com',
   'charles.cadavezmelhor@gmail.com',
   // Adicione seu e-mail aqui para testar
 ];
