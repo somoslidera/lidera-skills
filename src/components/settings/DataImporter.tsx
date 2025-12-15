@@ -514,6 +514,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     }
   };
 
+  // --- Templates CSV por tipo de importação ---
   const employeeTemplateCsv = useMemo(() => {
     const rows = [
       [
@@ -580,12 +581,137 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     return rows.map(r => r.join(',')).join('\n');
   }, []);
 
+  const criteriaTemplateCsv = useMemo(() => {
+    const rows = [
+      [
+        'Categoria_Avaliacao',
+        'ID_Avaliacao',
+        'Secao'
+      ],
+      [
+        'Líderes',
+        'Lideranca_Estrategica',
+        'Liderança'
+      ],
+      [
+        'Operadores',
+        'Comprometimento_Operacional',
+        'Comportamentais'
+      ]
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const sectorsTemplateCsv = useMemo(() => {
+    const rows = [
+      ['Nome_Setor'],
+      ['Financeiro'],
+      ['Operações']
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const rolesTemplateCsv = useMemo(() => {
+    const rows = [
+      ['Nome_Cargo', 'Nível'],
+      ['Diretor Geral', 'Estratégico'],
+      ['Coordenador de Operações', 'Tático'],
+      ['Analista Financeiro', 'Operacional']
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const evalLeadersTemplateCsv = useMemo(() => {
+    const rows = [
+      [
+        'ID_Funcionario',
+        'Nome_Lider_Avaliado',
+        'Cargo',
+        'Setor',
+        'Mes_Referencia',
+        'Pontuacao_Lider',
+        'Comunicacao_Clara_Coerente',
+        'Acompanhamento_Membros_Equipe',
+        'Cumprimento_Metas_Setor',
+        'Capacidade_Decisao_Resolucao',
+        'Assiduidade_Pontualidade_Lider'
+      ],
+      [
+        'L001',
+        'Maria Silva',
+        'Coordenadora de Operações',
+        'Operações',
+        '2024-01-01',
+        '8,5',
+        '9,0',
+        '8,0',
+        '8,0',
+        '9,0',
+        '8,0'
+      ]
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const evalColabTemplateCsv = useMemo(() => {
+    const rows = [
+      [
+        'ID_Funcionario',
+        'Nome_Colaborador',
+        'Cargo',
+        'Setor',
+        'Mes_Referencia',
+        'Pontuacao_Colaborador',
+        'Assiduidade_Pontualidade',
+        'Cumprimento_Tarefas',
+        'Proatividade',
+        'Organizacao_Limpeza',
+        'Uso_Uniforme_EPI'
+      ],
+      [
+        'C001',
+        'João Souza',
+        'Operador de Logística',
+        'Operações',
+        '2024-01-01',
+        '8,0',
+        '8,0',
+        '8,0',
+        '8,0',
+        '8,0',
+        '8,0'
+      ]
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const getTemplateByTarget = () => {
+    switch (target) {
+      case 'employees':
+        return { csv: employeeTemplateCsv, filename: 'modelo_funcionarios.csv' };
+      case 'criteria':
+        return { csv: criteriaTemplateCsv, filename: 'modelo_criterios.csv' };
+      case 'sectors':
+        return { csv: sectorsTemplateCsv, filename: 'modelo_setores.csv' };
+      case 'roles':
+        return { csv: rolesTemplateCsv, filename: 'modelo_cargos.csv' };
+      case 'evaluations_leaders':
+        return { csv: evalLeadersTemplateCsv, filename: 'modelo_historico_lideres.csv' };
+      case 'evaluations_collaborators':
+        return { csv: evalColabTemplateCsv, filename: 'modelo_historico_colaboradores.csv' };
+      default:
+        return null;
+    }
+  };
+
   const downloadTemplate = () => {
-    const blob = new Blob([employeeTemplateCsv], { type: 'text/csv;charset=utf-8;' });
+    const template = getTemplateByTarget();
+    if (!template) return;
+    const blob = new Blob([template.csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'modelo_funcionarios.csv');
+    link.setAttribute('download', template.filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -602,12 +728,12 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
             Importar CSV para {config[target].label.toLowerCase()}.
           </p>
-          {target === 'employees' && (
+          {getTemplateByTarget() && (
             <button
               onClick={downloadTemplate}
               className="mt-2 text-xs text-blue-700 dark:text-blue-300 font-semibold underline"
             >
-              Baixar modelo de CSV (Funcionários)
+              Baixar modelo de CSV ({config[target].label})
             </button>
           )}
         </div>

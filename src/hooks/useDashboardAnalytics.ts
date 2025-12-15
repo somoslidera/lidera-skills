@@ -211,9 +211,9 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     // Formatar Evolução (Ordenado por YYYY-MM mas exibindo MMM/YY)
     const evolutionData = Object.entries(timelineMap).sort().map(([_, vals]) => ({
         date: vals.label, // Usa o rótulo formatado (jan/24)
-        Líderes: vals.leaderCount ? Number((vals.leaderSum / vals.leaderCount).toFixed(2)) : 0,
-        Colaboradores: vals.colabCount ? Number((vals.colabSum / vals.colabCount).toFixed(2)) : 0,
-        Geral: (vals.leaderCount + vals.colabCount) > 0 ? Number(((vals.leaderSum + vals.colabSum) / (vals.leaderCount + vals.colabCount)).toFixed(2)) : 0,
+        Líderes: vals.leaderCount ? Number((vals.leaderSum / vals.leaderCount).toFixed(1)) : 0,
+        Colaboradores: vals.colabCount ? Number((vals.colabSum / vals.colabCount).toFixed(1)) : 0,
+        Geral: (vals.leaderCount + vals.colabCount) > 0 ? Number(((vals.leaderSum + vals.colabSum) / (vals.leaderCount + vals.colabCount)).toFixed(1)) : 0,
         Meta: 9.0
     }));
 

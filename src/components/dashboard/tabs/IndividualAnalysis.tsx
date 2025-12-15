@@ -50,13 +50,13 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                         <td className="p-4 font-medium text-gray-800 dark:text-white">{item.name}</td>
                         <td className="p-4 text-gray-500">{item.sector}</td>
                         <td className="p-4 text-center bg-blue-50/50 dark:bg-blue-900/5 font-bold text-blue-600">
-                           {item.individualScore.toFixed(2)}
+                           {item.individualScore.toFixed(1)}
                         </td>
                         <td className="p-4 text-center text-gray-600 dark:text-gray-400">
-                           {item.sectorAvg.toFixed(2)}
+                           {item.sectorAvg.toFixed(1)}
                         </td>
                         <td className="p-4 text-center text-gray-400">
-                           {item.companyAvg.toFixed(2)}
+                           {item.companyAvg.toFixed(1)}
                         </td>
                         <td className="p-4 text-center">
                            <span className={`text-xs font-bold px-2 py-1 rounded ${

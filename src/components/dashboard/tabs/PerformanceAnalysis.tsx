@@ -37,10 +37,10 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
               <Tooltip contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}} />
               <Legend />
               
-              <Line type="monotone" dataKey="Líderes" stroke="#3B82F6" strokeWidth={2} dot={{r: 4}} />
-              <Line type="monotone" dataKey="Colaboradores" stroke="#10B981" strokeWidth={2} dot={{r: 4}} />
-              <Line type="monotone" dataKey="Geral" stroke="#6366F1" strokeWidth={2} strokeDasharray="5 5" />
-              <Line type="monotone" dataKey="Meta" stroke="#EF4444" strokeWidth={1} dot={false} />
+              <Line type="monotone" dataKey="Líderes" stroke="#3B82F6" strokeWidth={2} dot={{r: 4}} name="Líderes" />
+              <Line type="monotone" dataKey="Colaboradores" stroke="#10B981" strokeWidth={2} dot={{r: 4}} name="Colaboradores" />
+              <Line type="monotone" dataKey="Geral" stroke="#6366F1" strokeWidth={2} strokeDasharray="5 5" name="Geral" />
+              <Line type="monotone" dataKey="Meta" stroke="#EF4444" strokeWidth={1} dot={false} name="Meta 9,0" />
             </LineChart>
           </ResponsiveContainer>
         </div>

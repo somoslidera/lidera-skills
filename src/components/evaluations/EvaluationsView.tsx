@@ -229,7 +229,11 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             value={evalMonth}
             onChange={(e) => setEvalMonth(e.target.value)}
           />
-          <p className="text-xs text-gray-400 mt-1">Geralmente avalia-se o mês anterior.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {evalMonth 
+              ? new Date(evalMonth + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+              : 'Selecione o mês/ano (ex: jan/2024)'}
+          </p>
         </div>
       </div>
 

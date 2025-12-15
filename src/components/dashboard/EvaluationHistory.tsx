@@ -109,7 +109,7 @@ export const EvaluationHistory = () => {
       .map(([period, data]) => ({
         period,
         count: data.count,
-        average: (data.totalScore / data.count).toFixed(2).replace('.', ','),
+        average: (data.totalScore / data.count).toFixed(1).replace('.', ','),
         rawDate: data.rawDate
       }))
       .sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
@@ -253,7 +253,7 @@ export const EvaluationHistory = () => {
                     </span>
                   </td>
                   <td className="p-4 font-bold text-gray-800 dark:text-gray-200">
-                    {ev.normalizedScore.toFixed(2).replace('.', ',')}
+                    {ev.normalizedScore.toFixed(1).replace('.', ',')}
                   </td>
                   <td className="p-4 text-right">
                     <FileText className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
@@ -280,7 +280,7 @@ export const EvaluationHistory = () => {
             <div className="mt-4 md:mt-0 text-center bg-white dark:bg-[#1E1E1E] px-8 py-4 rounded-lg shadow-sm border dark:border-gray-700">
               <span className="block text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Nota Final</span>
               <span className={`text-4xl font-bold ${selectedEvaluation.normalizedScore >= 8 ? 'text-green-600' : 'text-blue-600'}`}>
-                {selectedEvaluation.normalizedScore.toFixed(2).replace('.', ',')}
+                {selectedEvaluation.normalizedScore.toFixed(1).replace('.', ',')}
               </span>
             </div>
           </div>
@@ -296,9 +296,9 @@ export const EvaluationHistory = () => {
                   Object.entries(selectedEvaluation.detalhes).map(([key, value]: any, index: number) => (
                     <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="p-4 text-gray-700 dark:text-gray-300">{key}</td>
-                      <td className="p-4 text-right font-medium text-gray-800 dark:text-gray-200">
-                        {typeof value === 'number' ? value.toFixed(2).replace('.', ',') : value}
-                      </td>
+                    <td className="p-4 text-right font-medium text-gray-800 dark:text-gray-200">
+                        {typeof value === 'number' ? value.toFixed(1).replace('.', ',') : value}
+                    </td>
                     </tr>
                   ))
                 ) : (
