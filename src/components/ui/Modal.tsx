@@ -21,12 +21,12 @@ export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 pt-10 overflow-y-auto animate-fadeIn">
       <div 
         className="bg-white dark:bg-lidera-gray w-full max-w-3xl rounded-xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh]"
       >
-        {/* Header fixo */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        {/* Header fixo (permanece visível) */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800 shrink-0 sticky top-0 bg-white/95 dark:bg-lidera-gray/95 backdrop-blur">
           <h3 className="text-xl font-bold text-brand-gradient">{title}</h3>
           <button 
             onClick={onClose} 
