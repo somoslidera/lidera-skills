@@ -420,6 +420,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const seniority = row.Senioridade || '';
         const jobLevel = row['Nível de Cargo'] || row.NivelCargo || '';
         const phone = row.Telefone || row['Telefone'] || '';
+        const contractType = row['Tipo de Vínculo'] || row['Tipo de Vinculo'] || '';
+        const managerName = row['Gestor Imediato'] || row['Gestor'] || '';
+        const unit = row['Unidade/Filial'] || row['Unidade'] || row['Filial'] || '';
+        const costCenter = row['Centro de Custo'] || row['Centro de custo'] || '';
+        const discProfile = row['Perfil DISC'] || row['DISC'] || '';
+        const admissionDate = row['Data de Admissão'] || row['Data Admissão'] || '';
+        const terminationDate = row['Data de Desligamento'] || row['Data Desligamento'] || '';
 
         if (!name) {
           skippedCount++;
@@ -458,6 +465,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           function: funcao,
           seniority,
           jobLevel,
+          contractType,
+          managerName,
+          unit,
+          costCenter,
+          discProfile,
+          admissionDate,
+          terminationDate,
           sectorId,
           roleId,
           companyId: currentCompany.id,
@@ -497,8 +511,15 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         'Função',
         'Senioridade',
         'Nível de Cargo',
+        'Tipo de Vínculo',
+        'Gestor Imediato',
+        'Unidade/Filial',
+        'Centro de Custo',
+        'Perfil DISC',
         'Email',
-        'Telefone'
+        'Telefone',
+        'Data de Admissão',
+        'Data de Desligamento'
       ],
       [
         '001',
@@ -509,8 +530,15 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         'Financeiro Pleno',
         'Pleno',
         'Operacional',
+        'CLT',
+        'Carlos Lima',
+        'Matriz',
+        'CC-100-FIN',
+        'D/I',
         'maria@empresa.com',
-        '(11) 99999-0000'
+        '(11) 99999-0000',
+        '2021-03-15',
+        ''
       ],
       [
         '002',
@@ -521,8 +549,15 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         'Coordenação',
         'Sênior',
         'Tático',
+        'PJ',
+        'Ana Ribeiro',
+        'Filial SP',
+        'CC-200-OPS',
+        'S/C',
         'joao@empresa.com',
-        '(11) 98888-1111'
+        '(11) 98888-1111',
+        '2020-08-01',
+        ''
       ]
     ];
     return rows.map(r => r.join(',')).join('\n');

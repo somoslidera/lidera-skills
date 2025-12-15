@@ -119,6 +119,10 @@ export const EmployeesView = () => (
         { key: 'employeeCode', label: 'ID Funcionário' },
         { key: 'name', label: 'Nome Completo' },
         { key: 'email', label: 'Email Corporativo', type: 'email' },
+        { key: 'contractType', label: 'Tipo de Vínculo', type: 'select', options: ['CLT', 'PJ', 'Estagiário', 'Trainee', 'Temporário'] },
+        { key: 'managerName', label: 'Gestor Imediato' },
+        { key: 'unit', label: 'Unidade/Filial' },
+        { key: 'costCenter', label: 'Centro de Custo' },
         { key: 'phone', label: 'Telefone' },
         { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
         { key: 'area', label: 'Área de Atuação' },
@@ -127,6 +131,7 @@ export const EmployeesView = () => (
         { key: 'seniority', label: 'Senioridade' },
         { key: 'jobLevel', label: 'Nível de Cargo' },
         { key: 'admissionDate', label: 'Data de Admissão', type: 'date' },
+        { key: 'terminationDate', label: 'Data de Desligamento', type: 'date' },
         { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] },
         // Perfil DISC Adicionado
         { key: 'discProfile', label: 'Perfil DISC', type: 'select', options: DISC_OPTIONS }
