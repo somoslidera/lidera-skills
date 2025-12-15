@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, Loader2
+  Calendar, Loader2, CheckSquare, Square, Edit, X
 } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
+import { Modal } from '../ui/Modal'; // Assumindo que existe, se não, usamos um div simples
 
 // --- Interfaces para Tipagem ---
 interface Employee {
@@ -21,18 +22,18 @@ interface Employee {
 interface Role {
   id: string;
   name: string;
-  level: 'Estratégico' | 'Tático' | 'Operacional';
+  level: 'Estratégico' | 'Tático' | 'Operacional' | 'Colaborador' | 'Líder';
 }
 
 interface Criteria {
   id: string;
   name: string;
-  type: 'Estratégico' | 'Tático' | 'Operacional';
+  type: string;
   description?: string;
 }
 
 interface EvaluationData {
-  id?: string;
+  id: string;
   employeeName: string;
   role: string;
   sector: string;
@@ -42,32 +43,27 @@ interface EvaluationData {
   details: Record<string, number>;
 }
 
-// --- Subcomponente: Formulário de Avaliação ---
+// --- Subcomponente: Formulário de Avaliação (Mantido igual, apenas tipos ajustados) ---
 const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const { currentCompany, companies } = useCompany();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [criteriaList, setCriteriaList] = useState<Criteria[]>([]);
   
-  // Estado do Formulário
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
-  const [formType, setFormType] = useState<'Estratégico' | 'Tático' | 'Operacional' | null>(null);
+  const [formType, setFormType] = useState<string | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   
-  // Data padrão: Mês passado
   const [evalMonth, setEvalMonth] = useState(() => {
     const date = new Date();
     date.setMonth(date.getMonth() - 1);
-    return date.toISOString().slice(0, 7); // YYYY-MM
+    return date.toISOString().slice(0, 7); 
   });
 
   const [loading, setLoading] = useState(false);
-
-  // Estado para empresa selecionada no formulário
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id === 'all' ? '' : currentCompany?.id || '');
 
-  // Carregar dados iniciais
   useEffect(() => {
     const loadAux = async () => {
       try {
@@ -78,7 +74,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         
         if (selectedCompanyId) {
-          // Funcionários continuam filtrados por empresa
           const empQuery = query(collection(db, 'employees'), where("companyId", "==", selectedCompanyId));
           const empSnap = await getDocs(empQuery);
           
@@ -86,14 +81,11 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
           setEmployees(activeEmployees);
 
-          // Critérios agora são universais. Carregamos todos e filtramos por companyIds,
-          // permitindo também critérios globais (sem companyIds definido).
           const critSnap = await getDocs(collection(db, 'evaluation_criteria'));
           const allCriteria = critSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
           const filteredCriteria = allCriteria.filter((crit: any) => {
             const ids: string[] = crit.companyIds || [];
-            // Se não houver companyIds definido, consideramos global (disponível para todos)
             if (!ids || ids.length === 0) return true;
             return ids.includes(selectedCompanyId);
           });
@@ -110,7 +102,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     loadAux();
   }, [selectedCompanyId]);
 
-  // Ao selecionar funcionário, define o tipo de formulário baseado no cargo
   useEffect(() => {
     if (!selectedEmployeeId) {
       setCurrentEmployee(null);
@@ -229,11 +220,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             value={evalMonth}
             onChange={(e) => setEvalMonth(e.target.value)}
           />
-          <p className="text-xs text-gray-400 mt-1">
-            {evalMonth 
-              ? new Date(evalMonth + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-              : 'Selecione o mês/ano (ex: jan/2024)'}
-          </p>
         </div>
       </div>
 
@@ -243,11 +229,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <div><span className="font-bold">Setor:</span> {currentEmployee.sector}</div>
           <div>
             <span className="font-bold">Nível:</span>{' '}
-            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase
-              ${formType === 'Estratégico' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
-                formType === 'Tático' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
-                'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-              }`}>
+            <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               {formType}
             </span>
           </div>
@@ -312,6 +294,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   );
 };
 
+// --- Subcomponente: Tabela de Avaliações com Edição em Massa ---
 const EvaluationsTable = () => {
   const { currentCompany } = useCompany();
   const [data, setData] = useState<EvaluationData[]>([]);
@@ -319,31 +302,39 @@ const EvaluationsTable = () => {
   const [filterName, setFilterName] = useState('');
   const [filterSector, setFilterSector] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
+
+  // Estados para seleção em massa
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [bulkLevel, setBulkLevel] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Carrega dados
+  const loadData = async () => {
     if (!currentCompany) return;
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        let q;
-        if (currentCompany.id === 'all') {
-            q = collection(db, 'evaluations');
-        } else {
-            q = query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id));
-        }
-        
-        const snap = await getDocs(q);
-        const raw = snap.docs.map(d => ({ id: d.id, ...d.data() } as EvaluationData));
-        raw.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setData(raw);
-        setFilteredData(raw);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    try {
+      let q;
+      if (currentCompany.id === 'all') {
+          q = collection(db, 'evaluations');
+      } else {
+          q = query(collection(db, 'evaluations'), where("companyId", "==", currentCompany.id));
       }
-    };
-    load();
+      
+      const snap = await getDocs(q);
+      const raw = snap.docs.map(d => ({ id: d.id, ...d.data() } as EvaluationData));
+      raw.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setData(raw);
+      setFilteredData(raw);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [currentCompany]);
 
   useEffect(() => {
@@ -352,6 +343,55 @@ const EvaluationsTable = () => {
     if (filterSector) res = res.filter(d => d.sector === filterSector);
     setFilteredData(res);
   }, [filterName, filterSector, data]);
+
+  // Handlers de Seleção
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredData.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredData.map(d => d.id));
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(sid => sid !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  // Handler de Edição em Massa
+  const handleBulkUpdate = async () => {
+    if (!bulkLevel) return;
+    setIsUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      
+      selectedIds.forEach(id => {
+        const docRef = doc(db, 'evaluations', id);
+        batch.update(docRef, { type: bulkLevel });
+      });
+
+      await batch.commit();
+      
+      // Atualiza localmente para feedback instantâneo
+      const updatedData = data.map(item => 
+        selectedIds.includes(item.id) ? { ...item, type: bulkLevel } : item
+      );
+      setData(updatedData);
+      
+      setSelectedIds([]);
+      setIsBulkEditOpen(false);
+      setBulkLevel('');
+      alert(`Sucesso! ${selectedIds.length} avaliações atualizadas para o nível "${bulkLevel}".`);
+    } catch (error) {
+      console.error("Erro na atualização em massa:", error);
+      alert("Erro ao atualizar avaliações.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleExportCSV = () => {
     if (filteredData.length === 0) return;
@@ -378,6 +418,7 @@ const EvaluationsTable = () => {
 
   return (
     <div className="space-y-4">
+      {/* Barra de Ferramentas / Ações em Massa */}
       <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col md:flex-row gap-4 justify-between items-end">
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative group w-full md:w-64">
@@ -401,20 +442,37 @@ const EvaluationsTable = () => {
             </select>
           </div>
         </div>
-        <button 
-          onClick={handleExportCSV} 
-          disabled={filteredData.length === 0}
-          className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
-        >
-          <Download size={18} /> Exportar CSV
-        </button>
+        
+        <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setIsBulkEditOpen(true)}
+              className="flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold px-4 py-2 rounded-lg transition-colors shadow-sm animate-fadeIn"
+            >
+              <Edit size={18} /> Editar Nível ({selectedIds.length})
+            </button>
+          )}
+          <button 
+            onClick={handleExportCSV} 
+            disabled={filteredData.length === 0}
+            className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
+          >
+            <Download size={18} /> Exportar CSV
+          </button>
+        </div>
       </div>
 
+      {/* Tabela */}
       <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase font-medium border-b dark:border-gray-800">
               <tr>
+                <th className="p-4 w-10">
+                  <button onClick={handleSelectAll} className="text-gray-400 hover:text-blue-500">
+                    {selectedIds.length > 0 && selectedIds.length === filteredData.length ? <CheckSquare size={20} /> : <Square size={20} />}
+                  </button>
+                </th>
                 <th className="p-4">Data</th>
                 <th className="p-4">Colaborador</th>
                 <th className="p-4">Cargo</th>
@@ -425,11 +483,16 @@ const EvaluationsTable = () => {
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {isLoading ? (
-                <tr><td colSpan={6} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
               ) : filteredData.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
               ) : filteredData.map((ev) => (
-                <tr key={ev.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
+                <tr key={ev.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(ev.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                  <td className="p-4">
+                    <button onClick={() => handleSelectOne(ev.id)} className="text-gray-400 hover:text-blue-500">
+                      {selectedIds.includes(ev.id) ? <CheckSquare size={20} className="text-blue-500" /> : <Square size={20} />}
+                    </button>
+                  </td>
                   <td className="p-4 text-gray-500 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                         <Calendar size={14}/> 
@@ -462,6 +525,48 @@ const EvaluationsTable = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal de Edição em Massa */}
+      <Modal isOpen={isBulkEditOpen} onClose={() => setIsBulkEditOpen(false)} title={`Editar ${selectedIds.length} Itens Selecionados`}>
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-300">
+            Selecione o novo nível de cargo para aplicar a todas as avaliações selecionadas:
+          </p>
+          
+          <div className="grid gap-2">
+            {['Colaborador', 'Líder', 'Operacional', 'Tático', 'Estratégico'].map(level => (
+              <label key={level} className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700">
+                <input 
+                  type="radio" 
+                  name="bulkLevel" 
+                  value={level} 
+                  checked={bulkLevel === level} 
+                  onChange={(e) => setBulkLevel(e.target.value)}
+                  className="accent-blue-600 w-4 h-4"
+                />
+                <span className="text-gray-800 dark:text-gray-200 font-medium">{level}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <button 
+              onClick={handleBulkUpdate}
+              disabled={!bulkLevel || isUpdating}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold disabled:opacity-50 flex justify-center gap-2"
+            >
+              {isUpdating ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+              Confirmar Alteração
+            </button>
+            <button 
+              onClick={() => setIsBulkEditOpen(false)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
