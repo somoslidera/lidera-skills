@@ -10,32 +10,47 @@ const DISC_OPTIONS = [
   'D/I/S/C'
 ];
 
-// --- 1. Critérios de Avaliação ---
-export const CriteriaView = () => (
-  <div className="space-y-6 animate-fadeIn">
-    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-      <h3 className="font-bold text-blue-800 dark:text-blue-300">Configuração de Critérios</h3>
-      <p className="text-sm text-blue-600 dark:text-blue-400">
-        Defina as perguntas que aparecerão no formulário. Separe por Nível Hierárquico.
-      </p>
+// --- 1. Critérios de Avaliação (Universais com Seleção de Empresas) ---
+export const CriteriaView = () => {
+  const { isMaster } = useCompany();
+
+  const columns: any[] = [
+    { key: 'name', label: 'Competência / Pergunta' },
+    { 
+      key: 'type', 
+      label: 'Nível Alvo', 
+      type: 'select', 
+      options: ['Estratégico', 'Tático', 'Operacional'] 
+    },
+    { key: 'section', label: 'Seção / Categoria (ex: Liderança, Comportamental)' },
+    { key: 'description', label: 'Descrição da Competência' }
+  ];
+
+  if (isMaster) {
+    columns.push({
+      key: 'companyIds',
+      label: 'Disponível nas Empresas',
+      type: 'multi-select-companies'
+    });
+  }
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+        <h3 className="font-bold text-blue-800 dark:text-blue-300">Configuração de Critérios</h3>
+        <p className="text-sm text-blue-600 dark:text-blue-400">
+          Defina as perguntas que aparecerão no formulário, agrupando por nível de cargo e por seções (ex: Técnicos, Comportamentais, Liderança).
+        </p>
+      </div>
+      <DataImporter target="criteria" />
+      <GenericDatabaseView 
+        collectionName="evaluation_criteria" 
+        title="Critérios de Avaliação (Universais)"
+        columns={columns}
+      />
     </div>
-    <DataImporter target="criteria" />
-    <GenericDatabaseView 
-      collectionName="evaluation_criteria" 
-      title="Critérios de Avaliação"
-      columns={[
-        { key: 'name', label: 'Competência / Pergunta' },
-        { 
-          key: 'type', 
-          label: 'Nível Alvo', 
-          type: 'select', 
-          options: ['Estratégico', 'Tático', 'Operacional'] 
-        },
-        { key: 'description', label: 'Descrição da Competência' }
-      ]}
-    />
-  </div>
-);
+  );
+};
 
 // --- 2. Setores (Universal com Seleção de Empresas) ---
 export const SectorsView = () => {

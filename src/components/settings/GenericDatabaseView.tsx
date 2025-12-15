@@ -37,7 +37,11 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
   // Lógica de coleções universais
-  const isUniversalCollection = collectionName === 'sectors' || collectionName === 'roles' || collectionName === 'companies';
+  const isUniversalCollection = 
+    collectionName === 'sectors' || 
+    collectionName === 'roles' || 
+    collectionName === 'companies' ||
+    collectionName === 'evaluation_criteria';
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);

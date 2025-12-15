@@ -78,6 +78,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         setRoles(roleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Role)));
         
         if (selectedCompanyId) {
+          // Funcionários continuam filtrados por empresa
           const empQuery = query(collection(db, 'employees'), where("companyId", "==", selectedCompanyId));
           const empSnap = await getDocs(empQuery);
           
@@ -85,8 +86,19 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
           setEmployees(activeEmployees);
 
-          const critSnap = await getDocs(query(collection(db, 'evaluation_criteria'), where("companyId", "==", selectedCompanyId)));
-          setCriteriaList(critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria)));
+          // Critérios agora são universais. Carregamos todos e filtramos por companyIds,
+          // permitindo também critérios globais (sem companyIds definido).
+          const critSnap = await getDocs(collection(db, 'evaluation_criteria'));
+          const allCriteria = critSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+          const filteredCriteria = allCriteria.filter((crit: any) => {
+            const ids: string[] = crit.companyIds || [];
+            // Se não houver companyIds definido, consideramos global (disponível para todos)
+            if (!ids || ids.length === 0) return true;
+            return ids.includes(selectedCompanyId);
+          });
+
+          setCriteriaList(filteredCriteria as Criteria[]);
         } else {
           setEmployees([]);
           setCriteriaList([]);

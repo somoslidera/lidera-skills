@@ -55,10 +55,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
                      item.Categoria_Avaliacao === 'Líderes' ? 'Líder' : null;
         const name = item.ID_Avaliacao ? item.ID_Avaliacao.replace(/_/g, ' ') : null;
         if (!type || !name) return null;
-        return { name, type, description: '' };
+        // Tentativa de inferir seção/categoria a partir do CSV, se existir
+        const section = item.Secao || item.Seção || item.Categoria || '';
+        return { name, type, section, description: '' };
       },
-      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
-        query(ref, where("name", "==", data.name), where("type", "==", data.type), where("companyId", "==", companyId))
+      // Critérios agora são universais: duplicidade só por nome + nível
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, _companyId: string) => 
+        query(ref, where("name", "==", data.name), where("type", "==", data.type))
     },
     sectors: {
       label: 'Setores',
@@ -210,8 +213,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       return;
     }
 
-    // Apenas critérios e avaliações precisam de empresa selecionada
-    const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+    // Apenas avaliações precisam de empresa selecionada
+    const needsCompanyId = target === 'evaluations_leaders' || target === 'evaluations_collaborators';
     
     if (needsCompanyId && !currentCompany) {
       alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
@@ -236,8 +239,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
           const collectionRef = collection(db, currentConfig.collection);
 
-          // Determina se precisa de companyId (apenas para criteria e evaluations)
-          const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+          // Determina se precisa de companyId (apenas para evaluations)
+          const needsCompanyId = target === 'evaluations_leaders' || target === 'evaluations_collaborators';
           
           // Snapshot seguro dos dados da empresa para uso no loop assíncrono
           const safeCompanyId = currentCompany?.id || '';
@@ -258,7 +261,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
-                // Injeta o ID da empresa apenas se necessário
+                // Critérios agora são universais: não recebem companyId, 
+                // mas guardamos metadado de origem em importedAt/source
                 const docData = needsCompanyId
                   ? {
                       ...processedData,
@@ -267,7 +271,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
                     }
                   : {
                       ...processedData,
-                      importedAt: new Date().toISOString()
+                      importedAt: new Date().toISOString(),
+                      source: 'csv-import'
                     };
                 await addDoc(collectionRef, docData);
                 importedCount++;
