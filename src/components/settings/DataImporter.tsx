@@ -427,6 +427,15 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const discProfile = row['Perfil DISC'] || row['DISC'] || '';
         const admissionDate = row['Data de Admissão'] || row['Data Admissão'] || '';
         const terminationDate = row['Data de Desligamento'] || row['Data Desligamento'] || '';
+        const rawStatus = (row.Status || row['Status'] || '').toString().toLowerCase();
+
+        let status: string = 'Ativo';
+        if (rawStatus) {
+          if (rawStatus.includes('inativ')) status = 'Inativo';
+          else if (rawStatus.includes('afast')) status = 'Afastado';
+          else if (rawStatus.includes('féri') || rawStatus.includes('feri')) status = 'Férias';
+          else if (rawStatus.includes('ativo')) status = 'Ativo';
+        }
 
         if (!name) {
           skippedCount++;
@@ -475,7 +484,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           sectorId,
           roleId,
           companyId: currentCompany.id,
-          status: 'Ativo',
+          status,
           importedAt: new Date().toISOString(),
           source: 'csv-import'
         };
@@ -505,59 +514,62 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       [
         'ID',
         'Colaborador',
+        'Email',
+        'Telefone',
+        'Tipo de Vínculo',
+        'Status',
+        'Data de Admissão',
+        'Data de Desligamento',
         'Setor',
         'Área de Atuação',
         'Cargo',
         'Função',
         'Senioridade',
         'Nível de Cargo',
-        'Tipo de Vínculo',
         'Gestor Imediato',
         'Unidade/Filial',
         'Centro de Custo',
-        'Perfil DISC',
-        'Email',
-        'Telefone',
-        'Data de Admissão',
-        'Data de Desligamento'
+        'Perfil DISC'
       ],
       [
         '001',
         'Maria Silva',
+        'maria@empresa.com',
+        '(11) 99999-0000',
+        'CLT',
+        'Ativo',
+        '2021-03-15',
+        '',
         'Financeiro',
         'Controladoria',
         'Analista Financeiro',
         'Financeiro Pleno',
         'Pleno',
         'Operacional',
-        'CLT',
         'Carlos Lima',
         'Matriz',
         'CC-100-FIN',
-        'D/I',
-        'maria@empresa.com',
-        '(11) 99999-0000',
-        '2021-03-15',
-        ''
+        'D/I'
       ],
       [
         '002',
         'João Souza',
+        'joao@empresa.com',
+        '(11) 98888-1111',
+        'PJ',
+        'Ativo',
+        '2020-08-01',
+        '',
         'Operações',
         'Logística',
         'Coordenador de Operações',
         'Coordenação',
         'Sênior',
         'Tático',
-        'PJ',
         'Ana Ribeiro',
         'Filial SP',
         'CC-200-OPS',
-        'S/C',
-        'joao@empresa.com',
-        '(11) 98888-1111',
-        '2020-08-01',
-        ''
+        'S/C'
       ]
     ];
     return rows.map(r => r.join(',')).join('\n');
