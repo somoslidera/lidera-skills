@@ -1,6 +1,7 @@
 import { GenericDatabaseView } from './GenericDatabaseView';
 import { DataImporter } from './DataImporter';
 import { useCompany } from '../../contexts/CompanyContext';
+import { FileSpreadsheet, AlertTriangle } from 'lucide-react';
 
 // Lista de perfis DISC
 const DISC_OPTIONS = [
@@ -20,7 +21,7 @@ export const CriteriaView = () => {
       key: 'type', 
       label: 'Nível Alvo', 
       type: 'select', 
-      options: ['Estratégico', 'Tático', 'Operacional'] 
+      options: ['Estratégico', 'Tático', 'Operacional', 'Colaborador', 'Líder'] 
     },
     { key: 'section', label: 'Seção / Categoria (ex: Liderança, Comportamental)', hiddenInTable: true },
     { key: 'description', label: 'Descrição da Competência' }
@@ -93,7 +94,7 @@ export const RolesView = () => {
         key: 'level', 
         label: 'Nível Hierárquico', 
         type: 'select', 
-        options: ['Estratégico', 'Tático', 'Operacional'] 
+        options: ['Estratégico', 'Tático', 'Operacional', 'Colaborador', 'Líder'] 
       }
   ];
 
@@ -155,7 +156,48 @@ export const EmployeesView = () => (
   </div>
 );
 
-// --- 5. Usuários ---
+// --- 5. Importação de Histórico (NOVA TELA) ---
+export const HistoryImportView = () => {
+  const { currentCompany } = useCompany();
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-lg border border-indigo-100 dark:border-indigo-800">
+        <h3 className="text-xl font-bold text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+          <FileSpreadsheet /> Importação de Histórico Completo
+        </h3>
+        <p className="mt-2 text-indigo-700 dark:text-indigo-400">
+          Utilize esta ferramenta para importar planilhas de avaliações passadas (ex: Clientes novos como Gomes).
+        </p>
+        
+        {!currentCompany || currentCompany.id === 'all' ? (
+          <div className="mt-4 p-4 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-md flex items-center gap-2">
+            <AlertTriangle size={20} />
+            <strong>Atenção:</strong> Selecione uma empresa específica no topo da página antes de importar.
+          </div>
+        ) : (
+          <div className="mt-4 text-sm text-indigo-600 dark:text-indigo-400">
+            <p>Empresa selecionada para importação: <strong className="text-lg">{currentCompany.name}</strong></p>
+            <ul className="list-disc ml-5 mt-2 space-y-1">
+              <li>O sistema irá criar automaticamente os Funcionários, Setores e Cargos se não existirem.</li>
+              <li>As notas serão agrupadas por mês e colaborador.</li>
+              <li>Datas como "/ago./25" serão convertidas automaticamente.</li>
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {currentCompany && currentCompany.id !== 'all' && (
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          <h4 className="font-bold mb-4 text-gray-700 dark:text-gray-300">Selecione o arquivo CSV (Layout Gomes)</h4>
+          <DataImporter target="evaluations_gomes" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- 6. Usuários ---
 export const UsersView = () => (
   <GenericDatabaseView 
     collectionName="users" 
@@ -168,7 +210,7 @@ export const UsersView = () => (
   />
 );
 
-// --- 6. Gestão de Empresas ---
+// --- 7. Gestão de Empresas ---
 export const CompaniesView = () => (
   <GenericDatabaseView 
     collectionName="companies" 
