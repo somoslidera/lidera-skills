@@ -1,9 +1,21 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import { db } from '../../services/firebase';
-import { collection, addDoc, getDocs, query, where, CollectionReference, DocumentData } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  CollectionReference, 
+  DocumentData,
+  doc,
+  updateDoc,
+  arrayUnion 
+} from 'firebase/firestore';
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
+import { Modal } from '../ui/Modal';
 
 // Tipos de importação
 type ImportTarget = 'criteria' | 'sectors' | 'roles' | 'employees' | 'evaluations_leaders' | 'evaluations_collaborators';
@@ -12,6 +24,19 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   const { currentCompany } = useCompany();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; msg: string }>({ type: null, msg: '' });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // --- Estados exclusivos para importação de Funcionários ---
+  const [isMappingOpen, setIsMappingOpen] = useState(false);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [pendingRows, setPendingRows] = useState<any[]>([]);
+  const [pendingFileName, setPendingFileName] = useState('');
+  const [columnMapping, setColumnMapping] = useState({
+    name: '',
+    email: '',
+    sector: '',
+    role: ''
+  });
 
   // Função auxiliar para converter "8,50" em 8.5
   const parseScore = (val: string) => {
@@ -142,6 +167,49 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const isEmployeeImport = target === 'employees';
+
+    // Funcionários: exige empresa e abre modal de mapeamento de colunas
+    if (isEmployeeImport) {
+      if (!currentCompany || currentCompany.id === 'all') {
+        alert("Selecione uma empresa antes de importar funcionários.");
+        resetFileInput(event);
+        return;
+      }
+
+      setLoading(true);
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        encoding: "UTF-8",
+        complete: (results: any) => {
+          const rows = (results.data as any[]).filter(Boolean);
+          const headers = results.meta?.fields || [];
+
+          if (!rows.length) {
+            setStatus({ type: 'error', msg: 'O CSV está vazio.' });
+            setLoading(false);
+            resetFileInput(event);
+            return;
+          }
+
+          const guessedMapping = buildDefaultMapping(headers);
+          setColumnMapping(guessedMapping);
+          setCsvHeaders(headers);
+          setPendingRows(rows);
+          setPendingFileName(file.name);
+          setIsMappingOpen(true);
+          setLoading(false);
+        },
+        error: (error: any) => {
+          setLoading(false);
+          setStatus({ type: 'error', msg: `Erro ao ler CSV: ${error.message}` });
+          resetFileInput(event);
+        }
+      });
+      return;
+    }
+
     // Apenas critérios e avaliações precisam de empresa selecionada
     const needsCompanyId = target === 'criteria' || target === 'evaluations_leaders' || target === 'evaluations_collaborators';
     
@@ -229,8 +297,199 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       error: (error: any) => {
         setLoading(false);
         setStatus({ type: 'error', msg: `Erro ao ler CSV: ${error.message}` });
+        resetFileInput(event);
       }
     });
+  };
+
+  // --- Helpers específicos para funcionários ---
+  const buildDefaultMapping = (headers: string[]) => {
+    const lowerHeaders = headers.map(h => h.toLowerCase());
+    const findHeader = (candidates: string[]) => {
+      const foundIdx = lowerHeaders.findIndex(h => candidates.some(c => h.includes(c)));
+      return foundIdx >= 0 ? headers[foundIdx] : '';
+    };
+
+    return {
+      name: findHeader(['nome', 'name']),
+      email: findHeader(['email', 'e-mail']),
+      sector: findHeader(['setor', 'depart', 'area']),
+      role: findHeader(['cargo', 'funcao', 'função', 'role'])
+    };
+  };
+
+  const resetFileInput = (event?: React.ChangeEvent<HTMLInputElement>) => {
+    if (event?.target) event.target.value = '';
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const ensureSector = async (name: string, companyId: string, cache: Map<string, string>) => {
+    if (!name) return { id: '', name: '' };
+    if (cache.has(name)) return { id: cache.get(name) || '', name };
+
+    const sectorRef = collection(db, 'sectors');
+    const q = query(sectorRef, where("name", "==", name));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const docSnap = snapshot.docs[0];
+      const data = docSnap.data();
+      // Garante vínculo com a empresa
+      if (companyId) {
+        const companyIds = data.companyIds || [];
+        if (!companyIds.includes(companyId)) {
+          await updateDoc(doc(db, 'sectors', docSnap.id), { companyIds: arrayUnion(companyId) });
+        }
+      }
+      cache.set(name, docSnap.id);
+      return { id: docSnap.id, name };
+    }
+
+    const newDoc = await addDoc(sectorRef, {
+      name,
+      companyIds: companyId ? [companyId] : [],
+      importedAt: new Date().toISOString(),
+      createdFrom: 'csv-import'
+    });
+    cache.set(name, newDoc.id);
+    return { id: newDoc.id, name };
+  };
+
+  const ensureRole = async (name: string, companyId: string, cache: Map<string, string>) => {
+    if (!name) return { id: '', name: '' };
+    if (cache.has(name)) return { id: cache.get(name) || '', name };
+
+    const roleRef = collection(db, 'roles');
+    const q = query(roleRef, where("name", "==", name));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+      const docSnap = snapshot.docs[0];
+      const data = docSnap.data();
+      if (companyId) {
+        const companyIds = data.companyIds || [];
+        if (!companyIds.includes(companyId)) {
+          await updateDoc(doc(db, 'roles', docSnap.id), { companyIds: arrayUnion(companyId) });
+        }
+      }
+      cache.set(name, docSnap.id);
+      return { id: docSnap.id, name };
+    }
+
+    const newDoc = await addDoc(roleRef, {
+      name,
+      level: 'Colaborador',
+      companyIds: companyId ? [companyId] : [],
+      importedAt: new Date().toISOString(),
+      createdFrom: 'csv-import'
+    });
+    cache.set(name, newDoc.id);
+    return { id: newDoc.id, name };
+  };
+
+  const processEmployeeRows = async () => {
+    if (!currentCompany || currentCompany.id === 'all') {
+      setStatus({ type: 'error', msg: 'Selecione uma empresa para continuar.' });
+      return;
+    }
+
+    setLoading(true);
+    setStatus({ type: null, msg: 'Processando funcionários...' });
+
+    try {
+      const collectionRef = collection(db, 'employees');
+      const sectorCache = new Map<string, string>();
+      const roleCache = new Map<string, string>();
+
+      let importedCount = 0;
+      let skippedCount = 0;
+
+      for (const row of pendingRows) {
+        const name = row[columnMapping.name] || row.Nome || row.Name;
+        const email = row[columnMapping.email] || row.Email || row['E-mail'] || '';
+        const sectorName = row[columnMapping.sector] || row.Setor || '';
+        const roleName = row[columnMapping.role] || row.Cargo || '';
+
+        if (!name) {
+          skippedCount++;
+          continue;
+        }
+
+        // Checa duplicidade por email ou nome dentro da empresa
+        let exists = false;
+        if (email) {
+          const q = query(collectionRef, where("email", "==", email));
+          const snap = await getDocs(q);
+          exists = snap.docs.some(d => d.data().companyId === currentCompany.id);
+        }
+        if (!exists) {
+          const qName = query(collectionRef, where("name", "==", name));
+          const snapName = await getDocs(qName);
+          exists = snapName.docs.some(d => d.data().companyId === currentCompany.id);
+        }
+
+        if (exists) {
+          skippedCount++;
+          continue;
+        }
+
+        const { id: sectorId } = await ensureSector(sectorName, currentCompany.id, sectorCache);
+        const { id: roleId } = await ensureRole(roleName, currentCompany.id, roleCache);
+
+        const docData = {
+          name,
+          email,
+          sector: sectorName,
+          role: roleName,
+          sectorId,
+          roleId,
+          companyId: currentCompany.id,
+          status: 'Ativo',
+          importedAt: new Date().toISOString(),
+          source: 'csv-import'
+        };
+
+        await addDoc(collectionRef, docData);
+        importedCount++;
+      }
+
+      setStatus({ 
+        type: 'success', 
+        msg: `Importação concluída: ${importedCount} funcionários adicionados. (${skippedCount} ignorados por duplicidade ou dados incompletos).`
+      });
+    } catch (error: any) {
+      console.error(error);
+      setStatus({ type: 'error', msg: 'Erro ao processar funcionários: ' + (error.message || error) });
+    } finally {
+      setLoading(false);
+      setIsMappingOpen(false);
+      setPendingRows([]);
+      setPendingFileName('');
+      resetFileInput();
+    }
+  };
+
+  const employeeTemplateCsv = useMemo(() => {
+    const rows = [
+      ['Nome', 'Email', 'Setor', 'Cargo'],
+      ['Maria Silva', 'maria@empresa.com', 'Financeiro', 'Analista Financeiro'],
+      ['João Souza', 'joao@empresa.com', 'Operações', 'Coordenador de Operações']
+    ];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const downloadTemplate = () => {
+    const blob = new Blob([employeeTemplateCsv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'modelo_funcionarios.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -243,6 +502,14 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
             Importar CSV para {config[target].label.toLowerCase()}.
           </p>
+          {target === 'employees' && (
+            <button
+              onClick={downloadTemplate}
+              className="mt-2 text-xs text-blue-700 dark:text-blue-300 font-semibold underline"
+            >
+              Baixar modelo de CSV (Funcionários)
+            </button>
+          )}
         </div>
         
         <label className={`cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded shadow transition-all flex items-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -252,7 +519,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             type="file" 
             accept=".csv" 
             className="hidden" 
-            onChange={handleFileUpload} 
+            onChange={handleFileUpload}
+            ref={fileInputRef}
             disabled={loading}
           />
         </label>
@@ -265,6 +533,94 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           {status.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
           {status.msg}
         </div>
+      )}
+
+      {/* Modal de mapeamento de colunas para Funcionários */}
+      {target === 'employees' && (
+        <Modal 
+          isOpen={isMappingOpen} 
+          onClose={() => { setIsMappingOpen(false); resetFileInput(); }} 
+          title="Confirmar mapeamento das colunas"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Revise como cada coluna do CSV <strong>{pendingFileName || ''}</strong> será usada. Ajuste se necessário antes de finalizar a importação.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Nome do funcionário *</label>
+                <select
+                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
+                  value={columnMapping.name}
+                  onChange={(e) => setColumnMapping({...columnMapping, name: e.target.value})}
+                >
+                  <option value="">Selecione...</option>
+                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Email (opcional)</label>
+                <select
+                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
+                  value={columnMapping.email}
+                  onChange={(e) => setColumnMapping({...columnMapping, email: e.target.value})}
+                >
+                  <option value="">Selecione...</option>
+                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Setor *</label>
+                <select
+                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
+                  value={columnMapping.sector}
+                  onChange={(e) => setColumnMapping({...columnMapping, sector: e.target.value})}
+                >
+                  <option value="">Selecione...</option>
+                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500">Cargo *</label>
+                <select
+                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
+                  value={columnMapping.role}
+                  onChange={(e) => setColumnMapping({...columnMapping, role: e.target.value})}
+                >
+                  <option value="">Selecione...</option>
+                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {pendingRows.length > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-lg p-3 text-xs text-gray-600 dark:text-gray-300">
+                <p className="font-semibold mb-2">Pré-visualização da primeira linha:</p>
+                <pre className="whitespace-pre-wrap text-[11px]">
+{JSON.stringify(pendingRows[0], null, 2)}
+                </pre>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={processEmployeeRows}
+                disabled={loading || !columnMapping.name || !columnMapping.sector || !columnMapping.role}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex justify-center items-center gap-2 disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                Confirmar mapeamento e importar
+              </button>
+              <button
+                onClick={() => { setIsMappingOpen(false); resetFileInput(); }}
+                className="w-full py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-500"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
