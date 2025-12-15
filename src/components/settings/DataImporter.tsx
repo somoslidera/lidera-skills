@@ -25,7 +25,7 @@ type ImportTarget =
   | 'employees' 
   | 'evaluations_leaders' 
   | 'evaluations_collaborators'
-  | 'evaluations_gomes'; // Novo tipo adicionado
+  | 'evaluations_gomes';
 
 export const DataImporter = ({ target }: { target: ImportTarget }) => {
   const { currentCompany } = useCompany();
@@ -45,20 +45,16 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     role: ''
   });
 
-  // Função auxiliar para converter "8,50" em 8.5
+  // --- Helpers de Parsing ---
   const parseScore = (val: string) => {
     if (!val) return 0;
     if (typeof val === 'number') return val;
     return parseFloat(val.replace(',', '.')) || 0;
   };
 
-  // Função auxiliar para converter datas exóticas como "/ago./25" para "2025-08-01"
   const parseGomesDate = (rawDate: string): string => {
     if (!rawDate) return new Date().toISOString().split('T')[0];
-    
-    // Remove barras e espaços extras
     const cleanDate = rawDate.replace(/\//g, '').trim().toLowerCase();
-    // Esperado algo como "ago.25" ou "ago.2025" ou "ago25"
     
     const months: { [key: string]: string } = {
       'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
@@ -68,7 +64,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     let monthPart = '';
     let yearPart = '';
 
-    // Tenta encontrar o mês na string
     for (const m in months) {
       if (cleanDate.includes(m)) {
         monthPart = months[m];
@@ -76,7 +71,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       }
     }
 
-    // Tenta extrair o ano (assumindo que são os últimos 2 ou 4 dígitos)
     const yearMatch = cleanDate.match(/\d{2,4}$/);
     if (yearMatch) {
       yearPart = yearMatch[0];
@@ -86,11 +80,135 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     if (monthPart && yearPart) {
       return `${yearPart}-${monthPart}-01`;
     }
-
-    return rawDate; // Retorna original se falhar
+    return rawDate;
   };
 
-  // Configuração de processamento para cada tipo de importação
+  // --- Helpers de Banco de Dados (Upsert) ---
+  
+  // Garante que o setor existe, cria se não existir e retorna o ID
+  const ensureSector = async (name: string, companyId: string, cache: Map<string, string>) => {
+    if (!name) return '';
+    if (cache.has(name)) return cache.get(name)!;
+
+    const ref = collection(db, 'sectors');
+    const q = query(ref, where("name", "==", name));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      // Atualiza vinculo com empresa se necessário
+      if (companyId) {
+        const data = docSnap.data();
+        if (!data.companyIds?.includes(companyId)) {
+          await updateDoc(doc(db, 'sectors', docSnap.id), { companyIds: arrayUnion(companyId) });
+        }
+      }
+      cache.set(name, docSnap.id);
+      return docSnap.id;
+    }
+
+    const newDoc = await addDoc(ref, {
+      name,
+      companyIds: companyId ? [companyId] : [],
+      importedAt: new Date().toISOString(),
+      createdFrom: 'gomes-import'
+    });
+    cache.set(name, newDoc.id);
+    return newDoc.id;
+  };
+
+  // Garante que o cargo existe
+  const ensureRole = async (name: string, level: string, companyId: string, cache: Map<string, string>) => {
+    if (!name) return '';
+    if (cache.has(name)) return cache.get(name)!;
+
+    const ref = collection(db, 'roles');
+    const q = query(ref, where("name", "==", name));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      const docSnap = snap.docs[0];
+      if (companyId) {
+        const data = docSnap.data();
+        if (!data.companyIds?.includes(companyId)) {
+          await updateDoc(doc(db, 'roles', docSnap.id), { companyIds: arrayUnion(companyId) });
+        }
+      }
+      cache.set(name, docSnap.id);
+      return docSnap.id;
+    }
+
+    const newDoc = await addDoc(ref, {
+      name,
+      level: level || 'Colaborador',
+      companyIds: companyId ? [companyId] : [],
+      importedAt: new Date().toISOString(),
+      createdFrom: 'gomes-import'
+    });
+    cache.set(name, newDoc.id);
+    return newDoc.id;
+  };
+
+  // Garante que o critério existe
+  const ensureCriteria = async (name: string, type: string, cache: Map<string, string>) => {
+    if (!name) return '';
+    const key = `${name}-${type}`;
+    if (cache.has(key)) return cache.get(key)!;
+
+    const ref = collection(db, 'evaluation_criteria');
+    const q = query(ref, where("name", "==", name), where("type", "==", type));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      cache.set(key, snap.docs[0].id);
+      return snap.docs[0].id;
+    }
+
+    const newDoc = await addDoc(ref, {
+      name,
+      type,
+      section: 'Geral', // Default para importação automática
+      description: 'Importado automaticamente',
+      importedAt: new Date().toISOString()
+    });
+    cache.set(key, newDoc.id);
+    return newDoc.id;
+  };
+
+  // Garante que o funcionário existe
+  const ensureEmployee = async (data: any, companyId: string, cache: Map<string, string>) => {
+    if (!data.name) return '';
+    if (cache.has(data.name)) return cache.get(data.name)!;
+
+    const ref = collection(db, 'employees');
+    // Verifica primeiro por código se existir, senão por nome
+    let q;
+    if (data.employeeCode) {
+       q = query(ref, where("employeeCode", "==", data.employeeCode), where("companyId", "==", companyId));
+    } else {
+       q = query(ref, where("name", "==", data.name), where("companyId", "==", companyId));
+    }
+    
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      cache.set(data.name, snap.docs[0].id);
+      return snap.docs[0].id;
+    }
+
+    // Cria novo funcionário
+    const newDoc = await addDoc(ref, {
+      ...data,
+      companyId,
+      status: 'Ativo',
+      importedAt: new Date().toISOString(),
+      source: 'gomes-import'
+    });
+    cache.set(data.name, newDoc.id);
+    return newDoc.id;
+  };
+
+  // Configuração de processamento
   const config = {
     criteria: {
       label: 'Critérios de Avaliação',
@@ -150,9 +268,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const name = item.Nome_Lider_Avaliado || item.Nome_Colaborador;
         const dateRaw = item.Mes_Referencia;
         if (!name || !dateRaw) return null;
-
         const average = parseScore(item.Pontuacao_Lider);
-        
         const details = {
           'Comunicação': parseScore(item.Comunicacao_Clara_Coerente),
           'Gestão de Equipe': parseScore(item.Acompanhamento_Membros_Equipe),
@@ -160,7 +276,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           'Decisão': parseScore(item.Capacidade_Decisao_Resolucao),
           'Assiduidade': parseScore(item.Assiduidade_Pontualidade_Lider)
         };
-
         return {
           employeeName: name,
           employeeId: item.ID_Funcionario || '',
@@ -182,9 +297,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const name = item.Nome_Colaborador || `Func. ${item.ID_Funcionario}`;
         const dateRaw = item.Mes_Referencia;
         if (!dateRaw) return null;
-
         const average = parseScore(item.Pontuacao_Colaborador);
-
         const details = {
           'Assiduidade': parseScore(item.Assiduidade_Pontualidade),
           'Tarefas': parseScore(item.Cumprimento_Tarefas),
@@ -192,7 +305,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           'Organização': parseScore(item.Organizacao_Limpeza),
           'Uniforme': parseScore(item.Uso_Uniforme_EPI)
         };
-
         return {
           employeeName: name,
           employeeId: item.ID_Funcionario || '',
@@ -208,10 +320,9 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
     },
     evaluations_gomes: {
-      label: 'Histórico (Layout Gomes/Detalhado)',
+      label: 'Histórico Completo (Layout Gomes)',
       collection: 'evaluations',
-      // Processamento será customizado no handleFileUpload devido ao agrupamento
-      process: (_item: any) => null, 
+      process: (_item: any) => null, // Processamento customizado
       checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
         query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
     }
@@ -223,7 +334,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
     const isEmployeeImport = target === 'employees';
 
-    // Funcionários: exige empresa e abre modal de mapeamento de colunas
     if (isEmployeeImport) {
       if (!currentCompany || currentCompany.id === 'all') {
         alert("Selecione uma empresa antes de importar funcionários.");
@@ -239,14 +349,12 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         complete: (results: any) => {
           const rows = (results.data as any[]).filter(Boolean);
           const headers = results.meta?.fields || [];
-
           if (!rows.length) {
             setStatus({ type: 'error', msg: 'O CSV está vazio.' });
             setLoading(false);
             resetFileInput(event);
             return;
           }
-
           const guessedMapping = buildDefaultMapping(headers);
           setColumnMapping(guessedMapping);
           setCsvHeaders(headers);
@@ -264,9 +372,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       return;
     }
 
-    // Apenas avaliações precisam de empresa selecionada
     const needsCompanyId = target.startsWith('evaluations_');
-    
     if (needsCompanyId && !currentCompany) {
       alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
       event.target.value = '';
@@ -287,109 +393,130 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           const data = results.data as any[];
           let importedCount = 0;
           let skippedCount = 0;
+          const safeCompanyId = currentCompany?.id || '';
 
           const collectionRef = collection(db, currentConfig.collection);
-          const safeCompanyId = currentCompany?.id || '';
-          const safeCompanyName = currentCompany?.name || '';
 
-          if (needsCompanyId && !safeCompanyId) {
-             throw new Error("ID da empresa não encontrado.");
-          }
-
-          // --- Lógica Especial para Layout Gomes (Agrupamento) ---
+          // --- SUPER IMPORTAÇÃO GOMES ---
           if (target === 'evaluations_gomes') {
-            const groupedEvaluations = new Map<string, any>();
+             // 1. Agrupar Avaliações
+             const groupedEvaluations = new Map<string, any>();
+             const cacheSectors = new Map<string, string>();
+             const cacheRoles = new Map<string, string>();
+             const cacheCriteria = new Map<string, string>();
+             const cacheEmployees = new Map<string, string>();
 
-            // 1. Agrupar linhas por (Colaborador + Mês)
-            data.forEach(row => {
-              const name = row.Nome_Colaborador || row.Nome;
-              const dateRaw = row.Mes_Referencia;
-              const metricName = row.Nome_Metrica;
-              const score = parseScore(row.Nota);
-              
-              if (!name || !dateRaw || !metricName) return;
+             setStatus({ type: null, msg: 'Processando estrutura (Setores, Cargos, Critérios)...' });
 
-              const formattedDate = parseGomesDate(dateRaw);
-              const key = `${name}-${formattedDate}`;
+             // Pré-processamento: Agrupar e garantir dependências
+             for (const row of data) {
+               const name = row.Nome_Colaborador || row.Nome;
+               const dateRaw = row.Mes_Referencia;
+               const metricName = row.Nome_Metrica;
+               const sectorName = row.Setor;
+               const roleName = row.Cargo;
+               const level = row.Nivel || 'Colaborador';
+               const employeeCode = row.ID_Avaliacao; // Usar ID do CSV como código
 
-              if (!groupedEvaluations.has(key)) {
-                // Inicializa o objeto da avaliação
-                groupedEvaluations.set(key, {
-                  employeeName: name,
-                  employeeId: row.ID_Avaliacao || '', // Tenta pegar ID se existir na linha
-                  role: row.Cargo || '',
-                  sector: row.Setor || '',
-                  type: row.Nivel || 'Colaborador', // Default Colaborador se vazio
-                  date: formattedDate,
-                  details: {},
-                  // Campos auxiliares para cálculo
-                  totalScore: 0,
-                  metricCount: 0
-                });
-              }
+               if (!name || !dateRaw) continue;
 
-              const evalObj = groupedEvaluations.get(key);
-              // Adiciona a métrica no details
-              evalObj.details[metricName] = score;
-              evalObj.totalScore += score;
-              evalObj.metricCount += 1;
-            });
+               // A. Garante Setor e Cargo
+               const sectorId = await ensureSector(sectorName, safeCompanyId, cacheSectors);
+               const roleId = await ensureRole(roleName, level, safeCompanyId, cacheRoles);
 
-            // 2. Processar e Salvar os grupos
-            for (const item of groupedEvaluations.values()) {
-              // Calcula média
-              const average = item.metricCount > 0 
-                ? parseFloat((item.totalScore / item.metricCount).toFixed(2)) 
-                : 0;
+               // B. Garante Critério
+               if (metricName) {
+                 await ensureCriteria(metricName, level, cacheCriteria);
+               }
 
-              // Monta objeto final
-              const finalDoc = {
-                employeeName: item.employeeName,
-                employeeId: item.employeeId,
-                role: item.role,
-                sector: item.sector,
-                type: item.type,
-                date: item.date,
-                average: average,
-                details: item.details,
-                companyId: safeCompanyId,
-                importedAt: new Date().toISOString(),
-                source: 'csv-gomes-import'
-              };
+               // C. Garante Funcionário
+               await ensureEmployee({
+                 name,
+                 employeeCode,
+                 sector: sectorName,
+                 role: roleName,
+                 sectorId,
+                 roleId,
+                 jobLevel: level
+               }, safeCompanyId, cacheEmployees);
 
-              // Verifica duplicidade
-              const q = currentConfig.checkDuplicity(collectionRef, finalDoc, safeCompanyId);
-              const querySnapshot = await getDocs(q);
+               // D. Agrupa Avaliação
+               const formattedDate = parseGomesDate(dateRaw);
+               const key = `${name}-${formattedDate}`;
+               const score = parseScore(row.Nota);
 
-              if (querySnapshot.empty) {
-                await addDoc(collectionRef, finalDoc);
-                importedCount++;
-              } else {
-                skippedCount++;
-              }
-            }
-          
-          // --- Lógica Padrão (Linha a Linha) ---
+               if (!groupedEvaluations.has(key)) {
+                 groupedEvaluations.set(key, {
+                   employeeName: name,
+                   employeeId: employeeCode,
+                   role: roleName,
+                   sector: sectorName,
+                   type: level,
+                   date: formattedDate,
+                   details: {},
+                   totalScore: 0,
+                   metricCount: 0
+                 });
+               }
+
+               const evalObj = groupedEvaluations.get(key);
+               if (metricName) {
+                evalObj.details[metricName] = score;
+                evalObj.totalScore += score;
+                evalObj.metricCount += 1;
+               }
+             }
+
+             // 2. Salvar Avaliações Agrupadas
+             setStatus({ type: null, msg: 'Salvando avaliações...' });
+             
+             for (const item of groupedEvaluations.values()) {
+               const average = item.metricCount > 0 
+                 ? parseFloat((item.totalScore / item.metricCount).toFixed(2)) 
+                 : 0;
+
+               const finalDoc = {
+                 employeeName: item.employeeName,
+                 employeeId: item.employeeId,
+                 role: item.role,
+                 sector: item.sector,
+                 type: item.type,
+                 date: item.date,
+                 average: average,
+                 details: item.details,
+                 companyId: safeCompanyId,
+                 importedAt: new Date().toISOString(),
+                 source: 'gomes-full-import'
+               };
+
+               const q = currentConfig.checkDuplicity(collectionRef, finalDoc, safeCompanyId);
+               const querySnapshot = await getDocs(q);
+
+               if (querySnapshot.empty) {
+                 await addDoc(collectionRef, finalDoc);
+                 importedCount++;
+               } else {
+                 skippedCount++;
+               }
+             }
+
+             setStatus({ 
+               type: 'success', 
+               msg: `Importação Completa! ${importedCount} avaliações geradas. Dependências (Funcionários, Setores, Cargos, Critérios) verificadas e criadas.` 
+             });
+
           } else {
+            // Importação Padrão (Legado)
             for (const item of data) {
               const processedData = currentConfig.process(item);
-
               if (processedData) {
                 const q = currentConfig.checkDuplicity(collectionRef, processedData, safeCompanyId);
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty) {
                   const docData = needsCompanyId
-                    ? {
-                        ...processedData,
-                        companyId: safeCompanyId,
-                        importedAt: new Date().toISOString()
-                      }
-                    : {
-                        ...processedData,
-                        importedAt: new Date().toISOString(),
-                        source: 'csv-import'
-                      };
+                    ? { ...processedData, companyId: safeCompanyId, importedAt: new Date().toISOString() }
+                    : { ...processedData, importedAt: new Date().toISOString(), source: 'csv-import' };
                   await addDoc(collectionRef, docData);
                   importedCount++;
                 } else {
@@ -397,17 +524,12 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
                 }
               }
             }
+            setStatus({ type: 'success', msg: `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados).` });
           }
-
-          const successMsg = needsCompanyId
-            ? `Sucesso! ${importedCount} avaliações processadas em "${safeCompanyName}". (${skippedCount} ignoradas/duplicadas).`
-            : `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados/duplicados).`;
-          
-          setStatus({ type: 'success', msg: successMsg });
 
         } catch (error: any) {
           console.error(error);
-          setStatus({ type: 'error', msg: 'Erro ao processar dados: ' + (error.message || error) });
+          setStatus({ type: 'error', msg: 'Erro: ' + (error.message || error) });
         } finally {
           setLoading(false);
           event.target.value = '';
@@ -421,7 +543,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     });
   };
 
-  // --- Helpers específicos para funcionários ---
   const buildDefaultMapping = (headers: string[]) => {
     const lowerHeaders = headers.map(h => h.toLowerCase());
     const findHeader = (candidates: string[]) => {
@@ -439,241 +560,70 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
   const resetFileInput = (event?: React.ChangeEvent<HTMLInputElement>) => {
     if (event?.target) event.target.value = '';
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const ensureSector = async (name: string, companyId: string, cache: Map<string, string>) => {
-    if (!name) return { id: '', name: '' };
-    if (cache.has(name)) return { id: cache.get(name) || '', name };
-
-    const sectorRef = collection(db, 'sectors');
-    const q = query(sectorRef, where("name", "==", name));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      const docSnap = snapshot.docs[0];
-      const data = docSnap.data();
-      if (companyId) {
-        const companyIds = data.companyIds || [];
-        if (!companyIds.includes(companyId)) {
-          await updateDoc(doc(db, 'sectors', docSnap.id), { companyIds: arrayUnion(companyId) });
-        }
-      }
-      cache.set(name, docSnap.id);
-      return { id: docSnap.id, name };
-    }
-
-    const newDoc = await addDoc(sectorRef, {
-      name,
-      companyIds: companyId ? [companyId] : [],
-      importedAt: new Date().toISOString(),
-      createdFrom: 'csv-import'
-    });
-    cache.set(name, newDoc.id);
-    return { id: newDoc.id, name };
-  };
-
-  const ensureRole = async (name: string, companyId: string, cache: Map<string, string>) => {
-    if (!name) return { id: '', name: '' };
-    if (cache.has(name)) return { id: cache.get(name) || '', name };
-
-    const roleRef = collection(db, 'roles');
-    const q = query(roleRef, where("name", "==", name));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      const docSnap = snapshot.docs[0];
-      const data = docSnap.data();
-      if (companyId) {
-        const companyIds = data.companyIds || [];
-        if (!companyIds.includes(companyId)) {
-          await updateDoc(doc(db, 'roles', docSnap.id), { companyIds: arrayUnion(companyId) });
-        }
-      }
-      cache.set(name, docSnap.id);
-      return { id: docSnap.id, name };
-    }
-
-    const newDoc = await addDoc(roleRef, {
-      name,
-      level: 'Colaborador',
-      companyIds: companyId ? [companyId] : [],
-      importedAt: new Date().toISOString(),
-      createdFrom: 'csv-import'
-    });
-    cache.set(name, newDoc.id);
-    return { id: newDoc.id, name };
-  };
-
+  // --- Helpers duplicados para o modo Manual de Funcionários ---
+  // (Mantido para compatibilidade com a importação 'employees' antiga que usa o modal)
   const processEmployeeRows = async () => {
     if (!currentCompany || currentCompany.id === 'all') {
-      setStatus({ type: 'error', msg: 'Selecione uma empresa para continuar.' });
+      setStatus({ type: 'error', msg: 'Selecione uma empresa.' });
       return;
     }
-
     setLoading(true);
-    setStatus({ type: null, msg: 'Processando funcionários...' });
-
     try {
       const collectionRef = collection(db, 'employees');
-      const sectorCache = new Map<string, string>();
-      const roleCache = new Map<string, string>();
-
+      const cacheSectors = new Map<string, string>();
+      const cacheRoles = new Map<string, string>();
       let importedCount = 0;
       let skippedCount = 0;
 
       for (const row of pendingRows) {
-        const name = row[columnMapping.name] || row.Colaborador || row.Nome || row.Name;
-        const email = row[columnMapping.email] || row.Email || row['E-mail'] || '';
-        const sectorName = row[columnMapping.sector] || row.Setor || '';
-        const roleName = row[columnMapping.role] || row.Cargo || '';
+        const name = row[columnMapping.name];
+        if (!name) { skippedCount++; continue; }
+        
+        // Verifica duplicidade simples (pelo nome) para evitar criar repetido
+        const q = query(collectionRef, where("name", "==", name), where("companyId", "==", currentCompany.id));
+        const snap = await getDocs(q);
+        if(!snap.empty) { skippedCount++; continue; }
 
-        const employeeCode = row.ID || row.Id || '';
-        const area = row['Área de Atuação'] || row.Area || '';
-        const funcao = row.Função || row.Funcao || row['Função'] || '';
-        const seniority = row.Senioridade || '';
-        const jobLevel = row['Nível de Cargo'] || row.NivelCargo || '';
-        const phone = row.Telefone || row['Telefone'] || '';
-        const contractType = row['Tipo de Vínculo'] || row['Tipo de Vinculo'] || '';
-        const managerName = row['Gestor Imediato'] || row['Gestor'] || '';
-        const unit = row['Unidade/Filial'] || row['Unidade'] || row['Filial'] || '';
-        const costCenter = row['Centro de Custo'] || row['Centro de custo'] || '';
-        const discProfile = row['Perfil DISC'] || row['DISC'] || '';
-        const admissionDate = row['Data de Admissão'] || row['Data Admissão'] || '';
-        const terminationDate = row['Data de Desligamento'] || row['Data Desligamento'] || '';
-        const rawStatus = (row.Status || row['Status'] || '').toString().toLowerCase();
+        const sectorName = row[columnMapping.sector];
+        const roleName = row[columnMapping.role];
+        
+        const sectorId = await ensureSector(sectorName, currentCompany.id, cacheSectors);
+        const roleId = await ensureRole(roleName, 'Colaborador', currentCompany.id, cacheRoles);
 
-        let status: string = 'Ativo';
-        if (rawStatus) {
-          if (rawStatus.includes('inativ')) status = 'Inativo';
-          else if (rawStatus.includes('afast')) status = 'Afastado';
-          else if (rawStatus.includes('féri') || rawStatus.includes('feri')) status = 'Férias';
-          else if (rawStatus.includes('ativo')) status = 'Ativo';
-        }
-
-        if (!name) {
-          skippedCount++;
-          continue;
-        }
-
-        let exists = false;
-        if (email) {
-          const q = query(collectionRef, where("email", "==", email));
-          const snap = await getDocs(q);
-          exists = snap.docs.some(d => d.data().companyId === currentCompany.id);
-        }
-        if (!exists) {
-          const qName = query(collectionRef, where("name", "==", name));
-          const snapName = await getDocs(qName);
-          exists = snapName.docs.some(d => d.data().companyId === currentCompany.id);
-        }
-
-        if (exists) {
-          skippedCount++;
-          continue;
-        }
-
-        const { id: sectorId } = await ensureSector(sectorName, currentCompany.id, sectorCache);
-        const { id: roleId } = await ensureRole(roleName, currentCompany.id, roleCache);
-
-        const docData = {
-          employeeCode,
-          name,
-          email,
-          phone,
-          sector: sectorName,
-          area,
-          role: roleName,
-          function: funcao,
-          seniority,
-          jobLevel,
-          contractType,
-          managerName,
-          unit,
-          costCenter,
-          discProfile,
-          admissionDate,
-          terminationDate,
-          sectorId,
-          roleId,
-          companyId: currentCompany.id,
-          status,
-          importedAt: new Date().toISOString(),
-          source: 'csv-import'
-        };
-
-        await addDoc(collectionRef, docData);
+        await addDoc(collectionRef, {
+            name,
+            email: row[columnMapping.email] || '',
+            sector: sectorName,
+            role: roleName,
+            sectorId,
+            roleId,
+            companyId: currentCompany.id,
+            status: 'Ativo',
+            importedAt: new Date().toISOString()
+        });
         importedCount++;
       }
-
-      setStatus({ 
-        type: 'success', 
-        msg: `Importação concluída: ${importedCount} funcionários adicionados. (${skippedCount} ignorados por duplicidade ou dados incompletos).`
-      });
-    } catch (error: any) {
-      console.error(error);
-      setStatus({ type: 'error', msg: 'Erro ao processar funcionários: ' + (error.message || error) });
+      setStatus({ type: 'success', msg: `${importedCount} funcionários importados.` });
+    } catch (e: any) {
+      setStatus({ type: 'error', msg: e.message });
     } finally {
       setLoading(false);
       setIsMappingOpen(false);
       setPendingRows([]);
-      setPendingFileName('');
       resetFileInput();
     }
   };
 
-  // --- Templates CSV por tipo de importação ---
-  const employeeTemplateCsv = useMemo(() => {
-    const rows = [
-      ['ID', 'Colaborador', 'Email', 'Telefone', 'Tipo de Vínculo', 'Status', 'Data de Admissão', 'Data de Desligamento', 'Setor', 'Área de Atuação', 'Cargo', 'Função', 'Senioridade', 'Nível de Cargo', 'Gestor Imediato', 'Unidade/Filial', 'Centro de Custo', 'Perfil DISC'],
-      ['001', 'Maria Silva', 'maria@empresa.com', '(11) 99999-0000', 'CLT', 'Ativo', '2021-03-15', '', 'Financeiro', 'Controladoria', 'Analista Financeiro', 'Financeiro Pleno', 'Pleno', 'Operacional', 'Carlos Lima', 'Matriz', 'CC-100-FIN', 'D/I']
-    ];
-    return rows.map(r => r.join(',')).join('\n');
-  }, []);
-
-  const criteriaTemplateCsv = useMemo(() => {
-    const rows = [['Categoria_Avaliacao', 'ID_Avaliacao', 'Secao'], ['Líderes', 'Lideranca_Estrategica', 'Liderança']];
-    return rows.map(r => r.join(',')).join('\n');
-  }, []);
-
-  const sectorsTemplateCsv = useMemo(() => {
-    return [['Nome_Setor'], ['Financeiro']].map(r => r.join(',')).join('\n');
-  }, []);
-
-  const rolesTemplateCsv = useMemo(() => {
-    return [['Nome_Cargo', 'Nível'], ['Diretor Geral', 'Estratégico']].map(r => r.join(',')).join('\n');
-  }, []);
-
-  const evalLeadersTemplateCsv = useMemo(() => {
-    const rows = [['ID_Funcionario', 'Nome_Lider_Avaliado', 'Cargo', 'Setor', 'Mes_Referencia', 'Pontuacao_Lider', 'Comunicacao_Clara_Coerente'], ['L001', 'Maria Silva', 'Coord.', 'Ops', '2024-01-01', '8,5', '9,0']];
-    return rows.map(r => r.join(',')).join('\n');
-  }, []);
-
-  const evalColabTemplateCsv = useMemo(() => {
-    const rows = [['ID_Funcionario', 'Nome_Colaborador', 'Cargo', 'Setor', 'Mes_Referencia', 'Pontuacao_Colaborador', 'Assiduidade_Pontualidade'], ['C001', 'João Souza', 'Op.', 'Ops', '2024-01-01', '8,0', '8,0']];
-    return rows.map(r => r.join(',')).join('\n');
-  }, []);
-
-  const evalGomesTemplateCsv = useMemo(() => {
-    const rows = [
-      ['ID_Avaliacao', 'Nome_Colaborador', 'Cargo', 'Setor', 'Nivel', 'Mes_Referencia', 'Nome_Metrica', 'Nota'],
-      ['ID123', 'Nome Exemplo', 'Vendedor', 'Vendas', 'Colaborador', '/ago./25', 'Assiduidade', '8,0']
-    ];
-    return rows.map(r => r.join(',')).join('\n');
-  }, []);
-
   const getTemplateByTarget = () => {
+    const defaultCsv = "Nome,Cargo\nExemplo,Teste";
+    const gomesCsv = "ID_Avaliacao,Nome_Colaborador,Cargo,Setor,Nivel,Mes_Referencia,Nome_Metrica,Nota\n1,João,Op,Ops,Colaborador,/ago./25,Assiduidade,8";
+    
     switch (target) {
-      case 'employees': return { csv: employeeTemplateCsv, filename: 'modelo_funcionarios.csv' };
-      case 'criteria': return { csv: criteriaTemplateCsv, filename: 'modelo_criterios.csv' };
-      case 'sectors': return { csv: sectorsTemplateCsv, filename: 'modelo_setores.csv' };
-      case 'roles': return { csv: rolesTemplateCsv, filename: 'modelo_cargos.csv' };
-      case 'evaluations_leaders': return { csv: evalLeadersTemplateCsv, filename: 'modelo_historico_lideres.csv' };
-      case 'evaluations_collaborators': return { csv: evalColabTemplateCsv, filename: 'modelo_historico_colaboradores.csv' };
-      case 'evaluations_gomes': return { csv: evalGomesTemplateCsv, filename: 'modelo_historico_gomes.csv' };
-      default: return null;
+      case 'evaluations_gomes': return { csv: gomesCsv, filename: 'modelo_gomes.csv' };
+      default: return { csv: defaultCsv, filename: 'modelo.csv' };
     }
   };
 
@@ -699,126 +649,47 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             <Upload size={18} /> {config[target].label}
           </h4>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-            Importar CSV para {config[target].label.toLowerCase()}.
+            Importar CSV: {config[target].label}.
           </p>
-          {getTemplateByTarget() && (
-            <button
-              onClick={downloadTemplate}
-              className="mt-2 text-xs text-blue-700 dark:text-blue-300 font-semibold underline"
-            >
-              Baixar modelo de CSV ({config[target].label})
-            </button>
-          )}
+          <button onClick={downloadTemplate} className="mt-2 text-xs text-blue-700 dark:text-blue-300 font-semibold underline">
+            Baixar modelo
+          </button>
         </div>
         
         <label className={`cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded shadow transition-all flex items-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
           {loading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
           {loading ? 'Processando...' : 'Selecionar Arquivo'}
-          <input 
-            type="file" 
-            accept=".csv" 
-            className="hidden" 
-            onChange={handleFileUpload}
-            ref={fileInputRef}
-            disabled={loading}
-          />
+          <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} ref={fileInputRef} disabled={loading} />
         </label>
       </div>
 
       {status.type && (
-        <div className={`mt-3 p-2 rounded text-xs font-medium flex items-center gap-2 ${
-          status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
+        <div className={`mt-3 p-2 rounded text-xs font-medium flex items-center gap-2 ${status.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
           {status.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
           {status.msg}
         </div>
       )}
 
-      {/* Modal de mapeamento de colunas para Funcionários */}
+      {/* Modal mantido para importação manual de employees */}
       {target === 'employees' && (
-        <Modal 
-          isOpen={isMappingOpen} 
-          onClose={() => { setIsMappingOpen(false); resetFileInput(); }} 
-          title="Confirmar mapeamento das colunas"
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Revise como cada coluna do CSV <strong>{pendingFileName || ''}</strong> será usada. Ajuste se necessário antes de finalizar a importação.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Nome do funcionário *</label>
-                <select
-                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
-                  value={columnMapping.name}
-                  onChange={(e) => setColumnMapping({...columnMapping, name: e.target.value})}
-                >
-                  <option value="">Selecione...</option>
-                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+        <Modal isOpen={isMappingOpen} onClose={() => setIsMappingOpen(false)} title="Confirmar Colunas">
+           <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <select value={columnMapping.name} onChange={e => setColumnMapping({...columnMapping, name: e.target.value})} className="border p-2 rounded">
+                    <option value="">Nome (Coluna)</option>
+                    {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <select value={columnMapping.sector} onChange={e => setColumnMapping({...columnMapping, sector: e.target.value})} className="border p-2 rounded">
+                    <option value="">Setor (Coluna)</option>
+                    {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <select value={columnMapping.role} onChange={e => setColumnMapping({...columnMapping, role: e.target.value})} className="border p-2 rounded">
+                    <option value="">Cargo (Coluna)</option>
+                    {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Email (opcional)</label>
-                <select
-                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
-                  value={columnMapping.email}
-                  onChange={(e) => setColumnMapping({...columnMapping, email: e.target.value})}
-                >
-                  <option value="">Selecione...</option>
-                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Setor *</label>
-                <select
-                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
-                  value={columnMapping.sector}
-                  onChange={(e) => setColumnMapping({...columnMapping, sector: e.target.value})}
-                >
-                  <option value="">Selecione...</option>
-                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500">Cargo *</label>
-                <select
-                  className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
-                  value={columnMapping.role}
-                  onChange={(e) => setColumnMapping({...columnMapping, role: e.target.value})}
-                >
-                  <option value="">Selecione...</option>
-                  {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {pendingRows.length > 0 && (
-              <div className="bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 rounded-lg p-3 text-xs text-gray-600 dark:text-gray-300">
-                <p className="font-semibold mb-2">Pré-visualização da primeira linha:</p>
-                <pre className="whitespace-pre-wrap text-[11px]">
-{JSON.stringify(pendingRows[0], null, 2)}
-                </pre>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={processEmployeeRows}
-                disabled={loading || !columnMapping.name || !columnMapping.sector || !columnMapping.role}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex justify-center items-center gap-2 disabled:opacity-60"
-              >
-                {loading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                Confirmar mapeamento e importar
-              </button>
-              <button
-                onClick={() => { setIsMappingOpen(false); resetFileInput(); }}
-                className="w-full py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-500"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
+              <button onClick={processEmployeeRows} className="w-full bg-blue-600 text-white p-2 rounded">Importar</button>
+           </div>
         </Modal>
       )}
     </div>
