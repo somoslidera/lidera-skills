@@ -22,7 +22,7 @@ export const CriteriaView = () => {
       type: 'select', 
       options: ['Estratégico', 'Tático', 'Operacional'] 
     },
-    { key: 'section', label: 'Seção / Categoria (ex: Liderança, Comportamental)' },
+    { key: 'section', label: 'Seção / Categoria (ex: Liderança, Comportamental)', hiddenInTable: true },
     { key: 'description', label: 'Descrição da Competência' }
   ];
 

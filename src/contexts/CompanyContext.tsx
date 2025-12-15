@@ -58,8 +58,6 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     } else {
       localStorage.removeItem('lidera_selected_company');
     }
-    // Pequeno reload para limpar estados de outras views
-    setTimeout(() => window.location.reload(), 50);
   };
 
   const addNewCompany = async (name: string) => {

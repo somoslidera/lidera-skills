@@ -43,7 +43,9 @@ function MainApp() {
      return localStorage.getItem('lidera_current_view') as any || 'dashboard';
   });
 
-  const [settingsView, setSettingsView] = useState('criteria');
+  const [settingsView, setSettingsView] = useState(() => {
+    return localStorage.getItem('lidera_settings_view') || 'criteria';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [evaluations, setEvaluations] = useState<any[]>([]);
@@ -52,6 +54,10 @@ function MainApp() {
   useEffect(() => {
      localStorage.setItem('lidera_current_view', currentView);
   }, [currentView]);
+
+  useEffect(() => {
+    localStorage.setItem('lidera_settings_view', settingsView);
+  }, [settingsView]);
 
   useEffect(() => {
     const loadData = async () => {

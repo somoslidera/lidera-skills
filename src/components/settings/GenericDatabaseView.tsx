@@ -17,6 +17,7 @@ interface ColumnConfig {
   options?: string[]; 
   linkedCollection?: string; 
   linkedField?: string;
+  hiddenInTable?: boolean;
 }
 
 export const GenericDatabaseView = ({ collectionName, title, columns, customFieldsAllowed = true }: { collectionName: string, title: string, columns: ColumnConfig[], customFieldsAllowed?: boolean }) => {
@@ -174,6 +175,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const columnOptions = useMemo(() => {
     const options: Record<string, string[]> = {};
     columns.forEach(col => {
+      if (col.hiddenInTable) return;
       const values = Array.from(new Set(data.map(item => item[col.key]).filter(val => val !== undefined && val !== ''))).sort();
       options[col.key] = values as string[];
     });
@@ -293,7 +295,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
              </div>
              
              <div className="flex gap-2 w-full overflow-x-auto pb-2 scrollbar-thin">
-                {columns.map(col => {
+               {columns.map(col => {
+                  if (col.hiddenInTable) return null;
                    const options = columnOptions[col.key] || [];
                    if(options.length === 0 && !activeFilters[col.key]) return null;
 
@@ -336,7 +339,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                     </button>
                   </th>
                   <th className="px-6 py-4 whitespace-nowrap w-24">ID</th>
-                  {columns.map((col) => (
+                  {columns.filter(col => !col.hiddenInTable).map((col) => (
                     <th 
                       key={col.key} 
                       className="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group select-none"
@@ -377,9 +380,27 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                       </span>
                     </td>
 
-                    {columns.map((col) => (
+                    {columns.filter(col => !col.hiddenInTable).map((col) => (
                       <td key={col.key} className="px-6 py-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                         {col.key === 'status' ? (
+                         {col.type === 'multi-select-companies' ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(item[col.key] || []).map((id: string) => {
+                                const company = companies.find(c => c.id === id);
+                                if (!company) return null;
+                                return (
+                                  <span 
+                                    key={id} 
+                                    className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+                                  >
+                                    {company.name}
+                                  </span>
+                                );
+                              })}
+                              {(!item[col.key] || item[col.key].length === 0) && (
+                                <span className="text-xs text-gray-400 italic">Todas</span>
+                              )}
+                            </div>
+                         ) : col.key === 'status' ? (
                             <span className={`px-2 py-1 rounded text-xs font-bold ${
                                item[col.key] === 'Ativo' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
                                item[col.key] === 'Inativo' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 
