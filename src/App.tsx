@@ -16,7 +16,8 @@ import {
   RolesView, 
   EmployeesView, 
   UsersView,
-  CompaniesView
+  CompaniesView,
+  HistoryImportView // <--- Importação da nova View
 } from './components/settings/Registers';
 
 import { 
@@ -33,7 +34,8 @@ import {
   X,
   FileCheck,
   HelpCircle,
-  Building // Novo ícone
+  Building,
+  FileSpreadsheet // <--- Importação do ícone
 } from 'lucide-react';
 
 function MainApp() {
@@ -206,23 +208,37 @@ function MainApp() {
 
               <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
                 <div className="bg-white dark:bg-lidera-gray rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sticky top-24">
+                  
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
                   <div className="space-y-1">
                     <SettingsButton view="criteria" icon={ClipboardList} label="Critérios" />
                     <SettingsButton view="sectors" icon={Layers} label="Setores" />
                     <SettingsButton view="roles" icon={Briefcase} label="Cargos" />
-                    <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Pessoas</h3>
+                  </div>
+
+                  <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                  
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Pessoas</h3>
+                  <div className="space-y-1">
                     <SettingsButton view="employees" icon={Users} label="Funcionários" />
                     <SettingsButton view="users" icon={UserCog} label="Usuários" />
-                    {isMaster && (
-                      <>
-                        <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
-                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Admin</h3>
-                        <SettingsButton view="companies" icon={Building} label="Empresas" />
-                      </>
-                    )}
                   </div>
+
+                  {/* Nova Seção de Dados e Importação */}
+                  <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                  
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
+                  <div className="space-y-1">
+                    <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
+                  </div>
+
+                  {isMaster && (
+                    <>
+                      <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Admin</h3>
+                      <SettingsButton view="companies" icon={Building} label="Empresas" />
+                    </>
+                  )}
                 </div>
               </aside>
 
@@ -232,6 +248,7 @@ function MainApp() {
                 {settingsView === 'roles' && <RolesView />}
                 {settingsView === 'employees' && <EmployeesView />}
                 {settingsView === 'users' && <UsersView />}
+                {settingsView === 'import' && <HistoryImportView />} {/* <--- Renderização da nova view */}
                 {isMaster && settingsView === 'companies' && <CompaniesView />}
               </section>
             </div>
