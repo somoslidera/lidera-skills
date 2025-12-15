@@ -18,7 +18,14 @@ import { useCompany } from '../../contexts/CompanyContext';
 import { Modal } from '../ui/Modal';
 
 // Tipos de importação
-type ImportTarget = 'criteria' | 'sectors' | 'roles' | 'employees' | 'evaluations_leaders' | 'evaluations_collaborators';
+type ImportTarget = 
+  | 'criteria' 
+  | 'sectors' 
+  | 'roles' 
+  | 'employees' 
+  | 'evaluations_leaders' 
+  | 'evaluations_collaborators'
+  | 'evaluations_gomes'; // Novo tipo adicionado
 
 export const DataImporter = ({ target }: { target: ImportTarget }) => {
   const { currentCompany } = useCompany();
@@ -41,11 +48,49 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   // Função auxiliar para converter "8,50" em 8.5
   const parseScore = (val: string) => {
     if (!val) return 0;
+    if (typeof val === 'number') return val;
     return parseFloat(val.replace(',', '.')) || 0;
   };
 
+  // Função auxiliar para converter datas exóticas como "/ago./25" para "2025-08-01"
+  const parseGomesDate = (rawDate: string): string => {
+    if (!rawDate) return new Date().toISOString().split('T')[0];
+    
+    // Remove barras e espaços extras
+    const cleanDate = rawDate.replace(/\//g, '').trim().toLowerCase();
+    // Esperado algo como "ago.25" ou "ago.2025" ou "ago25"
+    
+    const months: { [key: string]: string } = {
+      'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
+      'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
+    };
+
+    let monthPart = '';
+    let yearPart = '';
+
+    // Tenta encontrar o mês na string
+    for (const m in months) {
+      if (cleanDate.includes(m)) {
+        monthPart = months[m];
+        break;
+      }
+    }
+
+    // Tenta extrair o ano (assumindo que são os últimos 2 ou 4 dígitos)
+    const yearMatch = cleanDate.match(/\d{2,4}$/);
+    if (yearMatch) {
+      yearPart = yearMatch[0];
+      if (yearPart.length === 2) yearPart = '20' + yearPart;
+    }
+
+    if (monthPart && yearPart) {
+      return `${yearPart}-${monthPart}-01`;
+    }
+
+    return rawDate; // Retorna original se falhar
+  };
+
   // Configuração de processamento para cada tipo de importação
-  // Padronizamos checkDuplicity para sempre receber (ref, data, companyId)
   const config = {
     criteria: {
       label: 'Critérios de Avaliação',
@@ -55,11 +100,9 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
                      item.Categoria_Avaliacao === 'Líderes' ? 'Líder' : null;
         const name = item.ID_Avaliacao ? item.ID_Avaliacao.replace(/_/g, ' ') : null;
         if (!type || !name) return null;
-        // Tentativa de inferir seção/categoria a partir do CSV, se existir
         const section = item.Secao || item.Seção || item.Categoria || '';
         return { name, type, section, description: '' };
       },
-      // Critérios agora são universais: duplicidade só por nome + nível
       checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, _companyId: string) => 
         query(ref, where("name", "==", data.name), where("type", "==", data.type))
     },
@@ -105,7 +148,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       collection: 'evaluations',
       process: (item: any) => {
         const name = item.Nome_Lider_Avaliado || item.Nome_Colaborador;
-        const dateRaw = item.Mes_Referencia; // Esperado YYYY-MM-DD
+        const dateRaw = item.Mes_Referencia;
         if (!name || !dateRaw) return null;
 
         const average = parseScore(item.Pontuacao_Lider);
@@ -163,6 +206,14 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       },
       checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
         query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
+    },
+    evaluations_gomes: {
+      label: 'Histórico (Layout Gomes/Detalhado)',
+      collection: 'evaluations',
+      // Processamento será customizado no handleFileUpload devido ao agrupamento
+      process: (_item: any) => null, 
+      checkDuplicity: (ref: CollectionReference<DocumentData>, data: any, companyId: string) => 
+        query(ref, where("employeeName", "==", data.employeeName), where("date", "==", data.date), where("companyId", "==", companyId))
     }
   };
 
@@ -214,11 +265,11 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     }
 
     // Apenas avaliações precisam de empresa selecionada
-    const needsCompanyId = target === 'evaluations_leaders' || target === 'evaluations_collaborators';
+    const needsCompanyId = target.startsWith('evaluations_');
     
     if (needsCompanyId && !currentCompany) {
       alert("Por favor, selecione uma empresa no topo da página antes de importar dados.");
-      event.target.value = ''; // Limpa o input para permitir selecionar o mesmo arquivo novamente
+      event.target.value = '';
       return;
     }
 
@@ -231,18 +282,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
-      complete: async (results: any) => { // Tipagem explícita para evitar erro TS7006
+      complete: async (results: any) => {
         try {
           const data = results.data as any[];
           let importedCount = 0;
           let skippedCount = 0;
 
           const collectionRef = collection(db, currentConfig.collection);
-
-          // Determina se precisa de companyId (apenas para evaluations)
-          const needsCompanyId = target === 'evaluations_leaders' || target === 'evaluations_collaborators';
-          
-          // Snapshot seguro dos dados da empresa para uso no loop assíncrono
           const safeCompanyId = currentCompany?.id || '';
           const safeCompanyName = currentCompany?.name || '';
 
@@ -250,46 +296,114 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
              throw new Error("ID da empresa não encontrado.");
           }
 
-          for (const item of data) {
-            const processedData = currentConfig.process(item);
+          // --- Lógica Especial para Layout Gomes (Agrupamento) ---
+          if (target === 'evaluations_gomes') {
+            const groupedEvaluations = new Map<string, any>();
 
-            if (processedData) {
-              // Verifica duplicidade usando o ID seguro
-              // Agora todos os checkDuplicity aceitam 3 argumentos, então passamos safeCompanyId sempre
-              const q = currentConfig.checkDuplicity(collectionRef, processedData, safeCompanyId);
+            // 1. Agrupar linhas por (Colaborador + Mês)
+            data.forEach(row => {
+              const name = row.Nome_Colaborador || row.Nome;
+              const dateRaw = row.Mes_Referencia;
+              const metricName = row.Nome_Metrica;
+              const score = parseScore(row.Nota);
               
+              if (!name || !dateRaw || !metricName) return;
+
+              const formattedDate = parseGomesDate(dateRaw);
+              const key = `${name}-${formattedDate}`;
+
+              if (!groupedEvaluations.has(key)) {
+                // Inicializa o objeto da avaliação
+                groupedEvaluations.set(key, {
+                  employeeName: name,
+                  employeeId: row.ID_Avaliacao || '', // Tenta pegar ID se existir na linha
+                  role: row.Cargo || '',
+                  sector: row.Setor || '',
+                  type: row.Nivel || 'Colaborador', // Default Colaborador se vazio
+                  date: formattedDate,
+                  details: {},
+                  // Campos auxiliares para cálculo
+                  totalScore: 0,
+                  metricCount: 0
+                });
+              }
+
+              const evalObj = groupedEvaluations.get(key);
+              // Adiciona a métrica no details
+              evalObj.details[metricName] = score;
+              evalObj.totalScore += score;
+              evalObj.metricCount += 1;
+            });
+
+            // 2. Processar e Salvar os grupos
+            for (const item of groupedEvaluations.values()) {
+              // Calcula média
+              const average = item.metricCount > 0 
+                ? parseFloat((item.totalScore / item.metricCount).toFixed(2)) 
+                : 0;
+
+              // Monta objeto final
+              const finalDoc = {
+                employeeName: item.employeeName,
+                employeeId: item.employeeId,
+                role: item.role,
+                sector: item.sector,
+                type: item.type,
+                date: item.date,
+                average: average,
+                details: item.details,
+                companyId: safeCompanyId,
+                importedAt: new Date().toISOString(),
+                source: 'csv-gomes-import'
+              };
+
+              // Verifica duplicidade
+              const q = currentConfig.checkDuplicity(collectionRef, finalDoc, safeCompanyId);
               const querySnapshot = await getDocs(q);
 
               if (querySnapshot.empty) {
-                // Critérios agora são universais: não recebem companyId, 
-                // mas guardamos metadado de origem em importedAt/source
-                const docData = needsCompanyId
-                  ? {
-                      ...processedData,
-                      companyId: safeCompanyId,
-                      importedAt: new Date().toISOString()
-                    }
-                  : {
-                      ...processedData,
-                      importedAt: new Date().toISOString(),
-                      source: 'csv-import'
-                    };
-                await addDoc(collectionRef, docData);
+                await addDoc(collectionRef, finalDoc);
                 importedCount++;
               } else {
                 skippedCount++;
               }
             }
+          
+          // --- Lógica Padrão (Linha a Linha) ---
+          } else {
+            for (const item of data) {
+              const processedData = currentConfig.process(item);
+
+              if (processedData) {
+                const q = currentConfig.checkDuplicity(collectionRef, processedData, safeCompanyId);
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                  const docData = needsCompanyId
+                    ? {
+                        ...processedData,
+                        companyId: safeCompanyId,
+                        importedAt: new Date().toISOString()
+                      }
+                    : {
+                        ...processedData,
+                        importedAt: new Date().toISOString(),
+                        source: 'csv-import'
+                      };
+                  await addDoc(collectionRef, docData);
+                  importedCount++;
+                } else {
+                  skippedCount++;
+                }
+              }
+            }
           }
 
           const successMsg = needsCompanyId
-            ? `Sucesso! ${importedCount} registros importados em "${safeCompanyName}". (${skippedCount} ignorados/duplicados).`
+            ? `Sucesso! ${importedCount} avaliações processadas em "${safeCompanyName}". (${skippedCount} ignoradas/duplicadas).`
             : `Sucesso! ${importedCount} registros importados. (${skippedCount} ignorados/duplicados).`;
           
-          setStatus({ 
-            type: 'success', 
-            msg: successMsg
-          });
+          setStatus({ type: 'success', msg: successMsg });
 
         } catch (error: any) {
           console.error(error);
@@ -316,7 +430,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     };
 
     return {
-      // Ex: "Colaborador"
       name: findHeader(['colaborador', 'nome', 'name']),
       email: findHeader(['email', 'e-mail']),
       sector: findHeader(['setor', 'depart', 'area']),
@@ -342,7 +455,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     if (!snapshot.empty) {
       const docSnap = snapshot.docs[0];
       const data = docSnap.data();
-      // Garante vínculo com a empresa
       if (companyId) {
         const companyIds = data.companyIds || [];
         if (!companyIds.includes(companyId)) {
@@ -418,7 +530,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const sectorName = row[columnMapping.sector] || row.Setor || '';
         const roleName = row[columnMapping.role] || row.Cargo || '';
 
-        // Novos campos do layout padrão:
         const employeeCode = row.ID || row.Id || '';
         const area = row['Área de Atuação'] || row.Area || '';
         const funcao = row.Função || row.Funcao || row['Função'] || '';
@@ -447,7 +558,6 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           continue;
         }
 
-        // Checa duplicidade por email ou nome dentro da empresa
         let exists = false;
         if (email) {
           const q = query(collectionRef, where("email", "==", email));
@@ -517,190 +627,53 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   // --- Templates CSV por tipo de importação ---
   const employeeTemplateCsv = useMemo(() => {
     const rows = [
-      [
-        'ID',
-        'Colaborador',
-        'Email',
-        'Telefone',
-        'Tipo de Vínculo',
-        'Status',
-        'Data de Admissão',
-        'Data de Desligamento',
-        'Setor',
-        'Área de Atuação',
-        'Cargo',
-        'Função',
-        'Senioridade',
-        'Nível de Cargo',
-        'Gestor Imediato',
-        'Unidade/Filial',
-        'Centro de Custo',
-        'Perfil DISC'
-      ],
-      [
-        '001',
-        'Maria Silva',
-        'maria@empresa.com',
-        '(11) 99999-0000',
-        'CLT',
-        'Ativo',
-        '2021-03-15',
-        '',
-        'Financeiro',
-        'Controladoria',
-        'Analista Financeiro',
-        'Financeiro Pleno',
-        'Pleno',
-        'Operacional',
-        'Carlos Lima',
-        'Matriz',
-        'CC-100-FIN',
-        'D/I'
-      ],
-      [
-        '002',
-        'João Souza',
-        'joao@empresa.com',
-        '(11) 98888-1111',
-        'PJ',
-        'Ativo',
-        '2020-08-01',
-        '',
-        'Operações',
-        'Logística',
-        'Coordenador de Operações',
-        'Coordenação',
-        'Sênior',
-        'Tático',
-        'Ana Ribeiro',
-        'Filial SP',
-        'CC-200-OPS',
-        'S/C'
-      ]
+      ['ID', 'Colaborador', 'Email', 'Telefone', 'Tipo de Vínculo', 'Status', 'Data de Admissão', 'Data de Desligamento', 'Setor', 'Área de Atuação', 'Cargo', 'Função', 'Senioridade', 'Nível de Cargo', 'Gestor Imediato', 'Unidade/Filial', 'Centro de Custo', 'Perfil DISC'],
+      ['001', 'Maria Silva', 'maria@empresa.com', '(11) 99999-0000', 'CLT', 'Ativo', '2021-03-15', '', 'Financeiro', 'Controladoria', 'Analista Financeiro', 'Financeiro Pleno', 'Pleno', 'Operacional', 'Carlos Lima', 'Matriz', 'CC-100-FIN', 'D/I']
     ];
     return rows.map(r => r.join(',')).join('\n');
   }, []);
 
   const criteriaTemplateCsv = useMemo(() => {
-    const rows = [
-      [
-        'Categoria_Avaliacao',
-        'ID_Avaliacao',
-        'Secao'
-      ],
-      [
-        'Líderes',
-        'Lideranca_Estrategica',
-        'Liderança'
-      ],
-      [
-        'Operadores',
-        'Comprometimento_Operacional',
-        'Comportamentais'
-      ]
-    ];
+    const rows = [['Categoria_Avaliacao', 'ID_Avaliacao', 'Secao'], ['Líderes', 'Lideranca_Estrategica', 'Liderança']];
     return rows.map(r => r.join(',')).join('\n');
   }, []);
 
   const sectorsTemplateCsv = useMemo(() => {
-    const rows = [
-      ['Nome_Setor'],
-      ['Financeiro'],
-      ['Operações']
-    ];
-    return rows.map(r => r.join(',')).join('\n');
+    return [['Nome_Setor'], ['Financeiro']].map(r => r.join(',')).join('\n');
   }, []);
 
   const rolesTemplateCsv = useMemo(() => {
-    const rows = [
-      ['Nome_Cargo', 'Nível'],
-      ['Diretor Geral', 'Estratégico'],
-      ['Coordenador de Operações', 'Tático'],
-      ['Analista Financeiro', 'Operacional']
-    ];
-    return rows.map(r => r.join(',')).join('\n');
+    return [['Nome_Cargo', 'Nível'], ['Diretor Geral', 'Estratégico']].map(r => r.join(',')).join('\n');
   }, []);
 
   const evalLeadersTemplateCsv = useMemo(() => {
-    const rows = [
-      [
-        'ID_Funcionario',
-        'Nome_Lider_Avaliado',
-        'Cargo',
-        'Setor',
-        'Mes_Referencia',
-        'Pontuacao_Lider',
-        'Comunicacao_Clara_Coerente',
-        'Acompanhamento_Membros_Equipe',
-        'Cumprimento_Metas_Setor',
-        'Capacidade_Decisao_Resolucao',
-        'Assiduidade_Pontualidade_Lider'
-      ],
-      [
-        'L001',
-        'Maria Silva',
-        'Coordenadora de Operações',
-        'Operações',
-        '2024-01-01',
-        '8,5',
-        '9,0',
-        '8,0',
-        '8,0',
-        '9,0',
-        '8,0'
-      ]
-    ];
+    const rows = [['ID_Funcionario', 'Nome_Lider_Avaliado', 'Cargo', 'Setor', 'Mes_Referencia', 'Pontuacao_Lider', 'Comunicacao_Clara_Coerente'], ['L001', 'Maria Silva', 'Coord.', 'Ops', '2024-01-01', '8,5', '9,0']];
     return rows.map(r => r.join(',')).join('\n');
   }, []);
 
   const evalColabTemplateCsv = useMemo(() => {
+    const rows = [['ID_Funcionario', 'Nome_Colaborador', 'Cargo', 'Setor', 'Mes_Referencia', 'Pontuacao_Colaborador', 'Assiduidade_Pontualidade'], ['C001', 'João Souza', 'Op.', 'Ops', '2024-01-01', '8,0', '8,0']];
+    return rows.map(r => r.join(',')).join('\n');
+  }, []);
+
+  const evalGomesTemplateCsv = useMemo(() => {
     const rows = [
-      [
-        'ID_Funcionario',
-        'Nome_Colaborador',
-        'Cargo',
-        'Setor',
-        'Mes_Referencia',
-        'Pontuacao_Colaborador',
-        'Assiduidade_Pontualidade',
-        'Cumprimento_Tarefas',
-        'Proatividade',
-        'Organizacao_Limpeza',
-        'Uso_Uniforme_EPI'
-      ],
-      [
-        'C001',
-        'João Souza',
-        'Operador de Logística',
-        'Operações',
-        '2024-01-01',
-        '8,0',
-        '8,0',
-        '8,0',
-        '8,0',
-        '8,0',
-        '8,0'
-      ]
+      ['ID_Avaliacao', 'Nome_Colaborador', 'Cargo', 'Setor', 'Nivel', 'Mes_Referencia', 'Nome_Metrica', 'Nota'],
+      ['ID123', 'Nome Exemplo', 'Vendedor', 'Vendas', 'Colaborador', '/ago./25', 'Assiduidade', '8,0']
     ];
     return rows.map(r => r.join(',')).join('\n');
   }, []);
 
   const getTemplateByTarget = () => {
     switch (target) {
-      case 'employees':
-        return { csv: employeeTemplateCsv, filename: 'modelo_funcionarios.csv' };
-      case 'criteria':
-        return { csv: criteriaTemplateCsv, filename: 'modelo_criterios.csv' };
-      case 'sectors':
-        return { csv: sectorsTemplateCsv, filename: 'modelo_setores.csv' };
-      case 'roles':
-        return { csv: rolesTemplateCsv, filename: 'modelo_cargos.csv' };
-      case 'evaluations_leaders':
-        return { csv: evalLeadersTemplateCsv, filename: 'modelo_historico_lideres.csv' };
-      case 'evaluations_collaborators':
-        return { csv: evalColabTemplateCsv, filename: 'modelo_historico_colaboradores.csv' };
-      default:
-        return null;
+      case 'employees': return { csv: employeeTemplateCsv, filename: 'modelo_funcionarios.csv' };
+      case 'criteria': return { csv: criteriaTemplateCsv, filename: 'modelo_criterios.csv' };
+      case 'sectors': return { csv: sectorsTemplateCsv, filename: 'modelo_setores.csv' };
+      case 'roles': return { csv: rolesTemplateCsv, filename: 'modelo_cargos.csv' };
+      case 'evaluations_leaders': return { csv: evalLeadersTemplateCsv, filename: 'modelo_historico_lideres.csv' };
+      case 'evaluations_collaborators': return { csv: evalColabTemplateCsv, filename: 'modelo_historico_colaboradores.csv' };
+      case 'evaluations_gomes': return { csv: evalGomesTemplateCsv, filename: 'modelo_historico_gomes.csv' };
+      default: return null;
     }
   };
 
