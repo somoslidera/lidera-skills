@@ -311,7 +311,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     };
 
     return {
-      name: findHeader(['nome', 'name']),
+      // Ex: "Colaborador"
+      name: findHeader(['colaborador', 'nome', 'name']),
       email: findHeader(['email', 'e-mail']),
       sector: findHeader(['setor', 'depart', 'area']),
       role: findHeader(['cargo', 'funcao', 'função', 'role'])
@@ -407,10 +408,18 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       let skippedCount = 0;
 
       for (const row of pendingRows) {
-        const name = row[columnMapping.name] || row.Nome || row.Name;
+        const name = row[columnMapping.name] || row.Colaborador || row.Nome || row.Name;
         const email = row[columnMapping.email] || row.Email || row['E-mail'] || '';
         const sectorName = row[columnMapping.sector] || row.Setor || '';
         const roleName = row[columnMapping.role] || row.Cargo || '';
+
+        // Novos campos do layout padrão:
+        const employeeCode = row.ID || row.Id || '';
+        const area = row['Área de Atuação'] || row.Area || '';
+        const funcao = row.Função || row.Funcao || row['Função'] || '';
+        const seniority = row.Senioridade || '';
+        const jobLevel = row['Nível de Cargo'] || row.NivelCargo || '';
+        const phone = row.Telefone || row['Telefone'] || '';
 
         if (!name) {
           skippedCount++;
@@ -439,10 +448,16 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const { id: roleId } = await ensureRole(roleName, currentCompany.id, roleCache);
 
         const docData = {
+          employeeCode,
           name,
           email,
+          phone,
           sector: sectorName,
+          area,
           role: roleName,
+          function: funcao,
+          seniority,
+          jobLevel,
           sectorId,
           roleId,
           companyId: currentCompany.id,
@@ -473,9 +488,42 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
   const employeeTemplateCsv = useMemo(() => {
     const rows = [
-      ['Nome', 'Email', 'Setor', 'Cargo'],
-      ['Maria Silva', 'maria@empresa.com', 'Financeiro', 'Analista Financeiro'],
-      ['João Souza', 'joao@empresa.com', 'Operações', 'Coordenador de Operações']
+      [
+        'ID',
+        'Colaborador',
+        'Setor',
+        'Área de Atuação',
+        'Cargo',
+        'Função',
+        'Senioridade',
+        'Nível de Cargo',
+        'Email',
+        'Telefone'
+      ],
+      [
+        '001',
+        'Maria Silva',
+        'Financeiro',
+        'Controladoria',
+        'Analista Financeiro',
+        'Financeiro Pleno',
+        'Pleno',
+        'Operacional',
+        'maria@empresa.com',
+        '(11) 99999-0000'
+      ],
+      [
+        '002',
+        'João Souza',
+        'Operações',
+        'Logística',
+        'Coordenador de Operações',
+        'Coordenação',
+        'Sênior',
+        'Tático',
+        'joao@empresa.com',
+        '(11) 98888-1111'
+      ]
     ];
     return rows.map(r => r.join(',')).join('\n');
   }, []);

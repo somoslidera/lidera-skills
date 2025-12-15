@@ -116,10 +116,16 @@ export const EmployeesView = () => (
       collectionName="employees" 
       title="Gerenciar Funcionários"
       columns={[
+        { key: 'employeeCode', label: 'ID Funcionário' },
         { key: 'name', label: 'Nome Completo' },
         { key: 'email', label: 'Email Corporativo', type: 'email' },
+        { key: 'phone', label: 'Telefone' },
         { key: 'sector', label: 'Setor', linkedCollection: 'sectors', linkedField: 'name', type: 'select' },
+        { key: 'area', label: 'Área de Atuação' },
         { key: 'role', label: 'Cargo', linkedCollection: 'roles', linkedField: 'name', type: 'select' },
+        { key: 'function', label: 'Função' },
+        { key: 'seniority', label: 'Senioridade' },
+        { key: 'jobLevel', label: 'Nível de Cargo' },
         { key: 'admissionDate', label: 'Data de Admissão', type: 'date' },
         { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] },
         // Perfil DISC Adicionado
