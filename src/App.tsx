@@ -84,8 +84,12 @@ function MainApp() {
       <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-lidera-dark text-center p-4">
         <div className="bg-white dark:bg-lidera-gray p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-md w-full animate-fadeIn">
           <div className="mb-6 flex justify-center">
-             <div className="bg-brand-gradient p-4 rounded-full">
-               <Briefcase size={48} className="text-white dark:text-black" />
+             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-blue-100 dark:ring-gray-700">
+               <img 
+                 src="/lidera-logo.png" 
+                 alt="Lidera Skills" 
+                 className="w-full h-full object-cover"
+               />
              </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Bem-vindo ao Lidera Skills</h2>
@@ -136,8 +140,12 @@ function MainApp() {
               
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="bg-brand-gradient p-2 rounded-lg shadow-lg">
-                    <LayoutDashboard size={22} className="text-white dark:text-black" />
+                  <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg ring-2 ring-white dark:ring-gray-800">
+                    <img 
+                      src="/lidera-logo.png" 
+                      alt="Lidera Skills" 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <h1 className="text-xl font-bold text-gray-800 dark:text-white hidden md:block tracking-tight">
                     Lidera Skills
