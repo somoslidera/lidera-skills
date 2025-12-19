@@ -15,7 +15,8 @@ interface Evaluation {
 
 interface FilterState {
   searchTerm: string;
-  selectedSector: string;
+  selectedSectors: string[]; // Mudado para array
+  selectedEmployees: string[]; // Novo: seleção múltipla de funcionários
   dateStart: string;
   dateEnd: string;
 }
@@ -42,7 +43,7 @@ const aggregateDonutData = (data: { name: string; value: number }[]) => {
   return top5;
 };
 
-export const useDashboardAnalytics = (evaluations: any[], employees: any[], filters: FilterState) => {
+export const useDashboardAnalytics = (evaluations: any[], employees: any[], filters: FilterState, criteriaList?: any[]) => {
   
   // 1. Processamento Inicial e Normalização
   const processedData = useMemo(() => {
@@ -111,13 +112,18 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     return processedData.filter((item) => {
       const searchMatch = !filters.searchTerm || 
         item.realName.toLowerCase().includes(filters.searchTerm.toLowerCase());
-      const sectorMatch = !filters.selectedSector || item.realSector === filters.selectedSector;
+      
+      // Filtro de setores (múltipla seleção)
+      const sectorMatch = filters.selectedSectors.length === 0 || filters.selectedSectors.includes(item.realSector);
+      
+      // Filtro de funcionários (múltipla seleção)
+      const employeeMatch = filters.selectedEmployees.length === 0 || filters.selectedEmployees.includes(item.realName);
       
       let dateMatch = true;
       if (filters.dateStart) dateMatch = dateMatch && item.dateRaw >= filters.dateStart;
       if (filters.dateEnd) dateMatch = dateMatch && item.dateRaw <= filters.dateEnd;
 
-      return searchMatch && sectorMatch && dateMatch;
+      return searchMatch && sectorMatch && employeeMatch && dateMatch;
     });
   }, [processedData, filters]);
 
@@ -171,6 +177,17 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
   const competenceMetrics = useMemo(() => {
     const compMatrix: Record<string, Record<string, { sum: number, count: number }>> = {};
     const allCriteria = new Set<string>();
+    
+    // Criar mapa de critérios do banco de dados (prioridade)
+    const criteriaTypeMapFromDB: Record<string, string> = {};
+    if (criteriaList && criteriaList.length > 0) {
+      criteriaList.forEach((crit: any) => {
+        if (crit.name) {
+          criteriaTypeMapFromDB[crit.name] = crit.type || 'Operacional';
+        }
+      });
+    }
+    
     const criteriaTypeMap: Record<string, string> = {}; // Mapa de critério -> tipo (nível)
     
     // Mapa para evolução mensal por nível (Estratégico, Tático, Operacional)
@@ -192,9 +209,9 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
                 const numericValue = Number(value) || 0;
                 allCriteria.add(criteria);
                 
-                // Armazena o tipo (nível) do critério baseado no tipo da avaliação
+                // Prioriza nível do banco de dados, senão usa o tipo da avaliação
                 if (!criteriaTypeMap[criteria]) {
-                    criteriaTypeMap[criteria] = ev.realType || ev.type || 'Operacional';
+                    criteriaTypeMap[criteria] = criteriaTypeMapFromDB[criteria] || ev.realType || ev.type || 'Operacional';
                 }
                 
                 if (!compMatrix[criteria]) compMatrix[criteria] = {};

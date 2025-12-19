@@ -1,15 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
-import { Filter, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Filter, ArrowUp, ArrowDown, Minus, X } from 'lucide-react';
 
 export const IndividualAnalysis = ({ data }: { data: any }) => {
   const { individualData, monthlyComparison } = data;
   const [localSearch, setLocalSearch] = useState('');
   const [viewMode, setViewMode] = useState<'comparative' | 'monthly'>('comparative');
-  const [filterBy, setFilterBy] = useState<'all' | 'sector' | 'role' | 'type'>('all');
-  const [filterValue, setFilterValue] = useState('');
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [showSectorDropdown, setShowSectorDropdown] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
   // Filtro local para a tabela (além dos filtros globais do dashboard)
   const displayData = useMemo(() => {
@@ -17,22 +21,38 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
        d.name.toLowerCase().includes(localSearch.toLowerCase())
     );
     
-    if (filterBy !== 'all' && filterValue) {
-      filtered = filtered.filter((d: any) => {
-        if (filterBy === 'sector') return d.sector === filterValue;
-        if (filterBy === 'role') return d.role === filterValue;
-        if (filterBy === 'type') return d.type === filterValue;
-        return true;
-      });
+    // Filtros múltiplos
+    if (selectedSectors.length > 0) {
+      filtered = filtered.filter((d: any) => selectedSectors.includes(d.sector));
+    }
+    if (selectedRoles.length > 0) {
+      filtered = filtered.filter((d: any) => selectedRoles.includes(d.role));
+    }
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter((d: any) => selectedTypes.includes(d.type));
     }
     
     return filtered;
-  }, [individualData, localSearch, filterBy, filterValue]);
+  }, [individualData, localSearch, selectedSectors, selectedRoles, selectedTypes]);
   
   // Obter valores únicos para filtros
   const uniqueSectors = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.sector))).sort() as string[], [individualData]);
   const uniqueRoles = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.role))).sort() as string[], [individualData]);
   const uniqueTypes = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.type))).sort() as string[], [individualData]);
+
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.sector-filter') && !target.closest('.role-filter') && !target.closest('.type-filter')) {
+        setShowSectorDropdown(false);
+        setShowRoleDropdown(false);
+        setShowTypeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -71,7 +91,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Análise Comparativa</h3>
                 <p className="text-sm text-gray-500">Comparação: Colaborador vs Setor vs Empresa</p>
              </div>
-             <div className="flex gap-2">
+             <div className="flex gap-2 flex-wrap">
                <input 
                   type="text" 
                   placeholder="Buscar colaborador..." 
@@ -79,33 +99,161 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                   value={localSearch}
                   onChange={e => setLocalSearch(e.target.value)}
                />
-               <div className="relative">
-                 <Filter className="absolute left-2 top-2.5 text-gray-400" size={16} />
-                 <select
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
-                   value={filterBy}
-                   onChange={(e) => {
-                     setFilterBy(e.target.value as any);
-                     setFilterValue('');
+               
+               {/* Filtro Setor (Múltipla Seleção) */}
+               <div className="relative sector-filter">
+                 <button
+                   onClick={() => {
+                     setShowSectorDropdown(!showSectorDropdown);
+                     setShowRoleDropdown(false);
+                     setShowTypeDropdown(false);
                    }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
                  >
-                   <option value="all">Todos</option>
-                   <option value="sector">Por Setor</option>
-                   <option value="role">Por Cargo</option>
-                   <option value="type">Por Nível</option>
-                 </select>
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Setor{selectedSectors.length > 0 ? ` (${selectedSectors.length})` : ''}</span>
+                 </button>
+                 {showSectorDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedSectors([]);
+                           setShowSectorDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Setores
+                       </button>
+                       {uniqueSectors.map((s: string) => (
+                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedSectors.includes(s)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedSectors([...selectedSectors, s]);
+                               } else {
+                                 setSelectedSectors(selectedSectors.filter(sec => sec !== s));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{s}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
-               {filterBy !== 'all' && (
-                 <select
-                   className="px-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
-                   value={filterValue}
-                   onChange={(e) => setFilterValue(e.target.value)}
+               
+               {/* Filtro Cargo (Múltipla Seleção) */}
+               <div className="relative role-filter">
+                 <button
+                   onClick={() => {
+                     setShowRoleDropdown(!showRoleDropdown);
+                     setShowSectorDropdown(false);
+                     setShowTypeDropdown(false);
+                   }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
                  >
-                   <option value="">Selecione...</option>
-                   {filterBy === 'sector' && uniqueSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                   {filterBy === 'role' && uniqueRoles.map((r: string) => <option key={r} value={r}>{r}</option>)}
-                   {filterBy === 'type' && uniqueTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                 </select>
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Cargo{selectedRoles.length > 0 ? ` (${selectedRoles.length})` : ''}</span>
+                 </button>
+                 {showRoleDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedRoles([]);
+                           setShowRoleDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Cargos
+                       </button>
+                       {uniqueRoles.map((r: string) => (
+                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedRoles.includes(r)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedRoles([...selectedRoles, r]);
+                               } else {
+                                 setSelectedRoles(selectedRoles.filter(role => role !== r));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{r}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+               
+               {/* Filtro Nível (Múltipla Seleção) */}
+               <div className="relative type-filter">
+                 <button
+                   onClick={() => {
+                     setShowTypeDropdown(!showTypeDropdown);
+                     setShowSectorDropdown(false);
+                     setShowRoleDropdown(false);
+                   }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                 >
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Nível{selectedTypes.length > 0 ? ` (${selectedTypes.length})` : ''}</span>
+                 </button>
+                 {showTypeDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedTypes([]);
+                           setShowTypeDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Níveis
+                       </button>
+                       {uniqueTypes.map((t: string) => (
+                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedTypes.includes(t)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedTypes([...selectedTypes, t]);
+                               } else {
+                                 setSelectedTypes(selectedTypes.filter(type => type !== t));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{t}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+               
+               {/* Limpar Filtros */}
+               {(selectedSectors.length > 0 || selectedRoles.length > 0 || selectedTypes.length > 0) && (
+                 <button
+                   onClick={() => {
+                     setSelectedSectors([]);
+                     setSelectedRoles([]);
+                     setSelectedTypes([]);
+                   }}
+                   className="px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex items-center gap-1"
+                 >
+                   <X size={14} />
+                   Limpar
+                 </button>
                )}
              </div>
           </div>
@@ -187,7 +335,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                 <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Percentual Mês a Mês</h3>
                 <p className="text-sm text-gray-500">Comparação de performance mês a mês por colaborador</p>
              </div>
-             <div className="flex gap-2">
+             <div className="flex gap-2 flex-wrap">
                <input 
                   type="text" 
                   placeholder="Buscar colaborador..." 
@@ -195,33 +343,161 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                   value={localSearch}
                   onChange={e => setLocalSearch(e.target.value)}
                />
-               <div className="relative">
-                 <Filter className="absolute left-2 top-2.5 text-gray-400" size={16} />
-                 <select
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
-                   value={filterBy}
-                   onChange={(e) => {
-                     setFilterBy(e.target.value as any);
-                     setFilterValue('');
+               
+               {/* Filtro Setor (Múltipla Seleção) */}
+               <div className="relative sector-filter">
+                 <button
+                   onClick={() => {
+                     setShowSectorDropdown(!showSectorDropdown);
+                     setShowRoleDropdown(false);
+                     setShowTypeDropdown(false);
                    }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
                  >
-                   <option value="all">Todos</option>
-                   <option value="sector">Por Setor</option>
-                   <option value="role">Por Cargo</option>
-                   <option value="type">Por Nível</option>
-                 </select>
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Setor{selectedSectors.length > 0 ? ` (${selectedSectors.length})` : ''}</span>
+                 </button>
+                 {showSectorDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedSectors([]);
+                           setShowSectorDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Setores
+                       </button>
+                       {uniqueSectors.map((s: string) => (
+                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedSectors.includes(s)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedSectors([...selectedSectors, s]);
+                               } else {
+                                 setSelectedSectors(selectedSectors.filter(sec => sec !== s));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{s}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
-               {filterBy !== 'all' && (
-                 <select
-                   className="px-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
-                   value={filterValue}
-                   onChange={(e) => setFilterValue(e.target.value)}
+               
+               {/* Filtro Cargo (Múltipla Seleção) */}
+               <div className="relative role-filter">
+                 <button
+                   onClick={() => {
+                     setShowRoleDropdown(!showRoleDropdown);
+                     setShowSectorDropdown(false);
+                     setShowTypeDropdown(false);
+                   }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
                  >
-                   <option value="">Selecione...</option>
-                   {filterBy === 'sector' && uniqueSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
-                   {filterBy === 'role' && uniqueRoles.map((r: string) => <option key={r} value={r}>{r}</option>)}
-                   {filterBy === 'type' && uniqueTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                 </select>
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Cargo{selectedRoles.length > 0 ? ` (${selectedRoles.length})` : ''}</span>
+                 </button>
+                 {showRoleDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedRoles([]);
+                           setShowRoleDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Cargos
+                       </button>
+                       {uniqueRoles.map((r: string) => (
+                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedRoles.includes(r)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedRoles([...selectedRoles, r]);
+                               } else {
+                                 setSelectedRoles(selectedRoles.filter(role => role !== r));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{r}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+               
+               {/* Filtro Nível (Múltipla Seleção) */}
+               <div className="relative type-filter">
+                 <button
+                   onClick={() => {
+                     setShowTypeDropdown(!showTypeDropdown);
+                     setShowSectorDropdown(false);
+                     setShowRoleDropdown(false);
+                   }}
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                 >
+                   <Filter size={16} className="text-gray-400" />
+                   <span>Nível{selectedTypes.length > 0 ? ` (${selectedTypes.length})` : ''}</span>
+                 </button>
+                 {showTypeDropdown && (
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                     <div className="p-2">
+                       <button
+                         onClick={() => {
+                           setSelectedTypes([]);
+                           setShowTypeDropdown(false);
+                         }}
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                       >
+                         Todos Níveis
+                       </button>
+                       {uniqueTypes.map((t: string) => (
+                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                           <input
+                             type="checkbox"
+                             checked={selectedTypes.includes(t)}
+                             onChange={(e) => {
+                               if (e.target.checked) {
+                                 setSelectedTypes([...selectedTypes, t]);
+                               } else {
+                                 setSelectedTypes(selectedTypes.filter(type => type !== t));
+                               }
+                             }}
+                             className="mr-2"
+                           />
+                           <span className="text-sm text-gray-700 dark:text-gray-300">{t}</span>
+                         </label>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+               </div>
+               
+               {/* Limpar Filtros */}
+               {(selectedSectors.length > 0 || selectedRoles.length > 0 || selectedTypes.length > 0) && (
+                 <button
+                   onClick={() => {
+                     setSelectedSectors([]);
+                     setSelectedRoles([]);
+                     setSelectedTypes([]);
+                   }}
+                   className="px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex items-center gap-1"
+                 >
+                   <X size={14} />
+                   Limpar
+                 </button>
                )}
              </div>
           </div>
@@ -251,9 +527,9 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                  {monthlyComparison && monthlyComparison
                    .filter((item: any) => {
                      if (localSearch && !item.name.toLowerCase().includes(localSearch.toLowerCase())) return false;
-                     if (filterBy === 'sector' && filterValue && item.sector !== filterValue) return false;
-                     if (filterBy === 'role' && filterValue && item.role !== filterValue) return false;
-                     if (filterBy === 'type' && filterValue && item.type !== filterValue) return false;
+                     if (selectedSectors.length > 0 && !selectedSectors.includes(item.sector)) return false;
+                     if (selectedRoles.length > 0 && !selectedRoles.includes(item.role)) return false;
+                     if (selectedTypes.length > 0 && !selectedTypes.includes(item.type)) return false;
                      return true;
                    })
                    .map((item: any, idx: number) => {

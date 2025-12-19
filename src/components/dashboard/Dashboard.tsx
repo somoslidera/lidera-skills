@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Calendar, X } from 'lucide-react';
+import { Search, Filter, Calendar, X, Check } from 'lucide-react';
 import { useDashboardAnalytics } from '../../hooks/useDashboardAnalytics';
+import { fetchCollection } from '../../services/firebase';
 
 // Import Tabs
 import { CompanyOverview } from './tabs/CompanyOverview';
@@ -20,8 +21,26 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSector, setSelectedSector] = useState('');
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [activeFilterLabel, setActiveFilterLabel] = useState('Todo o período');
+  const [criteriaList, setCriteriaList] = useState<any[]>([]);
+  const [showSectorDropdown, setShowSectorDropdown] = useState(false);
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  
+  // Buscar critérios do banco
+  useEffect(() => {
+    const loadCriteria = async () => {
+      try {
+        const criteria = await fetchCollection('evaluation_criteria');
+        setCriteriaList(criteria);
+      } catch (error) {
+        console.error("Erro ao carregar critérios:", error);
+      }
+    };
+    loadCriteria();
+  }, []);
   
   // Estado da Aba Ativa (usa initialTab da URL se disponível)
   const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'individual'>(
@@ -38,13 +57,31 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   // Hook de Analytics
   const analytics = useDashboardAnalytics(evaluations, employees, {
     searchTerm,
-    selectedSector,
+    selectedSectors,
+    selectedEmployees,
     dateStart,
     dateEnd
-  });
+  }, criteriaList);
 
   // Lista de Setores para o Select
   const uniqueSectors = analytics.competenceMetrics.allSectors || [];
+  
+  // Lista de funcionários únicos para busca
+  const uniqueEmployees = useMemo(() => {
+    const names = new Set<string>();
+    evaluations.forEach((ev: any) => {
+      if (ev.employeeName) names.add(ev.employeeName);
+    });
+    return Array.from(names).sort();
+  }, [evaluations]);
+  
+  // Funcionários filtrados pela busca
+  const filteredEmployees = useMemo(() => {
+    if (!employeeSearchTerm) return uniqueEmployees;
+    return uniqueEmployees.filter(name => 
+      name.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+    );
+  }, [uniqueEmployees, employeeSearchTerm]);
 
   // Funções de Filtro de Data
   const applyDateFilter = (type: '30days' | '3months' | '6months' | 'year' | 'all') => {
@@ -79,6 +116,19 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     setDateEnd(end.toISOString().split('T')[0]);
   };
 
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.sector-filter') && !target.closest('.employee-filter')) {
+        setShowSectorDropdown(false);
+        setShowEmployeeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="space-y-6 pb-10">
       
@@ -108,31 +158,124 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
               )}
             </div>
 
-            {/* Filtro Setor */}
-            <div className="relative w-full sm:w-auto">
-              <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
-              <select 
-                className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 appearance-none text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                value={selectedSector}
-                onChange={e => setSelectedSector(e.target.value)}
-              >
-                <option value="">Todos Setores</option>
-                {uniqueSectors.sort().map((s: string) => <option key={s} value={s}>{s}</option>)}
-              </select>
+            {/* Filtro Setor (Múltipla Seleção) */}
+            <div className="relative w-full sm:w-auto sector-filter">
+              <Filter className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+              <div className="relative">
+                <button
+                  onClick={() => setShowSectorDropdown(!showSectorDropdown)}
+                  className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between"
+                >
+                  <span className="truncate">
+                    {selectedSectors.length === 0 ? 'Todos Setores' : `${selectedSectors.length} setor(es)`}
+                  </span>
+                  <span className="text-xs text-gray-400">▼</span>
+                </button>
+                {showSectorDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-full sm:w-48 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setSelectedSectors([]);
+                          setShowSectorDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                      >
+                        Todos Setores
+                      </button>
+                      {uniqueSectors.sort().map((s: string) => (
+                        <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedSectors.includes(s)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedSectors([...selectedSectors, s]);
+                              } else {
+                                setSelectedSectors(selectedSectors.filter(sec => sec !== s));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{s}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Filtro Funcionário (Busca + Seleção Múltipla) */}
+            <div className="relative w-full sm:w-auto employee-filter">
+              <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+              <div className="relative">
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Buscar funcionário..."
+                    value={employeeSearchTerm}
+                    onChange={(e) => {
+                      setEmployeeSearchTerm(e.target.value);
+                      setShowEmployeeDropdown(true);
+                    }}
+                    onFocus={() => setShowEmployeeDropdown(true)}
+                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none w-full sm:w-64 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
+                  />
+                  {selectedEmployees.length > 0 && (
+                    <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
+                      {selectedEmployees.length}
+                    </span>
+                  )}
+                </div>
+                {showEmployeeDropdown && filteredEmployees.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-full sm:w-64 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    <div className="p-2">
+                      {filteredEmployees.slice(0, 10).map((name: string) => (
+                        <label key={name} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmployees.includes(name)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedEmployees([...selectedEmployees, name]);
+                              } else {
+                                setSelectedEmployees(selectedEmployees.filter(emp => emp !== name));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{name}</span>
+                        </label>
+                      ))}
+                      {filteredEmployees.length > 10 && (
+                        <div className="px-3 py-2 text-xs text-gray-500">
+                          +{filteredEmployees.length - 10} mais...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Indicador de Filtros Ativos */}
-            {(searchTerm || selectedSector || dateStart || dateEnd) && (
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+            {(searchTerm || selectedSectors.length > 0 || selectedEmployees.length > 0 || dateStart || dateEnd) && (
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 flex-wrap">
                 <span className="font-medium">Filtros ativos:</span>
                 {searchTerm && (
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
                     Busca: "{searchTerm}"
                   </span>
                 )}
-                {selectedSector && (
+                {selectedSectors.length > 0 && (
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                    Setor: {selectedSector}
+                    Setores: {selectedSectors.length}
+                  </span>
+                )}
+                {selectedEmployees.length > 0 && (
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                    Funcionários: {selectedEmployees.length}
                   </span>
                 )}
                 {(dateStart || dateEnd) && (
@@ -143,7 +286,9 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                 <button 
                   onClick={() => {
                     setSearchTerm('');
-                    setSelectedSector('');
+                    setSelectedSectors([]);
+                    setSelectedEmployees([]);
+                    setEmployeeSearchTerm('');
                     applyDateFilter('all');
                   }}
                   className="px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
