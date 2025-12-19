@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc, limit, startAfter, QueryDocumentSnapshot, DocumentData, Query } from "firebase/firestore";
 
 // Configuração do Firebase usando variáveis de ambiente
 const firebaseConfig = {
@@ -62,6 +62,71 @@ export const fetchCollection = async (collectionName: string, companyId?: string
   } catch (error) {
     console.error(`Erro ao buscar ${collectionName}:`, error);
     return [];
+  }
+};
+
+/**
+ * Busca paginada de uma coleção
+ * @param collectionName Nome da coleção
+ * @param companyId ID da empresa (opcional, para filtro)
+ * @param lastDoc Último documento da página anterior (null para primeira página)
+ * @param pageSize Tamanho da página
+ * @returns Objeto com items, lastDoc e hasMore
+ */
+export const fetchCollectionPaginated = async (
+  collectionName: string,
+  companyId: string | null | undefined,
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null,
+  pageSize: number = 20
+): Promise<{
+  items: any[];
+  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+}> => {
+  try {
+    let q: Query<DocumentData>;
+    
+    // Constrói a query base
+    if (companyId && collectionName !== 'companies' && collectionName !== 'users' && collectionName !== 'evaluation_criteria') {
+      q = query(
+        collection(db, collectionName),
+        where("companyId", "==", companyId),
+        limit(pageSize + 1) // +1 para verificar se há mais
+      );
+    } else {
+      q = query(
+        collection(db, collectionName),
+        limit(pageSize + 1)
+      );
+    }
+
+    // Adiciona startAfter se houver lastDoc
+    if (lastDoc) {
+      q = query(q, startAfter(lastDoc));
+    }
+
+    const querySnapshot = await getDocs(q);
+    const docs = querySnapshot.docs;
+    
+    // Verifica se há mais documentos
+    const hasMore = docs.length > pageSize;
+    const items = (hasMore ? docs.slice(0, pageSize) : docs).map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return {
+      items,
+      lastDoc: docs.length > 0 ? (hasMore ? docs[pageSize - 1] : docs[docs.length - 1]) : null,
+      hasMore,
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar ${collectionName} paginado:`, error);
+    return {
+      items: [],
+      lastDoc: null,
+      hasMore: false,
+    };
   }
 };
 

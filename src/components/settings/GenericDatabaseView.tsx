@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
@@ -6,6 +6,8 @@ import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 import { toast } from '../../utils/toast';
 import { ErrorHandler } from '../../utils/errorHandler';
+import { usePagination } from '../../hooks/usePagination';
+import { fetchCollectionPaginated } from '../../services/firebase';
 
 interface Entity {
   id: string;
@@ -24,7 +26,6 @@ interface ColumnConfig {
 
 export const GenericDatabaseView = ({ collectionName, title, columns, customFieldsAllowed = true }: { collectionName: string, title: string, columns: ColumnConfig[], customFieldsAllowed?: boolean }) => {
   const { currentCompany, companies } = useCompany();
-  const [data, setData] = useState<Entity[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Estado para Ordenação e Filtros
@@ -36,7 +37,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [linkedOptions, setLinkedOptions] = useState<Record<string, string[]>>({});
 
   // Lógica de coleções universais
@@ -46,39 +46,55 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     collectionName === 'companies' ||
     collectionName === 'evaluation_criteria';
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let q;
-      
-      if (isUniversalCollection) {
-        q = collection(db, collectionName);
-      } else {
-        if (!currentCompany) {
-          setData([]);
-          setIsLoading(false);
-          return;
-        }
-        if (currentCompany.id === 'all') {
-           q = collection(db, collectionName);
-        } else {
-           q = query(collection(db, collectionName), where("companyId", "==", currentCompany.id));
-        }
-      }
-      
-      const snap = await getDocs(q);
-      setData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setSelectedIds(new Set()); // Limpa seleção ao recarregar
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      setData([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [collectionName, currentCompany, isUniversalCollection]);
+  // Hook de paginação
+  const pagination = usePagination({ pageSize: 20, initialLoad: 20 });
+  const observerTarget = useRef<HTMLDivElement>(null);
 
+  // Função para buscar dados paginados
+  const fetchPaginatedData = useCallback(async () => {
+    if (!currentCompany && !isUniversalCollection) {
+      pagination.reset();
+      return;
+    }
+
+    const companyId = isUniversalCollection ? null : (currentCompany?.id === 'all' ? null : currentCompany?.id);
+    
+    await pagination.loadMore(async (lastDoc, limit) => {
+      return await fetchCollectionPaginated(collectionName, companyId || undefined, lastDoc, limit);
+    });
+  }, [collectionName, currentCompany, isUniversalCollection, pagination]);
+
+  // Reset e recarregar quando mudar empresa ou coleção
   useEffect(() => {
-    fetchData();
+    pagination.reset();
+    fetchPaginatedData();
+  }, [collectionName, currentCompany?.id]);
+
+  // Observer para scroll infinito
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && pagination.hasMore && !pagination.loading) {
+          fetchPaginatedData();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [pagination.hasMore, pagination.loading, fetchPaginatedData]);
+
+  // Carregar dados vinculados (opções para selects)
+  useEffect(() => {
     const loadLinkedData = async () => {
       const newLinkedOptions: Record<string, string[]> = {};
       for (const col of columns) {
@@ -96,7 +112,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       setLinkedOptions(newLinkedOptions);
     };
     loadLinkedData();
-  }, [fetchData, columns]);
+  }, [columns]);
 
   const handleSave = async () => {
     if (!isUniversalCollection && (!currentCompany || currentCompany.id === 'all')) {
@@ -122,7 +138,17 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       }
       setIsModalOpen(false);
       setCurrentItem({});
-      fetchData();
+      // Adiciona o novo item ao início da lista ou atualiza se já existe
+      if (currentItem.id) {
+        pagination.updateItem(currentItem.id, itemToSave);
+      } else {
+        pagination.prependItem({ id: 'temp-' + Date.now(), ...itemToSave });
+        // Recarrega para obter o ID real do Firestore
+        setTimeout(() => {
+          pagination.reset();
+          fetchPaginatedData();
+        }, 500);
+      }
     } catch (error) {
       ErrorHandler.handleFirebaseError(error);
       toast.handleError(error, 'GenericDatabaseView.handleSave');
@@ -134,7 +160,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     try {
       await deleteDoc(doc(db, collectionName, id));
       toast.success("Registro excluído com sucesso!");
-      fetchData();
+      pagination.removeItem(id);
     } catch (error) {
       toast.handleError(error, 'GenericDatabaseView.handleDelete');
     }
@@ -153,7 +179,9 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       });
       await batch.commit();
       toast.success(`${selectedIds.size} registro(s) excluído(s) com sucesso!`);
-      fetchData();
+      // Remove itens da lista
+      selectedIds.forEach(id => pagination.removeItem(id));
+      setSelectedIds(new Set());
     } catch (error) {
       toast.handleError(error, 'GenericDatabaseView.handleBulkDelete');
       setIsLoading(false);
@@ -187,14 +215,14 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     const options: Record<string, string[]> = {};
     columns.forEach(col => {
       if (col.hiddenInTable) return;
-      const values = Array.from(new Set(data.map(item => item[col.key]).filter(val => val !== undefined && val !== ''))).sort();
+      const values = Array.from(new Set(pagination.items.map(item => item[col.key]).filter(val => val !== undefined && val !== ''))).sort();
       options[col.key] = values as string[];
     });
     return options;
-  }, [data, columns]);
+  }, [pagination.items, columns]);
 
   const filteredData = useMemo(() => {
-    let processed = data.filter(item => {
+    let processed = pagination.items.filter(item => {
       const matchesSearch = Object.values(item).some(val => 
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -215,7 +243,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       });
     }
     return processed;
-  }, [data, searchTerm, activeFilters, sortConfig]);
+  }, [pagination.items, searchTerm, activeFilters, sortConfig]);
 
   const renderInput = (col: ColumnConfig) => {
     const value = currentItem[col.key] || '';
@@ -372,7 +400,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-[#1E1E1E]">
-                {isLoading ? (
+                {pagination.items.length === 0 && pagination.loading ? (
                   <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
                 ) : filteredData.length === 0 ? (
                   <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
@@ -432,6 +460,21 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          {/* Indicador de scroll infinito */}
+          <div ref={observerTarget} className="h-20 flex items-center justify-center">
+            {pagination.loading && (
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="animate-spin" size={20} />
+                <span className="text-sm">Carregando mais registros...</span>
+              </div>
+            )}
+            {!pagination.hasMore && pagination.items.length > 0 && (
+              <div className="text-sm text-gray-400 py-4">
+                Todos os registros foram carregados ({pagination.items.length} total)
+              </div>
+            )}
           </div>
         </div>
       </div>
