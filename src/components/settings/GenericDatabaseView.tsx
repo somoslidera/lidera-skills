@@ -170,7 +170,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     if (selectedIds.size === 0) return;
     if (!window.confirm(`Tem certeza que deseja excluir ${selectedIds.size} registros selecionados?`)) return;
 
-    setIsLoading(true);
     try {
       const batch = writeBatch(db);
       selectedIds.forEach(id => {
@@ -184,7 +183,6 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       setSelectedIds(new Set());
     } catch (error) {
       toast.handleError(error, 'GenericDatabaseView.handleBulkDelete');
-      setIsLoading(false);
     }
   };
 
