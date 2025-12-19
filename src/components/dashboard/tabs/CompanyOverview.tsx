@@ -56,8 +56,8 @@ export const CompanyOverview = ({ data }: { data: any }) => {
   }, [performanceList, selectedLevel]);
   
   // Obter níveis únicos disponíveis
-  const availableLevels = useMemo(() => {
-    const levels = new Set(performanceList.map((item: any) => item.realType || item.type || 'Operacional'));
+  const availableLevels = useMemo<string[]>(() => {
+    const levels = new Set<string>(performanceList.map((item: any) => item.realType || item.type || 'Operacional'));
     return ['Todos', ...Array.from(levels).sort()];
   }, [performanceList]);
 
