@@ -277,13 +277,19 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                        filteredPerformanceList.slice(0, 10).map((item: any, idx: number) => {
                          const score = item.score || 0;
                          const colorInfo = getHeatmapColor(score);
-                         const isDestaque = item.funcionarioMes === 'Sim' || item.funcionarioMes === 'sim' || item.funcionarioMes === 'SIM';
+                         // Verificar funcionarioMes: pode ser 'Sim', 'sim', 'SIM', true, ou boolean
+                         const funcionarioMesValue = item.funcionarioMes || item.funcionario_mes || false;
+                         const isDestaque = funcionarioMesValue === 'Sim' || 
+                                           funcionarioMesValue === 'sim' || 
+                                           funcionarioMesValue === 'SIM' ||
+                                           funcionarioMesValue === true ||
+                                           funcionarioMesValue === 'true';
                          
                          return (
                            <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="p-3 text-gray-400 font-mono text-xs">#{idx + 1}</td>
                               <td className="p-3 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                 {isDestaque && <Star size={16} className="text-yellow-500 fill-yellow-500" />}
+                                 {isDestaque && <Star size={16} className="text-yellow-500 fill-yellow-500" title="Funcionário Destaque do Mês" />}
                                  {item.realName}
                               </td>
                               <td className="p-3 text-gray-500">{item.realSector}</td>

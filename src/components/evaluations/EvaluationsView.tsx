@@ -125,8 +125,12 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           const empSnap = await getDocs(empQuery);
           
           const allEmployees = empSnap.docs.map(d => ({ id: d.id, ...d.data() } as Employee));
-          const activeEmployees = allEmployees.filter(emp => emp.status === 'Ativo' || !emp.status);
-          setEmployees(activeEmployees);
+          // Filtrar: mostrar apenas Ativos, Férias e Afastados (não mostrar Inativos)
+          const availableEmployees = allEmployees.filter(emp => {
+            const status = emp.status || 'Ativo';
+            return status !== 'Inativo';
+          });
+          setEmployees(availableEmployees);
 
           const critSnap = await getDocs(collection(db, 'evaluation_criteria'));
           const allCriteria = critSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -333,25 +337,49 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               ({availableEmployees.length} disponível{availableEmployees.length !== 1 ? 'eis' : ''})
             </span>
           </label>
-          <select 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
-            value={selectedEmployeeId}
-            onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            disabled={!selectedCompanyId}
-          >
-            <option value="">
-                {selectedCompanyId 
-                  ? availableEmployees.length > 0 
-                    ? "Selecione um funcionário..." 
-                    : "Todos os funcionários já foram avaliados neste mês"
-                  : "Selecione a empresa primeiro"}
-            </option>
-            {availableEmployees.map(e => (
-              <option key={e.id} value={e.id}>
-                {sortOrder === 'sector' ? `[${e.sector}] ` : ''}{e.name} - {e.role}
+          <div className="relative">
+            <select 
+              className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              disabled={!selectedCompanyId}
+            >
+              <option value="">
+                  {selectedCompanyId 
+                    ? availableEmployees.length > 0 
+                      ? "Selecione um funcionário..." 
+                      : "Todos os funcionários já foram avaliados neste mês"
+                    : "Selecione a empresa primeiro"}
               </option>
-            ))}
-          </select>
+              {availableEmployees.map(e => {
+                const status = e.status || 'Ativo';
+                const statusDisplay = status === 'Férias' ? ' 🏖️ Férias' : status === 'Afastado' ? ' 🏥 Afastado' : '';
+                return (
+                  <option key={e.id} value={e.id}>
+                    {sortOrder === 'sector' ? `[${e.sector}] ` : ''}{e.name} - {e.role}{statusDisplay}
+                  </option>
+                );
+              })}
+            </select>
+            {/* Indicador visual de status ao lado do select */}
+            {selectedEmployeeId && (() => {
+              const selectedEmp = availableEmployees.find(e => e.id === selectedEmployeeId);
+              if (!selectedEmp) return null;
+              const status = selectedEmp.status || 'Ativo';
+              if (status === 'Férias' || status === 'Afastado') {
+                return (
+                  <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded ${
+                    status === 'Férias' 
+                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' 
+                      : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                  }`}>
+                    {status === 'Férias' ? '🏖️' : '🏥'} {status}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês de Referência</label>
