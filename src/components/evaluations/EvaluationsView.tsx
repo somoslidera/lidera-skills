@@ -215,6 +215,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       return;
     }
     
+    // Verificar se já existe avaliação para este funcionário neste mês
+    if (existingEvaluations.has(currentEmployee.id)) {
+      const confirmMessage = `O funcionário ${currentEmployee.name} já possui uma avaliação para o mês ${evalMonth}.\n\nDeseja criar uma nova avaliação mesmo assim?`;
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
     if (activeCriteria.length > 0 && Object.keys(scores).length !== activeCriteria.length) {
       if(!window.confirm("Alguns critérios estão sem nota (serão considerados 0). Deseja continuar?")) return;
     }

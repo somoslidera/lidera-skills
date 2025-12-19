@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CompanyProvider, useCompany } from './contexts/CompanyContext';
 import { CompanySelector } from './components/layout/CompanySelector';
@@ -39,17 +39,32 @@ import {
   FileSpreadsheet // <--- Importação do ícone
 } from 'lucide-react';
 
-function MainApp() {
+function MainAppContent() {
   const { currentCompany, isMaster } = useCompany();
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  const [currentView, setCurrentView] = useState(() => {
-     return localStorage.getItem('lidera_current_view') as any || 'dashboard';
-  });
+  // Extrair view e settingsView da URL
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const currentView = pathParts[0] || 'dashboard';
+  const settingsView = pathParts[1] || 'criteria';
+  const dashboardTab = pathParts[1] || 'overview'; // Para tabs do dashboard
 
-  const [settingsView, setSettingsView] = useState(() => {
-    return localStorage.getItem('lidera_settings_view') || 'criteria';
-  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Função para navegar e atualizar URL
+  const setCurrentView = (view: string) => {
+    navigate(`/${view}`);
+  };
+  
+  const setSettingsView = (view: string) => {
+    navigate(`/settings/${view}`);
+    setIsSidebarOpen(false);
+  };
+  
+  const setDashboardTab = (tab: string) => {
+    navigate(`/dashboard/${tab}`);
+  };
 
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -131,8 +146,7 @@ function MainApp() {
   );
 
   return (
-    <Router>
-      <div className="min-h-screen bg-skills-light dark:bg-lidera-dark flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-skills-light dark:bg-lidera-dark flex flex-col font-sans transition-colors duration-300">
         
         <header className="bg-white dark:bg-lidera-gray shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-4">
@@ -176,16 +190,320 @@ function MainApp() {
         </header>
 
         <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
+          <Routes>
+            {/* Home - Redireciona para dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            
+            {/* Dashboard com tabs */}
+            <Route path="/dashboard" element={<Navigate to="/dashboard/overview" replace />} />
+            <Route path="/dashboard/:tab" element={
+              <Dashboard 
+                evaluations={evaluations} 
+                employees={employees} 
+                initialTab={dashboardTab}
+              />
+            } />
+            
+            {/* Avaliações */}
+            <Route path="/evaluations" element={<EvaluationsView />} />
+            
+            {/* Histórico */}
+            <Route path="/history" element={
+              <div className="animate-fade-in-up">
+                <div className="mb-6 flex justify-between items-end">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Histórico Legado</h2>
+                    <p className="text-gray-500 dark:text-gray-400">Visualização de avaliações importadas antigas.</p>
+                  </div>
+                </div>
+                <EvaluationHistory />
+              </div>
+            } />
+            
+            {/* Ajuda */}
+            <Route path="/help" element={<HelpView />} />
+            
+            {/* Configurações */}
+            <Route path="/settings" element={<Navigate to="/settings/criteria" replace />} />
+            <Route path="/settings/:view" element={
+              <div className="flex flex-col md:flex-row gap-6 animate-fadeIn">
+                <div className="md:hidden mb-4">
+                  <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="flex items-center gap-2 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg shadow-sm text-gray-700 dark:text-white w-full justify-between"
+                  >
+                    <span className="font-semibold flex items-center gap-2">
+                      <Menu size={18} /> Menu de Cadastros
+                    </span>
+                    {isSidebarOpen ? <X size={18} /> : <Settings size={18} />}
+                  </button>
+                </div>
+
+                <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
+                  <div className="bg-white dark:bg-lidera-gray rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sticky top-24">
+                    
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
+                    <div className="space-y-1">
+                      <SettingsButton view="criteria" icon={ClipboardList} label="Critérios" />
+                      <SettingsButton view="sectors" icon={Layers} label="Setores" />
+                      <SettingsButton view="roles" icon={Briefcase} label="Cargos" />
+                    </div>
+
+                    <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                    
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Pessoas</h3>
+                    <div className="space-y-1">
+                      <SettingsButton view="employees" icon={Users} label="Funcionários" />
+                      <SettingsButton view="users" icon={UserCog} label="Usuários" />
+                    </div>
+
+                    {/* Nova Seção de Dados e Importação */}
+                    <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                    
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
+                    <div className="space-y-1">
+                      <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
+                    </div>
+
+                    {isMaster && (
+                      <>
+                        <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Admin</h3>
+                        <SettingsButton view="companies" icon={Building} label="Empresas" />
+                      </>
+                    )}
+                  </div>
+                </aside>
+
+                <section className="flex-1 min-w-0">
+                  {settingsView === 'criteria' && <CriteriaView />}
+                  {settingsView === 'sectors' && <SectorsView />}
+                  {settingsView === 'roles' && <RolesView />}
+                  {settingsView === 'employees' && <EmployeesView />}
+                  {settingsView === 'users' && <UsersView />}
+                  {settingsView === 'import' && <HistoryImportView />}
+                  {isMaster && settingsView === 'companies' && <CompaniesView />}
+                </section>
+              </div>
+            } />
+            
+            {/* Redirecionar rotas antigas */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+
+        </main>
+        <Toaster />
+      </div>
+  );
+}
+
+function DashboardWrapper() {
+  const { tab } = useParams<{ tab: string }>();
+  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const { currentCompany } = useCompany();
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!currentCompany) return;
+      try {
+        const companyFilter = currentCompany.id === 'all' ? null : currentCompany.id;
+        const evaluationsData = await fetchCollection('evaluations', companyFilter);
+        const employeesData = await fetchCollection('employees'); 
+        
+        setEvaluations(evaluationsData);
+        setEmployees(employeesData);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      }
+    };
+    loadData();
+  }, [currentCompany]);
+
+  return <Dashboard evaluations={evaluations} employees={employees} initialTab={tab} />;
+}
+
+function SettingsWrapper() {
+  const { view } = useParams<{ view: string }>();
+  const { isMaster } = useCompany();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const SettingsButton = ({ view: viewName, icon: Icon, label }: any) => (
+    <button
+      onClick={() => {
+        navigate(`/settings/${viewName}`);
+        setIsSidebarOpen(false);
+      }}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium ${
+        view === viewName
+          ? 'bg-brand-gradient text-white dark:text-black shadow-md'
+          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+      }`}
+    >
+      <Icon size={18} />
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col md:flex-row gap-6 animate-fadeIn">
+      <div className="md:hidden mb-4">
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="flex items-center gap-2 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg shadow-sm text-gray-700 dark:text-white w-full justify-between"
+        >
+          <span className="font-semibold flex items-center gap-2">
+            <Menu size={18} /> Menu de Cadastros
+          </span>
+          {isSidebarOpen ? <X size={18} /> : <Settings size={18} />}
+        </button>
+      </div>
+
+      <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
+        <div className="bg-white dark:bg-lidera-gray rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sticky top-24">
           
-          {currentView === 'dashboard' && (
-            <Dashboard evaluations={evaluations} employees={employees} />
-          )}
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
+          <div className="space-y-1">
+            <SettingsButton view="criteria" icon={ClipboardList} label="Critérios" />
+            <SettingsButton view="sectors" icon={Layers} label="Setores" />
+            <SettingsButton view="roles" icon={Briefcase} label="Cargos" />
+          </div>
 
-          {currentView === 'evaluations' && (
-            <EvaluationsView />
-          )}
+          <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+          
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Pessoas</h3>
+          <div className="space-y-1">
+            <SettingsButton view="employees" icon={Users} label="Funcionários" />
+            <SettingsButton view="users" icon={UserCog} label="Usuários" />
+          </div>
 
-          {currentView === 'history' && (
+          <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+          
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
+          <div className="space-y-1">
+            <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
+          </div>
+
+          {isMaster && (
+            <>
+              <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Admin</h3>
+              <SettingsButton view="companies" icon={Building} label="Empresas" />
+            </>
+          )}
+        </div>
+      </aside>
+
+      <section className="flex-1 min-w-0">
+        {view === 'criteria' && <CriteriaView />}
+        {view === 'sectors' && <SectorsView />}
+        {view === 'roles' && <RolesView />}
+        {view === 'employees' && <EmployeesView />}
+        {view === 'users' && <UsersView />}
+        {view === 'import' && <HistoryImportView />}
+        {isMaster && view === 'companies' && <CompaniesView />}
+      </section>
+    </div>
+  );
+}
+
+function MainApp() {
+  const { currentCompany } = useCompany();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const currentView = pathParts[0] || 'dashboard';
+
+  const NavButton = ({ view, icon: Icon, label }: any) => (
+    <button
+      onClick={() => navigate(`/${view}`)}
+      className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 py-2 rounded-md transition-all text-xs md:text-sm font-medium ${
+        currentView === view
+          ? 'bg-skills-blue-primary/10 text-skills-blue-primary dark:bg-lidera-gold/20 dark:text-lidera-gold'
+          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+      }`}
+    >
+      <Icon size={20} />
+      <span>{label}</span>
+    </button>
+  );
+
+  if (!currentCompany) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-lidera-dark text-center p-4">
+        <div className="bg-white dark:bg-lidera-gray p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-md w-full animate-fadeIn">
+          <div className="mb-6 flex justify-center">
+             <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-blue-100 dark:ring-gray-700">
+               <img 
+                 src="/lidera-logo.png" 
+                 alt="Lidera Skills" 
+                 className="w-full h-full object-cover"
+               />
+             </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Bem-vindo ao Lidera Skills</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-8">Para acessar os painéis, selecione ou cadastre uma empresa cliente.</p>
+          <div className="flex justify-center">
+            <CompanySelector />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-skills-light dark:bg-lidera-dark flex flex-col font-sans transition-colors duration-300">
+      
+      <header className="bg-white dark:bg-lidera-gray shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-between h-16 items-center">
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg ring-2 ring-white dark:ring-gray-800">
+                  <img 
+                    src="/lidera-logo.png" 
+                    alt="Lidera Skills" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h1 className="text-xl font-bold text-gray-800 dark:text-white hidden md:block tracking-tight">
+                  Lidera Skills
+                </h1>
+              </div>
+              <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+              <div className="hidden md:block">
+                <CompanySelector />
+              </div>
+            </div>
+
+            <nav className="flex items-center gap-1 md:gap-2">
+              <NavButton view="dashboard" icon={LayoutDashboard} label="Painel" />
+              <NavButton view="evaluations" icon={FileCheck} label="Avaliações" />
+              <NavButton view="history" icon={History} label="Histórico" />
+              <NavButton view="settings" icon={Settings} label="Configurações" />
+              <NavButton view="help" icon={HelpCircle} label="Ajuda" />
+            </nav>
+
+            <div className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-4 ml-2 md:ml-4 gap-2">
+              <ThemeToggle />
+              <button className="text-gray-400 hover:text-red-600 transition-colors" title="Sair">
+                <LogOut size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard/overview" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/dashboard/overview" replace />} />
+          <Route path="/dashboard/:tab" element={<DashboardWrapper />} />
+          <Route path="/evaluations" element={<EvaluationsView />} />
+          <Route path="/history" element={
             <div className="animate-fade-in-up">
               <div className="mb-6 flex justify-between items-end">
                 <div>
@@ -195,88 +513,27 @@ function MainApp() {
               </div>
               <EvaluationHistory />
             </div>
-          )}
-
-          {currentView === 'help' && (
-             <HelpView />
-          )}
-
-          {currentView === 'settings' && (
-            <div className="flex flex-col md:flex-row gap-6 animate-fadeIn">
-              <div className="md:hidden mb-4">
-                <button 
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="flex items-center gap-2 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg shadow-sm text-gray-700 dark:text-white w-full justify-between"
-                >
-                  <span className="font-semibold flex items-center gap-2">
-                    <Menu size={18} /> Menu de Cadastros
-                  </span>
-                  {isSidebarOpen ? <X size={18} /> : <Settings size={18} />}
-                </button>
-              </div>
-
-              <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
-                <div className="bg-white dark:bg-lidera-gray rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sticky top-24">
-                  
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
-                  <div className="space-y-1">
-                    <SettingsButton view="criteria" icon={ClipboardList} label="Critérios" />
-                    <SettingsButton view="sectors" icon={Layers} label="Setores" />
-                    <SettingsButton view="roles" icon={Briefcase} label="Cargos" />
-                  </div>
-
-                  <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
-                  
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Pessoas</h3>
-                  <div className="space-y-1">
-                    <SettingsButton view="employees" icon={Users} label="Funcionários" />
-                    <SettingsButton view="users" icon={UserCog} label="Usuários" />
-                  </div>
-
-                  {/* Nova Seção de Dados e Importação */}
-                  <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
-                  
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
-                  <div className="space-y-1">
-                    <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
-                  </div>
-
-                  {isMaster && (
-                    <>
-                      <div className="my-4 border-t border-gray-100 dark:border-gray-800"></div>
-                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Admin</h3>
-                      <SettingsButton view="companies" icon={Building} label="Empresas" />
-                    </>
-                  )}
-                </div>
-              </aside>
-
-              <section className="flex-1 min-w-0">
-                {settingsView === 'criteria' && <CriteriaView />}
-                {settingsView === 'sectors' && <SectorsView />}
-                {settingsView === 'roles' && <RolesView />}
-                {settingsView === 'employees' && <EmployeesView />}
-                {settingsView === 'users' && <UsersView />}
-                {settingsView === 'import' && <HistoryImportView />} {/* <--- Renderização da nova view */}
-                {isMaster && settingsView === 'companies' && <CompaniesView />}
-              </section>
-            </div>
-          )}
-
-        </main>
-        <Toaster />
-      </div>
-    </Router>
+          } />
+          <Route path="/help" element={<HelpView />} />
+          <Route path="/settings" element={<Navigate to="/settings/criteria" replace />} />
+          <Route path="/settings/:view" element={<SettingsWrapper />} />
+          <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+        </Routes>
+      </main>
+      <Toaster />
+    </div>
   );
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <CompanyProvider>
-        <MainApp />
-      </CompanyProvider>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <CompanyProvider>
+          <MainApp />
+        </CompanyProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

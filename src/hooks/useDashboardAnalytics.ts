@@ -28,10 +28,18 @@ const formatMonthYear = (dateStr: string) => {
   return date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
 };
 
-// Função para ordenar dados do gráfico de rosca (mostra todos, sem agrupar)
+// Função para agrupar dados do gráfico de rosca (Top 5 + Outros)
 const aggregateDonutData = (data: { name: string; value: number }[]) => {
-  // Retorna todos os dados ordenados por valor (sem agrupar em "Outros")
-  return data.sort((a, b) => b.value - a.value);
+  if (data.length <= 5) return data.sort((a, b) => b.value - a.value);
+  
+  const sorted = [...data].sort((a, b) => b.value - a.value);
+  const top5 = sorted.slice(0, 5);
+  const othersValue = sorted.slice(5).reduce((acc, curr) => acc + curr.value, 0);
+  
+  if (othersValue > 0) {
+    top5.push({ name: 'Outros', value: othersValue });
+  }
+  return top5;
 };
 
 export const useDashboardAnalytics = (evaluations: any[], employees: any[], filters: FilterState) => {
@@ -307,16 +315,93 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
 
      const companyAvg = generalMetrics.healthScore;
 
-     const individualData = filteredData.map(ev => ({
-        name: ev.realName,
-        metric: 'Nota Geral',
-        individualScore: Number(ev.score.toFixed(2)),
-        sectorAvg: Number((sectorAverages[ev.realSector] || 0).toFixed(2)),
-        companyAvg: Number(companyAvg.toFixed(2)),
-        sector: ev.realSector
-     }));
+     const individualData = filteredData.map(ev => {
+        const individualScore = Number(ev.score.toFixed(2));
+        const sectorAvg = Number((sectorAverages[ev.realSector] || 0).toFixed(2));
+        const diffSector = individualScore - sectorAvg;
+        const diffCompany = individualScore - companyAvg;
+        
+        return {
+          name: ev.realName,
+          metric: 'Nota Geral',
+          individualScore,
+          sectorAvg,
+          companyAvg: Number(companyAvg.toFixed(2)),
+          sector: ev.realSector,
+          role: ev.realRole,
+          type: ev.realType || ev.type || 'Operacional',
+          date: ev.dateRaw || ev.date || '',
+          monthYear: ev.monthYear || formatMonthYear(ev.dateRaw || ev.date || ''),
+          belowSectorAvg: diffSector < 0,
+          belowCompanyAvg: diffCompany < 0,
+          diffSector: Number(diffSector.toFixed(2)),
+          diffCompany: Number(diffCompany.toFixed(2))
+        };
+     });
 
-     return { individualData };
+     // Dados para comparação percentual mês a mês
+     // Agrupa avaliações por funcionário e mês
+     const employeeMonthlyMap: Record<string, Array<{ month: string; score: number; date: string }>> = {};
+     
+     filteredData.forEach(ev => {
+       const key = ev.realName;
+       if (!employeeMonthlyMap[key]) {
+         employeeMonthlyMap[key] = [];
+       }
+       const monthKey = ev.dateRaw ? ev.dateRaw.substring(0, 7) : '';
+       if (monthKey) {
+         employeeMonthlyMap[key].push({
+           month: monthKey,
+           score: ev.score,
+           date: ev.dateRaw || ev.date || ''
+         });
+       }
+     });
+     
+     // Calcula variação percentual mês a mês
+     const comparisonData: Array<{
+       name: string;
+       sector: string;
+       role: string;
+       type: string;
+       months: Array<{ month: string; monthKey: string; score: number; change?: number; changePercent?: number }>;
+     }> = [];
+     
+     Object.entries(employeeMonthlyMap).forEach(([name, months]) => {
+       const sortedMonths = months.sort((a, b) => a.month.localeCompare(b.month));
+       const firstEv = filteredData.find(e => e.realName === name);
+       
+       const monthData = sortedMonths.map((month, idx) => {
+         let change = 0;
+         let changePercent = 0;
+         
+         if (idx > 0) {
+           const prevScore = sortedMonths[idx - 1].score;
+           change = month.score - prevScore;
+           changePercent = prevScore > 0 ? (change / prevScore) * 100 : 0;
+         }
+         
+         return {
+           month: formatMonthYear(month.date),
+           monthKey: month.month,
+           score: month.score,
+           change: idx > 0 ? change : undefined,
+           changePercent: idx > 0 ? changePercent : undefined
+         };
+       });
+       
+       comparisonData.push({
+         name,
+         sector: firstEv?.realSector || 'Geral',
+         role: firstEv?.realRole || 'Não definido',
+         type: firstEv?.realType || firstEv?.type || 'Operacional',
+         months: monthData
+       });
+     });
+     
+     const monthlyComparison = comparisonData;
+
+     return { individualData, monthlyComparison };
   }, [filteredData, generalMetrics]);
 
   return {

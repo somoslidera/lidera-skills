@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { Card } from '../../ui/Card';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter } from 'lucide-react';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
+const COLOR_OTHER = '#9CA3AF'; // Cor cinza para "Outros"
 
 // Função para calcular luminosidade de uma cor (0-255)
 const getLuminance = (hex: string): number => {
@@ -82,10 +84,33 @@ export const CompanyOverview = ({ data }: { data: any }) => {
     return ['Todos', ...Array.from(levels).sort()];
   }, [performanceList]);
 
-  // Função auxiliar para cores do gráfico
+  // Função auxiliar para cores do gráfico (inclui "Outros")
   const getSliceColor = (entry: any, index: number) => {
+    if (entry.name === 'Outros') return COLOR_OTHER;
     return COLORS[index % COLORS.length];
   };
+  
+  // Calcular ranking de setores (média de notas por setor)
+  const sectorRanking = useMemo(() => {
+    const sectorScores: Record<string, { sum: number; count: number }> = {};
+    
+    performanceList.forEach((item: any) => {
+      const sector = item.realSector || 'Geral';
+      if (!sectorScores[sector]) {
+        sectorScores[sector] = { sum: 0, count: 0 };
+      }
+      sectorScores[sector].sum += item.score || 0;
+      sectorScores[sector].count += 1;
+    });
+    
+    return Object.entries(sectorScores)
+      .map(([name, data]) => ({
+        name,
+        average: data.count > 0 ? data.sum / data.count : 0,
+        count: data.count
+      }))
+      .sort((a, b) => b.average - a.average);
+  }, [performanceList]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -98,6 +123,42 @@ export const CompanyOverview = ({ data }: { data: any }) => {
         <Card title="Avaliações" value={totalEvaluations} icon={TrendingUp} />
         <Card title="Férias" value={0} icon={CheckCircle} subtitle="Mock Data" /> 
         <Card title="Afastados" value={0} icon={AlertCircle} subtitle="Mock Data" />
+      </div>
+
+      {/* 1.1. Ranking de Setores (Barras Laterais) */}
+      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+        <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ranking de Setores</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por setor (ordenado do maior para o menor)</p>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={sectorRanking} layout="vertical" margin={{ left: 100, right: 20, top: 20, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} />
+              <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
+              <YAxis 
+                dataKey="name" 
+                type="category" 
+                width={90} 
+                tick={{fontSize: 11, fill: '#6B7280'}} 
+                interval={0}
+              />
+              <Tooltip 
+                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
+                labelFormatter={(label) => `Setor: ${label}`}
+              />
+              <Bar 
+                dataKey="average" 
+                fill="#3B82F6" 
+                radius={[0, 4, 4, 0]}
+                name="Média"
+              >
+                {sectorRanking.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -12,7 +12,9 @@ interface DashboardProps {
   employees: any[];
 }
 
-export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) => {
+export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { evaluations?: any[]; employees?: any[]; initialTab?: string }) => {
+  const navigate = useNavigate();
+  
   // Estado Local de Filtros
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
@@ -20,8 +22,17 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
   const [selectedSector, setSelectedSector] = useState('');
   const [activeFilterLabel, setActiveFilterLabel] = useState('Todo o período');
   
-  // Estado da Aba Ativa
-  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'individual'>('overview');
+  // Estado da Aba Ativa (usa initialTab da URL se disponível)
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'individual'>(
+    (initialTab as any) || 'overview'
+  );
+  
+  // Atualizar tab quando initialTab mudar (navegação via URL)
+  useEffect(() => {
+    if (initialTab && ['overview', 'performance', 'individual'].includes(initialTab)) {
+      setActiveTab(initialTab as any);
+    }
+  }, [initialTab]);
 
   // Hook de Analytics
   const analytics = useDashboardAnalytics(evaluations, employees, {
@@ -191,7 +202,10 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
       {/* --- NAVEGAÇÃO POR ABAS --- */}
       <div className="flex space-x-1 bg-gray-200 dark:bg-gray-800 p-1 rounded-lg w-fit">
         <button
-          onClick={() => setActiveTab('overview')}
+          onClick={() => {
+            setActiveTab('overview');
+            navigate('/dashboard/overview');
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'overview' 
               ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
@@ -201,7 +215,10 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
           Saúde da Empresa
         </button>
         <button
-          onClick={() => setActiveTab('performance')}
+          onClick={() => {
+            setActiveTab('performance');
+            navigate('/dashboard/performance');
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'performance' 
               ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
@@ -211,7 +228,10 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
           Análise de Desempenho
         </button>
         <button
-          onClick={() => setActiveTab('individual')}
+          onClick={() => {
+            setActiveTab('individual');
+            navigate('/dashboard/individual');
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'individual' 
               ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
