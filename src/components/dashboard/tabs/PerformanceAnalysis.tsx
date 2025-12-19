@@ -199,7 +199,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                          className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
                       >
                          <option value="Todos">Todos</option>
-                         {allSectors.map(s => <option key={s} value={s}>{s}</option>)}
+                         {allSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
                       </select>
                    </div>
                 </div>

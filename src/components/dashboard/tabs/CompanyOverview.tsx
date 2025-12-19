@@ -172,7 +172,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                      onChange={(e) => setSelectedLevel(e.target.value)}
                      className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
                   >
-                     {availableLevels.map(level => (
+                     {availableLevels.map((level: string) => (
                         <option key={level} value={level}>{level}</option>
                      ))}
                   </select>
