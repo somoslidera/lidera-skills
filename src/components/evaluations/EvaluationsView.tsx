@@ -339,7 +339,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           </label>
           <div className="relative">
             <select 
-              className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+              className="w-full p-2 pr-24 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
               disabled={!selectedCompanyId}
@@ -368,7 +368,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               const status = selectedEmp.status || 'Ativo';
               if (status === 'Férias' || status === 'Afastado') {
                 return (
-                  <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded ${
+                  <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded pointer-events-none ${
                     status === 'Férias' 
                       ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' 
                       : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
@@ -380,6 +380,24 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               return null;
             })()}
           </div>
+          {/* Indicador de status abaixo do select */}
+          {selectedEmployeeId && (() => {
+            const selectedEmp = availableEmployees.find(e => e.id === selectedEmployeeId);
+            if (!selectedEmp) return null;
+            const status = selectedEmp.status || 'Ativo';
+            if (status === 'Férias' || status === 'Afastado') {
+              return (
+                <div className={`mt-1 text-xs font-medium px-2 py-1 rounded inline-flex items-center gap-1 ${
+                  status === 'Férias' 
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' 
+                    : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                }`}>
+                  {status === 'Férias' ? '🏖️' : '🏥'} Status: {status}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês de Referência</label>
