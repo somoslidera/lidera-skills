@@ -23,7 +23,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
   const { matrixData, evolutionData, sectorEvolutionData, allSectors } = data;
   
   // Estados para ordenação e filtros do heatmap
-  const [sortBy, setSortBy] = useState<'criteria' | 'average' | 'sector'>('average');
+  const [sortBy, setSortBy] = useState<'criteria' | 'average' | 'sector' | 'type'>('average');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>('Todos');
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>('Todos');
@@ -40,12 +40,28 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
   const sortedMatrix = useMemo(() => {
     let sorted = [...matrixData];
     
+    // Filtro por nível
+    if (selectedLevelFilter !== 'Todos') {
+      sorted = sorted.filter((row: any) => (row.type || 'Operacional') === selectedLevelFilter);
+    }
+    
     if (sortBy === 'average') {
       sorted.sort((a, b) => sortDirection === 'asc' ? a.average - b.average : b.average - a.average);
     } else if (sortBy === 'criteria') {
       sorted.sort((a, b) => {
         const comparison = a.criteria.localeCompare(b.criteria);
         return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    } else if (sortBy === 'type') {
+      sorted.sort((a, b) => {
+        const typeOrder: Record<string, number> = { 'Estratégico': 1, 'Tático': 2, 'Operacional': 3 };
+        const aOrder = typeOrder[a.type || 'Operacional'] || 3;
+        const bOrder = typeOrder[b.type || 'Operacional'] || 3;
+        if (aOrder !== bOrder) {
+          return sortDirection === 'asc' ? aOrder - bOrder : bOrder - aOrder;
+        }
+        // Se mesmo nível, ordena por nome
+        return a.criteria.localeCompare(b.criteria);
       });
     } else if (sortBy === 'sector' && selectedSectorFilter !== 'Todos') {
       sorted.sort((a, b) => {
@@ -56,7 +72,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
     }
     
     return sorted;
-  }, [matrixData, sortBy, sortDirection, selectedSectorFilter]);
+  }, [matrixData, sortBy, sortDirection, selectedSectorFilter, selectedLevelFilter]);
 
   // Dados para o gráfico de Gaps (focado em valores baixos - gaps de melhoria)
   const gapData = useMemo(() => {
@@ -162,37 +178,51 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* 2. Matriz de Competências (Heatmap Dinâmico) */}
-          <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col">
+      {/* 2. Matriz de Competências (Heatmap Dinâmico - Largura Total) */}
+      <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col">
              <div className="p-6 border-b border-gray-100 dark:border-gray-800">
                 <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-2">Heatmap de Competências</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Cruzamento de médias: Competência vs Setor</p>
                 
-                {/* Controles de Ordenação */}
-                <div className="flex gap-3 flex-wrap">
+                {/* Controles de Ordenação e Filtros */}
+                <div className="flex gap-3 flex-wrap items-end">
                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Ordenar por:</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Ordenar por:</span>
                       <select
                          value={sortBy}
                          onChange={(e) => setSortBy(e.target.value as any)}
                          className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
                       >
                          <option value="average">Média Geral</option>
-                         <option value="criteria">Competência</option>
+                         <option value="type">Nível</option>
+                         <option value="criteria">Métrica</option>
                          {selectedSectorFilter !== 'Todos' && <option value="sector">Setor Selecionado</option>}
                       </select>
                       <button
                          onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                         className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                         title={sortDirection === 'asc' ? 'Crescente' : 'Decrescente'}
                       >
                          {sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
                       </button>
                    </div>
                    
                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">Filtrar Setor:</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Filtrar Nível:</span>
+                      <select
+                         value={selectedLevelFilter}
+                         onChange={(e) => setSelectedLevelFilter(e.target.value)}
+                         className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
+                      >
+                         <option value="Todos">Todos</option>
+                         <option value="Estratégico">Estratégico</option>
+                         <option value="Tático">Tático</option>
+                         <option value="Operacional">Operacional</option>
+                      </select>
+                   </div>
+                   
+                   <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Filtrar Setor:</span>
                       <select
                          value={selectedSectorFilter}
                          onChange={(e) => setSelectedSectorFilter(e.target.value)}
@@ -209,15 +239,18 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                 <table className="w-full text-xs text-center border-collapse">
                    <thead className="text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-[#121212]">
                       <tr>
-                         <th className="p-3 text-left min-w-[150px] sticky left-0 bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700">
-                           Competência
+                         <th className="p-2 text-left min-w-[80px] sticky left-0 bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700">
+                           Nível
+                         </th>
+                         <th className="p-3 text-left min-w-[180px] sticky left-[80px] bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                           Métrica
                          </th>
                          {allSectors.map((s: string) => (
                            <th key={s} className="p-2 border-b dark:border-gray-700 min-w-[70px] max-w-[90px] truncate text-[10px]" title={s}>
                              {s}
                            </th>
                          ))}
-                         <th className="p-3 border-b dark:border-gray-700 min-w-[70px] bg-gray-100 dark:bg-gray-900 font-bold">
+                         <th className="p-3 border-b dark:border-gray-700 min-w-[80px] bg-gray-100 dark:bg-gray-900 font-bold">
                            Média Geral
                          </th>
                       </tr>
@@ -225,9 +258,17 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                       {sortedMatrix.map((row: any) => {
                          const avgColor = getHeatmapColor(row.average);
+                         const nivelColor = row.type === 'Estratégico' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                                          row.type === 'Tático' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
+                                          'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
                          return (
                             <tr key={row.criteria} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                               <td className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 sticky left-0 bg-white dark:bg-[#1E1E1E] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                               <td className="p-2 text-center sticky left-0 bg-white dark:bg-[#1E1E1E] z-10">
+                                 <span className={`px-2 py-1 rounded text-[10px] font-bold ${nivelColor}`}>
+                                   {row.type || 'Operacional'}
+                                 </span>
+                               </td>
+                               <td className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 sticky left-[80px] bg-white dark:bg-[#1E1E1E] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                  {row.criteria}
                                </td>
                                {allSectors.map((s: string) => {
@@ -300,8 +341,8 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
              </div>
           </div>
 
-          {/* 3. Gráfico de Gaps (Focado em Oportunidades de Melhoria) */}
-          <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+      {/* 3. Gráfico de Gaps (Focado em Oportunidades de Melhoria) */}
+      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Análise de Gaps</h3>
              <p className="text-sm text-gray-500 mb-6">Competências que mais precisam de treinamento. Quanto maior a barra de Gap, maior a oportunidade de melhoria.</p>
              

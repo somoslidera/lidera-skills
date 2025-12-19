@@ -156,6 +156,7 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
   const competenceMetrics = useMemo(() => {
     const compMatrix: Record<string, Record<string, { sum: number, count: number }>> = {};
     const allCriteria = new Set<string>();
+    const criteriaTypeMap: Record<string, string> = {}; // Mapa de critério -> tipo (nível)
     
     // Mapa para evolução mensal por nível (Estratégico, Tático, Operacional)
     // Chave: YYYY-MM para ordenação
@@ -175,6 +176,12 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
             Object.entries(ev.details).forEach(([criteria, value]: [string, any]) => {
                 const numericValue = Number(value) || 0;
                 allCriteria.add(criteria);
+                
+                // Armazena o tipo (nível) do critério baseado no tipo da avaliação
+                if (!criteriaTypeMap[criteria]) {
+                    criteriaTypeMap[criteria] = ev.realType || ev.type || 'Operacional';
+                }
+                
                 if (!compMatrix[criteria]) compMatrix[criteria] = {};
                 if (!compMatrix[criteria][ev.realSector]) compMatrix[criteria][ev.realSector] = { sum: 0, count: 0 };
                 
@@ -222,7 +229,10 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
 
     // Formatar Matriz para Tabela
     const matrixData = Array.from(allCriteria).map(criteria => {
-        const row: any = { criteria };
+        const row: any = { 
+            criteria,
+            type: criteriaTypeMap[criteria] || 'Operacional' // Adiciona o nível do critério
+        };
         let totalSum = 0;
         let totalCount = 0;
         

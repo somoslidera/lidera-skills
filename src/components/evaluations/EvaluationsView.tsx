@@ -65,6 +65,51 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
   const [loading, setLoading] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(currentCompany?.id === 'all' ? '' : currentCompany?.id || '');
+  const [sortOrder, setSortOrder] = useState<'name' | 'sector'>('sector');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [existingEvaluations, setExistingEvaluations] = useState<Set<string>>(new Set());
+
+  // Carregar avaliações existentes para o mês selecionado
+  useEffect(() => {
+    const loadExistingEvaluations = async () => {
+      if (!selectedCompanyId || !evalMonth) {
+        setExistingEvaluations(new Set());
+        return;
+      }
+      
+      try {
+        const monthStart = `${evalMonth}-01`;
+        const monthEnd = `${evalMonth}-31`;
+        
+        const evalQuery = query(
+          collection(db, 'evaluations'),
+          where("companyId", "==", selectedCompanyId),
+          where("date", ">=", monthStart),
+          where("date", "<=", monthEnd)
+        );
+        
+        const evalSnap = await getDocs(evalQuery);
+        const evaluatedEmployeeIds = new Set<string>();
+        
+        evalSnap.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.employeeId) {
+            evaluatedEmployeeIds.add(data.employeeId);
+          } else if (data.employeeName) {
+            // Fallback: usar nome se não tiver ID
+            const emp = employees.find(e => e.name === data.employeeName);
+            if (emp) evaluatedEmployeeIds.add(emp.id);
+          }
+        });
+        
+        setExistingEvaluations(evaluatedEmployeeIds);
+      } catch (error) {
+        console.error("Erro ao carregar avaliações existentes", error);
+      }
+    };
+    
+    loadExistingEvaluations();
+  }, [selectedCompanyId, evalMonth, employees]);
 
   useEffect(() => {
     const loadAux = async () => {
@@ -130,6 +175,33 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     return criteriaList.filter(c => c.type === formType);
   }, [formType, criteriaList]);
 
+  // Filtrar e ordenar funcionários disponíveis
+  const availableEmployees = useMemo(() => {
+    let filtered = employees.filter(emp => !existingEvaluations.has(emp.id));
+    
+    // Busca por nome
+    if (searchTerm) {
+      filtered = filtered.filter(emp => 
+        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.sector.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Ordenação
+    if (sortOrder === 'name') {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortOrder === 'sector') {
+      filtered.sort((a, b) => {
+        const sectorCompare = a.sector.localeCompare(b.sector);
+        if (sectorCompare !== 0) return sectorCompare;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    
+    return filtered;
+  }, [employees, existingEvaluations, searchTerm, sortOrder]);
+
   const currentAverage = useMemo(() => {
     const values = Object.values(scores);
     if (values.length === 0) return 0;
@@ -178,6 +250,46 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <FileText className="text-blue-600" /> Nova Avaliação de Desempenho
       </h3>
 
+      {/* Controles de Filtro e Ordenação */}
+      {selectedCompanyId && (
+        <div className="bg-gray-50 dark:bg-[#121212] p-4 rounded-lg mb-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex-1 w-full sm:w-auto">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Buscar Colaborador</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Nome, cargo ou setor..."
+                  className="w-full pl-10 pr-3 py-2 text-sm border rounded dark:bg-[#1E1E1E] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="w-full sm:w-auto">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ordenar por</label>
+              <select
+                className="w-full sm:w-40 px-3 py-2 text-sm border rounded dark:bg-[#1E1E1E] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as 'name' | 'sector')}
+              >
+                <option value="sector">Setor → Nome</option>
+                <option value="name">Nome (A-Z)</option>
+              </select>
+            </div>
+            {existingEvaluations.size > 0 && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 pt-6 sm:pt-0">
+                <span className="font-medium text-blue-600 dark:text-blue-400">
+                  {existingEvaluations.size} já avaliado{existingEvaluations.size !== 1 ? 's' : ''}
+                </span>
+                {' '}neste mês
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Empresa <span className="text-red-500">*</span></label>
@@ -189,6 +301,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               setSelectedEmployeeId('');
               setCriteriaList([]);
               setScores({});
+              setSearchTerm('');
             }}
           >
             <option value="">Selecione uma empresa...</option>
@@ -198,7 +311,12 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Colaborador</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Colaborador 
+            <span className="text-xs text-gray-500 ml-2">
+              ({availableEmployees.length} disponível{availableEmployees.length !== 1 ? 'eis' : ''})
+            </span>
+          </label>
           <select 
             className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={selectedEmployeeId}
@@ -206,10 +324,16 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             disabled={!selectedCompanyId}
           >
             <option value="">
-                {selectedCompanyId ? "Selecione um funcionário..." : "Selecione a empresa primeiro"}
+                {selectedCompanyId 
+                  ? availableEmployees.length > 0 
+                    ? "Selecione um funcionário..." 
+                    : "Todos os funcionários já foram avaliados neste mês"
+                  : "Selecione a empresa primeiro"}
             </option>
-            {employees.map(e => (
-              <option key={e.id} value={e.id}>{e.name} - {e.role}</option>
+            {availableEmployees.map(e => (
+              <option key={e.id} value={e.id}>
+                {sortOrder === 'sector' ? `[${e.sector}] ` : ''}{e.name} - {e.role}
+              </option>
             ))}
           </select>
         </div>
