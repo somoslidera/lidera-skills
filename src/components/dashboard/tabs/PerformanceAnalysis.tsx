@@ -413,7 +413,6 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
              </div>
           </div>
 
-      </div>
     </div>
   );
 };
