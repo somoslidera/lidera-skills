@@ -102,9 +102,9 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                    onChange={(e) => setFilterValue(e.target.value)}
                  >
                    <option value="">Selecione...</option>
-                   {filterBy === 'sector' && uniqueSectors.map(s => <option key={s} value={s}>{s}</option>)}
-                   {filterBy === 'role' && uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}
-                   {filterBy === 'type' && uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                   {filterBy === 'sector' && uniqueSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                   {filterBy === 'role' && uniqueRoles.map((r: string) => <option key={r} value={r}>{r}</option>)}
+                   {filterBy === 'type' && uniqueTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
                  </select>
                )}
              </div>
@@ -218,9 +218,9 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                    onChange={(e) => setFilterValue(e.target.value)}
                  >
                    <option value="">Selecione...</option>
-                   {filterBy === 'sector' && uniqueSectors.map(s => <option key={s} value={s}>{s}</option>)}
-                   {filterBy === 'role' && uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}
-                   {filterBy === 'type' && uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                   {filterBy === 'sector' && uniqueSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                   {filterBy === 'role' && uniqueRoles.map((r: string) => <option key={r} value={r}>{r}</option>)}
+                   {filterBy === 'type' && uniqueTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
                  </select>
                )}
              </div>
