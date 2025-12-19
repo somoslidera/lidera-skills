@@ -102,7 +102,14 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
         details,
         dateRaw: ev.date || '', // Mantém data original YYYY-MM-DD para filtro
         monthYear: formatMonthYear(ev.date), // Data formatada para agrupamento
-        funcionarioMes: ev.funcionarioMes || ev.funcionario_mes || 'Não' // Destaque do mês
+        // Normalizar funcionarioMes: pode ser 'Sim', 'sim', true, 'true', etc.
+        funcionarioMes: (() => {
+          const value = ev.funcionarioMes || ev.funcionario_mes;
+          if (value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM') {
+            return 'Sim';
+          }
+          return 'Não';
+        })()
       };
     });
   }, [evaluations, employees]);
@@ -157,7 +164,14 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     const topEmployee = sortedByScore[0];
     const performanceList = sortedByScore.slice(0, 10).map(item => ({
       ...item,
-      funcionarioMes: item.funcionarioMes || 'Não' // Garante que sempre tenha o campo
+      // Normalizar funcionarioMes para garantir formato consistente
+      funcionarioMes: (() => {
+        const value = item.funcionarioMes || item.funcionario_mes;
+        if (value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM') {
+          return 'Sim';
+        }
+        return 'Não';
+      })()
     })); // Top 10 para a tabela
 
     return {
