@@ -94,6 +94,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   };
 
   // --- Helpers de Banco de Dados (Upsert) ---
+  /**
+   * Garante que um setor existe no banco (não duplica)
+   * Comportamento:
+   * - Se setor já existe (mesmo nome), retorna o ID existente (IGNORA duplicata)
+   * - Se não existe, cria novo setor
+   * - Se existe mas não está vinculado à empresa, adiciona empresa ao array companyIds
+   */
   const ensureSector = async (name: string, companyId: string, cache: Map<string, string>) => {
     if (!name) return '';
     if (cache.has(name)) return cache.get(name)!;
@@ -103,9 +110,11 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     const snap = await getDocs(q);
 
     if (!snap.empty) {
+      // Setor já existe - retorna ID existente (NÃO duplica)
       const docSnap = snap.docs[0];
       if (companyId) {
         const data = docSnap.data();
+        // Se setor não está vinculado à empresa, adiciona ao array
         if (!data.companyIds?.includes(companyId)) {
           await updateDoc(doc(db, 'sectors', docSnap.id), { companyIds: arrayUnion(companyId) });
         }
@@ -114,6 +123,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       return docSnap.id;
     }
 
+    // Setor não existe - cria novo
     const newDoc = await addDoc(ref, {
       name,
       companyIds: companyId ? [companyId] : [],
@@ -124,6 +134,13 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     return newDoc.id;
   };
 
+  /**
+   * Garante que um cargo existe no banco (não duplica)
+   * Comportamento:
+   * - Se cargo já existe (mesmo nome), retorna o ID existente (IGNORA duplicata)
+   * - Se não existe, cria novo cargo
+   * - Se existe mas não está vinculado à empresa, adiciona empresa ao array companyIds
+   */
   const ensureRole = async (name: string, level: string, companyId: string, cache: Map<string, string>) => {
     if (!name) return '';
     if (cache.has(name)) return cache.get(name)!;
@@ -133,9 +150,11 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     const snap = await getDocs(q);
 
     if (!snap.empty) {
+      // Cargo já existe - retorna ID existente (NÃO duplica)
       const docSnap = snap.docs[0];
       if (companyId) {
         const data = docSnap.data();
+        // Se cargo não está vinculado à empresa, adiciona ao array
         if (!data.companyIds?.includes(companyId)) {
           await updateDoc(doc(db, 'roles', docSnap.id), { companyIds: arrayUnion(companyId) });
         }
@@ -144,6 +163,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       return docSnap.id;
     }
 
+    // Cargo não existe - cria novo
     const newDoc = await addDoc(ref, {
       name,
       level: level || 'Operacional', // Fallback se não tiver nível
@@ -291,6 +311,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
       const safeCompanyId = currentCompany.id;
 
       // Caches para evitar leituras repetidas no banco
+      // Agrupa por ID_Avaliacao para consolidar múltiplas métricas em uma avaliação
       const groupedEvaluations = new Map<string, any>();
       const cacheSectors = new Map<string, string>();
       const cacheRoles = new Map<string, string>();
@@ -312,8 +333,9 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         // AQUI: Lê o nível diretamente do CSV mapeado. Se vazio, usa 'Operacional'
         const level = row[columnMapping.level] || 'Operacional'; 
         
-        // Opcional: ID para evitar homônimos
-        const employeeCode = row['ID'] || row['ID_Avaliacao'] || row['Matricula'] || ''; 
+        // ID da avaliação (ID_Avaliacao do CSV) - usado como chave única para agrupar métricas
+        const evaluationId = row['ID_Avaliacao'] || row['ID'] || row['Matricula'] || `${name}-${rawDate}-${Date.now()}`;
+        const employeeCode = evaluationId; // Usa o mesmo ID como employeeCode
 
         if (!name || !rawDate) continue;
 
@@ -335,14 +357,15 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           roleId
         }, safeCompanyId, cacheEmployees);
 
-        // 3. Agrupar Avaliação (Colaborador + Mês)
+        // 3. Agrupar Avaliação por ID_Avaliacao (cada ID_Avaliacao = uma avaliação única)
         const formattedDate = parseGomesDate(rawDate);
-        const key = `${name}-${formattedDate}`;
+        const key = evaluationId; // Usa ID_Avaliacao como chave única
 
         if (!groupedEvaluations.has(key)) {
           groupedEvaluations.set(key, {
+            evaluationId: evaluationId, // ID único da avaliação
             employeeName: name,
-            employeeId: employeeCode, // Pode ser atualizado com o ID do firebase depois se quiser
+            employeeId: employeeCode,
             role: roleName,
             sector: sectorName,
             type: level, // <--- Aqui garante que usa Estratégico/Tático/Operacional
@@ -362,14 +385,14 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         processedRows++;
       }
 
-      setStatus({ type: null, msg: `Salvando ${groupedEvaluations.size} avaliações consolidadas...` });
+      setStatus({ type: null, msg: `Salvando ${groupedEvaluations.size} avaliações...` });
 
-      // 4. Salvar no Firebase
+      // 4. Salvar no Firebase - cada avaliação com ID único e média própria
       let savedCount = 0;
       let skippedCount = 0;
 
       for (const item of groupedEvaluations.values()) {
-        // Calcula média simples
+        // Calcula média por avaliação (soma das notas desta avaliação / quantidade de critérios)
         const average = item.metricCount > 0 
           ? parseFloat((item.totalScore / item.metricCount).toFixed(2)) 
           : 0;
@@ -381,21 +404,46 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           sector: item.sector,
           type: item.type, // Persiste o nível correto
           date: item.date,
-          average: average,
+          average: average, // Média desta avaliação específica
           details: item.details,
           companyId: safeCompanyId,
           importedAt: new Date().toISOString(),
-          source: 'history-import'
+          source: 'history-import',
+          evaluationId: item.evaluationId // ID único da avaliação (para referência)
         };
 
-        // Verifica duplicidade (Nome + Data + Empresa)
-        const q = query(
-          collectionRef, 
-          where("employeeName", "==", item.employeeName), 
-          where("date", "==", item.date), 
-          where("companyId", "==", safeCompanyId)
-        );
-        const querySnapshot = await getDocs(q);
+        // Verifica duplicidade por evaluationId (ID_Avaliacao) + empresa
+        // Isso garante que cada avaliação tenha ID único, mesmo que seja do mesmo funcionário/mês
+        // Fallback: se evaluationId não existir em avaliações antigas, verifica por nome + data
+        let querySnapshot;
+        try {
+          const q = query(
+            collectionRef, 
+            where("evaluationId", "==", item.evaluationId), 
+            where("companyId", "==", safeCompanyId)
+          );
+          querySnapshot = await getDocs(q);
+          
+          // Se não encontrou por evaluationId, tenta por nome + data (compatibilidade com dados antigos)
+          if (querySnapshot.empty) {
+            const qFallback = query(
+              collectionRef, 
+              where("employeeName", "==", item.employeeName), 
+              where("date", "==", item.date), 
+              where("companyId", "==", safeCompanyId)
+            );
+            querySnapshot = await getDocs(qFallback);
+          }
+        } catch (error) {
+          // Se der erro (campo evaluationId não indexado), usa fallback
+          const qFallback = query(
+            collectionRef, 
+            where("employeeName", "==", item.employeeName), 
+            where("date", "==", item.date), 
+            where("companyId", "==", safeCompanyId)
+          );
+          querySnapshot = await getDocs(qFallback);
+        }
 
         if (querySnapshot.empty) {
           await addDoc(collectionRef, finalDoc);
@@ -407,7 +455,7 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
 
       setStatus({ 
         type: 'success', 
-        msg: `Processamento concluído! ${savedCount} avaliações criadas. ${skippedCount} já existiam. (${processedRows} linhas processadas)`
+        msg: `Processamento concluído! ${savedCount} avaliações criadas. ${skippedCount} já existiam. (${processedRows} linhas processadas, ${groupedEvaluations.size} avaliações únicas)`
       });
 
     } catch (error: any) {
