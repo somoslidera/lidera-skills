@@ -236,6 +236,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
       await addDoc(collection(db, 'evaluations'), payload);
       toast.success("Avaliação salva com sucesso!");
+      
+      // Adiciona o funcionário à lista de já avaliados
+      setExistingEvaluations(prev => new Set([...prev, currentEmployee.id]));
+      
+      // Limpa seleção para facilitar próxima avaliação
+      setSelectedEmployeeId('');
+      setScores({});
+      
       onSuccess();
     } catch (error) {
       toast.handleError(error, 'EvaluationsView.handleSubmit');
