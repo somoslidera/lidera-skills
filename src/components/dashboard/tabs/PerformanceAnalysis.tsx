@@ -5,18 +5,23 @@ import {
 } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
-// Função para gerar cor de gradiente suave estilo Looker Studio (heatmap)
+// Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
+// Gradiente: Vermelho → Laranja → Amarelo → Verde
 const getHeatmapColor = (score: number): { bg: string; text: string } => {
-  // Gradiente suave de vermelho → amarelo → verde
-  if (score >= 9) return { bg: '#10B981', text: '#FFFFFF' }; // Verde escuro
-  if (score >= 8.5) return { bg: '#34D399', text: '#FFFFFF' }; // Verde claro
-  if (score >= 8) return { bg: '#6EE7B7', text: '#065F46' }; // Verde muito claro
-  if (score >= 7.5) return { bg: '#FCD34D', text: '#78350F' }; // Amarelo claro
-  if (score >= 7) return { bg: '#FBBF24', text: '#78350F' }; // Amarelo
-  if (score >= 6.5) return { bg: '#F59E0B', text: '#FFFFFF' }; // Laranja claro
-  if (score >= 6) return { bg: '#F97316', text: '#FFFFFF' }; // Laranja
-  if (score >= 5) return { bg: '#EF4444', text: '#FFFFFF' }; // Vermelho claro
-  return { bg: '#DC2626', text: '#FFFFFF' }; // Vermelho escuro
+  // Normaliza o score para 0-10
+  const normalizedScore = Math.max(0, Math.min(10, score));
+  
+  // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
+  if (normalizedScore >= 9) return { bg: '#166534', text: '#FFFFFF' }; // Verde escuro (9-10)
+  if (normalizedScore >= 8) return { bg: '#22C55E', text: '#FFFFFF' }; // Verde médio (8-9)
+  if (normalizedScore >= 7) return { bg: '#4ADE80', text: '#FFFFFF' }; // Verde claro (7-8)
+  if (normalizedScore >= 6) return { bg: '#84CC16', text: '#FFFFFF' }; // Verde-amarelo (6-7)
+  if (normalizedScore >= 5) return { bg: '#EAB308', text: '#FFFFFF' }; // Amarelo (5-6)
+  if (normalizedScore >= 4) return { bg: '#F59E0B', text: '#FFFFFF' }; // Laranja claro (4-5)
+  if (normalizedScore >= 3) return { bg: '#F97316', text: '#FFFFFF' }; // Laranja (3-4)
+  if (normalizedScore >= 2) return { bg: '#FB923C', text: '#FFFFFF' }; // Laranja claro (2-3)
+  if (normalizedScore >= 1) return { bg: '#EF4444', text: '#FFFFFF' }; // Vermelho-laranja (1-2)
+  return { bg: '#DC2626', text: '#FFFFFF' }; // Vermelho escuro (0-1)
 };
 
 export const PerformanceAnalysis = ({ data }: { data: any }) => {
@@ -275,16 +280,18 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                   const score = row[s];
                                   if (score === undefined) {
                                     return (
-                                      <td key={s} className="p-1">
-                                        <span className="text-gray-200 dark:text-gray-800">-</span>
+                                      <td key={s} className="p-0">
+                                        <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                          <span className="text-gray-300 dark:text-gray-700 text-[11px]">-</span>
+                                        </div>
                                       </td>
                                     );
                                   }
                                   const color = getHeatmapColor(score);
                                   return (
-                                    <td key={s} className="p-1">
+                                    <td key={s} className="p-0">
                                       <div 
-                                        className="flex items-center justify-center w-full h-full rounded px-2 py-1.5 font-bold text-[11px] transition-all hover:scale-105"
+                                        className="flex items-center justify-center w-full h-full font-bold text-[11px] min-h-[40px]"
                                         style={{ 
                                           backgroundColor: color.bg,
                                           color: color.text
@@ -296,9 +303,9 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                     </td>
                                   );
                                })}
-                               <td className="p-2 bg-gray-50 dark:bg-gray-900">
+                               <td className="p-0">
                                  <div 
-                                   className="flex items-center justify-center w-full h-full rounded px-2 py-1.5 font-bold text-xs"
+                                   className="flex items-center justify-center w-full h-full font-bold text-xs min-h-[40px] bg-gray-50 dark:bg-gray-900"
                                    style={{ 
                                      backgroundColor: avgColor.bg,
                                      color: avgColor.text
@@ -313,30 +320,29 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                    </tbody>
                 </table>
              </div>
-             <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] flex gap-4 text-xs justify-center flex-wrap">
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#DC2626' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">0-5</span>
+             <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#121212]">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Formato</span>
                 </div>
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F97316' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">5-6</span>
+                <div className="flex items-center justify-center">
+                   {/* Gradiente de 10 segmentos */}
+                   <div className="flex h-8 w-full max-w-2xl">
+                      <div className="flex-1" style={{ backgroundColor: '#DC2626' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#EF4444' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#FB923C' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#F97316' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#F59E0B' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#EAB308' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#84CC16' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#4ADE80' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#22C55E' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#166534' }}></div>
+                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FBBF24' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">6-7</span>
-                </div>
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FCD34D' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">7-8</span>
-                </div>
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#6EE7B7' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">8-9</span>
-                </div>
-                <div className="flex items-center gap-1">
-                   <div className="w-4 h-4 rounded" style={{ backgroundColor: '#10B981' }}></div>
-                   <span className="text-gray-600 dark:text-gray-400">9-10</span>
+                <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-gray-500 dark:text-gray-400">
+                   <span>0</span>
+                   <span>5</span>
+                   <span>10</span>
                 </div>
              </div>
           </div>

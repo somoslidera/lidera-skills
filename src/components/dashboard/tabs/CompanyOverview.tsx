@@ -8,16 +8,23 @@ import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Fi
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444'];
 const COLOR_OTHER = '#9CA3AF'; // Cor cinza para "Outros"
 
-// Função para gerar cor de gradiente estilo Looker Studio (heatmap suave)
+// Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
+// Gradiente: Vermelho → Laranja → Amarelo → Verde
 const getHeatmapColor = (score: number): string => {
-  // Gradiente de vermelho (0) → amarelo (5) → verde (10)
-  if (score >= 9) return '#10B981'; // Verde escuro
-  if (score >= 8) return '#34D399'; // Verde claro
-  if (score >= 7) return '#FCD34D'; // Amarelo claro
-  if (score >= 6) return '#FBBF24'; // Amarelo
-  if (score >= 5) return '#F59E0B'; // Laranja claro
-  if (score >= 4) return '#EF4444'; // Vermelho claro
-  return '#DC2626'; // Vermelho escuro
+  // Normaliza o score para 0-10
+  const normalizedScore = Math.max(0, Math.min(10, score));
+  
+  // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
+  if (normalizedScore >= 9) return '#166534'; // Verde escuro (9-10)
+  if (normalizedScore >= 8) return '#22C55E'; // Verde médio (8-9)
+  if (normalizedScore >= 7) return '#4ADE80'; // Verde claro (7-8)
+  if (normalizedScore >= 6) return '#84CC16'; // Verde-amarelo (6-7)
+  if (normalizedScore >= 5) return '#EAB308'; // Amarelo (5-6)
+  if (normalizedScore >= 4) return '#F59E0B'; // Laranja claro (4-5)
+  if (normalizedScore >= 3) return '#F97316'; // Laranja (3-4)
+  if (normalizedScore >= 2) return '#FB923C'; // Laranja claro (2-3)
+  if (normalizedScore >= 1) return '#EF4444'; // Vermelho-laranja (1-2)
+  return '#DC2626'; // Vermelho escuro (0-1)
 };
 
 // Função para gerar cor de fundo com opacidade (estilo Looker Studio)
@@ -211,12 +218,11 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                                     {item.realType || item.type || 'Operacional'}
                                  </span>
                               </td>
-                              <td className="p-3">
+                              <td className="p-0">
                                  <div 
-                                    className="text-center rounded px-3 py-1.5 font-bold text-white text-sm"
+                                    className="flex items-center justify-center w-full h-full font-bold text-white text-sm min-h-[48px]"
                                     style={{ 
-                                       backgroundColor: bgColor,
-                                       opacity: 0.85
+                                       backgroundColor: bgColor
                                     }}
                                  >
                                     {score.toFixed(1)}
