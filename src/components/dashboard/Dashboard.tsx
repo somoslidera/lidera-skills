@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Calendar, X } from 'lucide-react';
 import { useDashboardAnalytics } from '../../hooks/useDashboardAnalytics';
 
