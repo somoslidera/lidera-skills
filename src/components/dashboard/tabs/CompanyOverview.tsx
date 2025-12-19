@@ -5,26 +5,40 @@ import {
 import { Card } from '../../ui/Card';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter } from 'lucide-react';
 
-const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444'];
-const COLOR_OTHER = '#9CA3AF'; // Cor cinza para "Outros"
+const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
+
+// Função para calcular luminosidade de uma cor (0-255)
+const getLuminance = (hex: string): number => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b);
+};
 
 // Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
 // Gradiente: Vermelho → Laranja → Amarelo → Verde
-const getHeatmapColor = (score: number): string => {
+const getHeatmapColor = (score: number): { bg: string; text: string } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
+  let bgColor: string;
   // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
-  if (normalizedScore >= 9) return '#166534'; // Verde escuro (9-10)
-  if (normalizedScore >= 8) return '#22C55E'; // Verde médio (8-9)
-  if (normalizedScore >= 7) return '#4ADE80'; // Verde claro (7-8)
-  if (normalizedScore >= 6) return '#84CC16'; // Verde-amarelo (6-7)
-  if (normalizedScore >= 5) return '#EAB308'; // Amarelo (5-6)
-  if (normalizedScore >= 4) return '#F59E0B'; // Laranja claro (4-5)
-  if (normalizedScore >= 3) return '#F97316'; // Laranja (3-4)
-  if (normalizedScore >= 2) return '#FB923C'; // Laranja claro (2-3)
-  if (normalizedScore >= 1) return '#EF4444'; // Vermelho-laranja (1-2)
-  return '#DC2626'; // Vermelho escuro (0-1)
+  if (normalizedScore >= 9) bgColor = '#166534'; // Verde escuro (9-10)
+  else if (normalizedScore >= 8) bgColor = '#22C55E'; // Verde médio (8-9)
+  else if (normalizedScore >= 7) bgColor = '#4ADE80'; // Verde claro (7-8)
+  else if (normalizedScore >= 6) bgColor = '#84CC16'; // Verde-amarelo (6-7)
+  else if (normalizedScore >= 5) bgColor = '#EAB308'; // Amarelo (5-6)
+  else if (normalizedScore >= 4) bgColor = '#F59E0B'; // Laranja claro (4-5)
+  else if (normalizedScore >= 3) bgColor = '#F97316'; // Laranja (3-4)
+  else if (normalizedScore >= 2) bgColor = '#FB923C'; // Laranja claro (2-3)
+  else if (normalizedScore >= 1) bgColor = '#EF4444'; // Vermelho-laranja (1-2)
+  else bgColor = '#DC2626'; // Vermelho escuro (0-1)
+  
+  // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
+  const luminance = getLuminance(bgColor);
+  const textColor = luminance > 128 ? '#1F2937' : '#FFFFFF'; // Escuro se claro, branco se escuro
+  
+  return { bg: bgColor, text: textColor };
 };
 
 // Função para gerar cor de fundo com opacidade (estilo Looker Studio)
@@ -68,9 +82,8 @@ export const CompanyOverview = ({ data }: { data: any }) => {
     return ['Todos', ...Array.from(levels).sort()];
   }, [performanceList]);
 
-  // Função auxiliar para cores do gráfico (inclui "Outros")
+  // Função auxiliar para cores do gráfico
   const getSliceColor = (entry: any, index: number) => {
-    if (entry.name === 'Outros') return COLOR_OTHER;
     return COLORS[index % COLORS.length];
   };
 
@@ -202,13 +215,14 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                      {filteredPerformanceList.length > 0 ? (
                        filteredPerformanceList.slice(0, 10).map((item: any, idx: number) => {
                          const score = item.score || 0;
-                         const bgColor = getHeatmapColor(score);
-                         const isDestaque = item.funcionarioMes === 'Sim' || item.funcionarioMes === 'sim';
+                         const colorInfo = getHeatmapColor(score);
+                         const isDestaque = item.funcionarioMes === 'Sim' || item.funcionarioMes === 'sim' || item.funcionarioMes === 'SIM';
                          
                          return (
                            <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="p-3 text-gray-400 font-mono text-xs">#{idx + 1}</td>
-                              <td className="p-3 font-medium text-gray-700 dark:text-gray-300">
+                              <td className="p-3 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                 {isDestaque && <Star size={16} className="text-yellow-500 fill-yellow-500" />}
                                  {item.realName}
                               </td>
                               <td className="p-3 text-gray-500">{item.realSector}</td>
@@ -220,20 +234,14 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                               </td>
                               <td className="p-0">
                                  <div 
-                                    className="flex items-center justify-center w-full h-full font-bold text-white text-sm min-h-[48px]"
+                                    className="flex items-center justify-center w-full h-full font-bold text-sm min-h-[48px]"
                                     style={{ 
-                                       backgroundColor: bgColor
+                                       backgroundColor: colorInfo.bg,
+                                       color: colorInfo.text
                                     }}
                                  >
                                     {score.toFixed(1)}
                                  </div>
-                              </td>
-                              <td className="p-3 text-center">
-                                 {isDestaque ? (
-                                    <Star size={18} className="text-yellow-500 fill-yellow-500 mx-auto" />
-                                 ) : (
-                                    <span className="text-gray-300 dark:text-gray-700">-</span>
-                                 )}
                               </td>
                            </tr>
                          );

@@ -5,23 +5,38 @@ import {
 } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
+// Função para calcular luminosidade de uma cor (0-255)
+const getLuminance = (hex: string): number => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b);
+};
+
 // Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
 // Gradiente: Vermelho → Laranja → Amarelo → Verde
 const getHeatmapColor = (score: number): { bg: string; text: string } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
+  let bgColor: string;
   // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
-  if (normalizedScore >= 9) return { bg: '#166534', text: '#FFFFFF' }; // Verde escuro (9-10)
-  if (normalizedScore >= 8) return { bg: '#22C55E', text: '#FFFFFF' }; // Verde médio (8-9)
-  if (normalizedScore >= 7) return { bg: '#4ADE80', text: '#FFFFFF' }; // Verde claro (7-8)
-  if (normalizedScore >= 6) return { bg: '#84CC16', text: '#FFFFFF' }; // Verde-amarelo (6-7)
-  if (normalizedScore >= 5) return { bg: '#EAB308', text: '#FFFFFF' }; // Amarelo (5-6)
-  if (normalizedScore >= 4) return { bg: '#F59E0B', text: '#FFFFFF' }; // Laranja claro (4-5)
-  if (normalizedScore >= 3) return { bg: '#F97316', text: '#FFFFFF' }; // Laranja (3-4)
-  if (normalizedScore >= 2) return { bg: '#FB923C', text: '#FFFFFF' }; // Laranja claro (2-3)
-  if (normalizedScore >= 1) return { bg: '#EF4444', text: '#FFFFFF' }; // Vermelho-laranja (1-2)
-  return { bg: '#DC2626', text: '#FFFFFF' }; // Vermelho escuro (0-1)
+  if (normalizedScore >= 9) bgColor = '#166534'; // Verde escuro (9-10)
+  else if (normalizedScore >= 8) bgColor = '#22C55E'; // Verde médio (8-9)
+  else if (normalizedScore >= 7) bgColor = '#4ADE80'; // Verde claro (7-8)
+  else if (normalizedScore >= 6) bgColor = '#84CC16'; // Verde-amarelo (6-7)
+  else if (normalizedScore >= 5) bgColor = '#EAB308'; // Amarelo (5-6)
+  else if (normalizedScore >= 4) bgColor = '#F59E0B'; // Laranja claro (4-5)
+  else if (normalizedScore >= 3) bgColor = '#F97316'; // Laranja (3-4)
+  else if (normalizedScore >= 2) bgColor = '#FB923C'; // Laranja claro (2-3)
+  else if (normalizedScore >= 1) bgColor = '#EF4444'; // Vermelho-laranja (1-2)
+  else bgColor = '#DC2626'; // Vermelho escuro (0-1)
+  
+  // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
+  const luminance = getLuminance(bgColor);
+  const textColor = luminance > 128 ? '#1F2937' : '#FFFFFF'; // Escuro se claro, branco se escuro
+  
+  return { bg: bgColor, text: textColor };
 };
 
 export const PerformanceAnalysis = ({ data }: { data: any }) => {
@@ -48,6 +63,14 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
     // Filtro por nível
     if (selectedLevelFilter !== 'Todos') {
       sorted = sorted.filter((row: any) => (row.type || 'Operacional') === selectedLevelFilter);
+    }
+    
+    // Filtro por setor - filtra linhas que não têm dados para o setor selecionado
+    if (selectedSectorFilter !== 'Todos') {
+      sorted = sorted.filter((row: any) => {
+        const sectorValue = row[selectedSectorFilter];
+        return sectorValue !== undefined && sectorValue !== null && !isNaN(sectorValue);
+      });
     }
     
     if (sortBy === 'average') {
@@ -250,7 +273,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                          <th className="p-3 text-left min-w-[180px] sticky left-[80px] bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                            Métrica
                          </th>
-                         {allSectors.map((s: string) => (
+                         {(selectedSectorFilter === 'Todos' ? allSectors : [selectedSectorFilter]).map((s: string) => (
                            <th key={s} className="p-2 border-b dark:border-gray-700 min-w-[70px] max-w-[90px] truncate text-[10px]" title={s}>
                              {s}
                            </th>
@@ -276,7 +299,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                <td className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 sticky left-[80px] bg-white dark:bg-[#1E1E1E] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                  {row.criteria}
                                </td>
-                               {allSectors.map((s: string) => {
+                               {(selectedSectorFilter === 'Todos' ? allSectors : [selectedSectorFilter]).map((s: string) => {
                                   const score = row[s];
                                   if (score === undefined) {
                                     return (
@@ -365,6 +388,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                         domain={[0, 10]} 
                         stroke="#9ca3af" 
                         tick={{fontSize: 11}}
+                        tickFormatter={(value) => value.toFixed(0)}
                         label={{ value: 'Nota', position: 'insideBottom', offset: -5, style: { fill: '#6B7280' } }}
                       />
                       <YAxis 

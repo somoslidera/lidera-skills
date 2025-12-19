@@ -77,7 +77,7 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
         <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
             {/* Busca */}
-            <div className="relative group">
+            <div className="relative group flex-1 sm:flex-none">
               <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input 
                 type="text" 
@@ -86,20 +86,60 @@ export const Dashboard = ({ evaluations = [], employees = [] }: DashboardProps) 
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
 
             {/* Filtro Setor */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
               <select 
-                className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 appearance-none text-gray-700 dark:text-gray-300"
+                className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 appearance-none text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 value={selectedSector}
                 onChange={e => setSelectedSector(e.target.value)}
               >
                 <option value="">Todos Setores</option>
-                {uniqueSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                {uniqueSectors.sort().map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            
+            {/* Indicador de Filtros Ativos */}
+            {(searchTerm || selectedSector || dateStart || dateEnd) && (
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Filtros ativos:</span>
+                {searchTerm && (
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                    Busca: "{searchTerm}"
+                  </span>
+                )}
+                {selectedSector && (
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                    Setor: {selectedSector}
+                  </span>
+                )}
+                {(dateStart || dateEnd) && (
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                    {activeFilterLabel}
+                  </span>
+                )}
+                <button 
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedSector('');
+                    applyDateFilter('all');
+                  }}
+                  className="px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                >
+                  Limpar todos
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Seleção Rápida de Período */}

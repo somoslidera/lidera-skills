@@ -28,18 +28,10 @@ const formatMonthYear = (dateStr: string) => {
   return date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
 };
 
-// Função para agrupar dados do gráfico de rosca (Top 5 + Outros)
+// Função para ordenar dados do gráfico de rosca (mostra todos, sem agrupar)
 const aggregateDonutData = (data: { name: string; value: number }[]) => {
-  if (data.length <= 5) return data.sort((a, b) => b.value - a.value);
-  
-  const sorted = [...data].sort((a, b) => b.value - a.value);
-  const top5 = sorted.slice(0, 5);
-  const othersValue = sorted.slice(5).reduce((acc, curr) => acc + curr.value, 0);
-  
-  if (othersValue > 0) {
-    top5.push({ name: 'Outros', value: othersValue });
-  }
-  return top5;
+  // Retorna todos os dados ordenados por valor (sem agrupar em "Outros")
+  return data.sort((a, b) => b.value - a.value);
 };
 
 export const useDashboardAnalytics = (evaluations: any[], employees: any[], filters: FilterState) => {
@@ -76,12 +68,27 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
         resolvedName = empMapByName.get(resolvedName.toLowerCase().trim());
       }
 
+      // Normaliza o tipo/nível (garante que está no formato correto)
+      let normalizedType = ev.type || 'Operacional';
+      // Normaliza variações comuns
+      if (typeof normalizedType === 'string') {
+        normalizedType = normalizedType.trim();
+        // Garante que está no formato correto (Estratégico, Tático, Operacional)
+        if (normalizedType.toLowerCase().includes('estrat') || normalizedType.toLowerCase().includes('estrateg')) {
+          normalizedType = 'Estratégico';
+        } else if (normalizedType.toLowerCase().includes('tatic') || normalizedType.toLowerCase().includes('tático')) {
+          normalizedType = 'Tático';
+        } else if (normalizedType.toLowerCase().includes('oper') || normalizedType.toLowerCase().includes('operacional')) {
+          normalizedType = 'Operacional';
+        }
+      }
+      
       return {
         ...ev,
         realName: resolvedName || 'Colaborador Desconhecido',
         realSector: ev.sector || 'Geral',
         realRole: ev.role || 'Não definido',
-        realType: ev.type || 'Operacional', // Nível: Estratégico, Tático, Operacional
+        realType: normalizedType, // Nível normalizado: Estratégico, Tático, Operacional
         score,
         details,
         dateRaw: ev.date || '', // Mantém data original YYYY-MM-DD para filtro
