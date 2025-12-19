@@ -30,9 +30,9 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
   }, [individualData, localSearch, filterBy, filterValue]);
   
   // Obter valores únicos para filtros
-  const uniqueSectors = useMemo(() => Array.from(new Set(individualData.map((d: any) => d.sector))).sort(), [individualData]);
-  const uniqueRoles = useMemo(() => Array.from(new Set(individualData.map((d: any) => d.role))).sort(), [individualData]);
-  const uniqueTypes = useMemo(() => Array.from(new Set(individualData.map((d: any) => d.type))).sort(), [individualData]);
+  const uniqueSectors = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.sector))).sort() as string[], [individualData]);
+  const uniqueRoles = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.role))).sort() as string[], [individualData]);
+  const uniqueTypes = useMemo<string[]>(() => Array.from(new Set(individualData.map((d: any) => d.type))).sort() as string[], [individualData]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
