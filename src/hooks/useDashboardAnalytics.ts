@@ -81,10 +81,12 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
         realName: resolvedName || 'Colaborador Desconhecido',
         realSector: ev.sector || 'Geral',
         realRole: ev.role || 'Não definido',
+        realType: ev.type || 'Operacional', // Nível: Estratégico, Tático, Operacional
         score,
         details,
         dateRaw: ev.date || '', // Mantém data original YYYY-MM-DD para filtro
-        monthYear: formatMonthYear(ev.date) // Data formatada para agrupamento
+        monthYear: formatMonthYear(ev.date), // Data formatada para agrupamento
+        funcionarioMes: ev.funcionarioMes || ev.funcionario_mes || 'Não' // Destaque do mês
       };
     });
   }, [evaluations, employees]);
@@ -132,7 +134,10 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     // Funcionário do Mês (Top 1) e Lista de Performance
     const sortedByScore = [...filteredData].sort((a, b) => b.score - a.score);
     const topEmployee = sortedByScore[0];
-    const performanceList = sortedByScore.slice(0, 10); // Top 10 para a tabela
+    const performanceList = sortedByScore.slice(0, 10).map(item => ({
+      ...item,
+      funcionarioMes: item.funcionarioMes || 'Não' // Garante que sempre tenha o campo
+    })); // Top 10 para a tabela
 
     return {
         healthScore: avg,
@@ -152,9 +157,17 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
     const compMatrix: Record<string, Record<string, { sum: number, count: number }>> = {};
     const allCriteria = new Set<string>();
     
-    // Mapa para evolução mensal
-    // Chave: YYYY-MM para ordenação, Valor: { label: 'jan/24', ... }
-    const timelineMap: Record<string, { label: string, leaderSum: number, leaderCount: number, colabSum: number, colabCount: number }> = {};
+    // Mapa para evolução mensal por nível (Estratégico, Tático, Operacional)
+    // Chave: YYYY-MM para ordenação
+    const timelineMap: Record<string, { 
+      label: string, 
+      estrategicoSum: number, estrategicoCount: number,
+      taticoSum: number, taticoCount: number,
+      operacionalSum: number, operacionalCount: number
+    }> = {};
+    
+    // Mapa para evolução por setor
+    const sectorTimelineMap: Record<string, Record<string, { sum: number, count: number }>> = {};
 
     filteredData.forEach(ev => {
         // Matriz
@@ -170,25 +183,40 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
             });
         }
 
-        // Evolução Mensal
+        // Evolução Mensal por Nível
         const dateKey = ev.dateRaw ? ev.dateRaw.substring(0, 7) : null; // YYYY-MM
         if (dateKey) {
             if (!timelineMap[dateKey]) {
                 timelineMap[dateKey] = { 
                     label: formatMonthYear(ev.dateRaw), // Rótulo visual (jan/24)
-                    leaderSum: 0, leaderCount: 0, colabSum: 0, colabCount: 0 
+                    estrategicoSum: 0, estrategicoCount: 0,
+                    taticoSum: 0, taticoCount: 0,
+                    operacionalSum: 0, operacionalCount: 0
                 };
             }
             
-            const isLeader = ev.type === 'Líder' || (ev.role && (ev.role.toLowerCase().includes('líder') || ev.role.toLowerCase().includes('lider')));
+            const nivel = ev.realType || ev.type || 'Operacional';
             
-            if (isLeader) {
-                timelineMap[dateKey].leaderSum += ev.score;
-                timelineMap[dateKey].leaderCount++;
+            if (nivel === 'Estratégico') {
+                timelineMap[dateKey].estrategicoSum += ev.score;
+                timelineMap[dateKey].estrategicoCount++;
+            } else if (nivel === 'Tático') {
+                timelineMap[dateKey].taticoSum += ev.score;
+                timelineMap[dateKey].taticoCount++;
             } else {
-                timelineMap[dateKey].colabSum += ev.score;
-                timelineMap[dateKey].colabCount++;
+                timelineMap[dateKey].operacionalSum += ev.score;
+                timelineMap[dateKey].operacionalCount++;
             }
+            
+            // Evolução por Setor
+            if (!sectorTimelineMap[dateKey]) {
+                sectorTimelineMap[dateKey] = {};
+            }
+            if (!sectorTimelineMap[dateKey][ev.realSector]) {
+                sectorTimelineMap[dateKey][ev.realSector] = { sum: 0, count: 0 };
+            }
+            sectorTimelineMap[dateKey][ev.realSector].sum += ev.score;
+            sectorTimelineMap[dateKey][ev.realSector].count += 1;
         }
     });
 
@@ -208,16 +236,44 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
         return row;
     });
 
-    // Formatar Evolução (Ordenado por YYYY-MM mas exibindo MMM/YY)
-    const evolutionData = Object.entries(timelineMap).sort().map(([_, vals]) => ({
+    // Formatar Evolução por Nível (Ordenado por YYYY-MM mas exibindo MMM/YY)
+    const evolutionData = Object.entries(timelineMap).sort().map(([_, vals]) => {
+      const totalSum = vals.estrategicoSum + vals.taticoSum + vals.operacionalSum;
+      const totalCount = vals.estrategicoCount + vals.taticoCount + vals.operacionalCount;
+      
+      return {
         date: vals.label, // Usa o rótulo formatado (jan/24)
-        Líderes: vals.leaderCount ? Number((vals.leaderSum / vals.leaderCount).toFixed(1)) : 0,
-        Colaboradores: vals.colabCount ? Number((vals.colabSum / vals.colabCount).toFixed(1)) : 0,
-        Geral: (vals.leaderCount + vals.colabCount) > 0 ? Number(((vals.leaderSum + vals.colabSum) / (vals.leaderCount + vals.colabCount)).toFixed(1)) : 0,
+        Estratégico: vals.estrategicoCount ? Number((vals.estrategicoSum / vals.estrategicoCount).toFixed(1)) : 0,
+        Tático: vals.taticoCount ? Number((vals.taticoSum / vals.taticoCount).toFixed(1)) : 0,
+        Operacional: vals.operacionalCount ? Number((vals.operacionalSum / vals.operacionalCount).toFixed(1)) : 0,
+        'Média Geral': totalCount > 0 ? Number((totalSum / totalCount).toFixed(1)) : 0,
         Meta: 9.0
-    }));
+      };
+    });
+    
+    // Formatar Evolução por Setor
+    const allSectorsList = Array.from(new Set(filteredData.map(d => d.realSector)));
+    const sectorEvolutionData = Object.entries(sectorTimelineMap).sort().map(([dateKey, sectorData]) => {
+      const dateLabel = formatMonthYear(dateKey + '-01');
+      const result: any = { date: dateLabel };
+      
+      allSectorsList.forEach(sector => {
+        if (sectorData[sector]) {
+          result[sector] = Number((sectorData[sector].sum / sectorData[sector].count).toFixed(1));
+        } else {
+          result[sector] = 0;
+        }
+      });
+      
+      return result;
+    });
 
-    return { matrixData, evolutionData, allSectors: Array.from(generalMetrics.sectorDistribution.map(s => s.name)) };
+    return { 
+      matrixData, 
+      evolutionData, 
+      sectorEvolutionData,
+      allSectors: Array.from(generalMetrics.sectorDistribution.map(s => s.name)) 
+    };
   }, [filteredData, generalMetrics]);
 
   // 5. Comparativo (Aba 3)

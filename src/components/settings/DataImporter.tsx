@@ -360,6 +360,9 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         // 3. Agrupar Avaliação por ID_Avaliacao (cada ID_Avaliacao = uma avaliação única)
         const formattedDate = parseGomesDate(rawDate);
         const key = evaluationId; // Usa ID_Avaliacao como chave única
+        
+        // Captura funcionario_mes (Sim/Não) - pega da primeira linha do grupo
+        const funcionarioMes = row['Funcionario_Mes'] || row['funcionario_mes'] || row['Funcionario_Mes'] || 'Não';
 
         if (!groupedEvaluations.has(key)) {
           groupedEvaluations.set(key, {
@@ -372,7 +375,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
             date: formattedDate,
             details: {},
             totalScore: 0,
-            metricCount: 0
+            metricCount: 0,
+            funcionarioMes: funcionarioMes === 'Sim' || funcionarioMes === 'sim' || funcionarioMes === 'SIM' ? 'Sim' : 'Não'
           });
         }
 
@@ -409,7 +413,8 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           companyId: safeCompanyId,
           importedAt: new Date().toISOString(),
           source: 'history-import',
-          evaluationId: item.evaluationId // ID único da avaliação (para referência)
+          evaluationId: item.evaluationId, // ID único da avaliação (para referência)
+          funcionarioMes: item.funcionarioMes || 'Não' // Destaque do mês (Sim/Não)
         };
 
         // Verifica duplicidade por evaluationId (ID_Avaliacao) + empresa
