@@ -39,7 +39,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadCompanies();
-  }, [user]);
+  }, [userIsMaster]);
 
   const setCompany = (company: Company | null) => {
     setCurrentCompanyState(company);
