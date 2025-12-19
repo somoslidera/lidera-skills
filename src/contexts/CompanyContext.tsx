@@ -17,18 +17,10 @@ interface CompanyContextType {
   isMaster: boolean;
 }
 
-const MASTER_EMAILS = [
-  'contato@somoslidera.com.br',
-  'rodrigo.ribas1991@gmail.com',
-  'guilherme.emerim10@gmail.com',
-  'charles.cadavezmelhor@gmail.com',
-  // Adicione seu e-mail aqui para testar
-];
-
 const CompanyContext = createContext<CompanyContextType>({} as CompanyContextType);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { isMaster: userIsMaster } = useAuth();
   
   const [currentCompany, setCurrentCompanyState] = useState<Company | null>(() => {
     const saved = localStorage.getItem('lidera_selected_company');
@@ -37,10 +29,6 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const isMasterUser = () => {
-    return user && user.email && MASTER_EMAILS.includes(user.email);
-  };
 
   const loadCompanies = async () => {
     setLoading(true);
@@ -75,7 +63,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       refreshCompanies: loadCompanies,
       addNewCompany,
       loading,
-      isMaster: !!isMasterUser() 
+      isMaster: userIsMaster
     }}>
       {children}
     </CompanyContext.Provider>

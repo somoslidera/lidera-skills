@@ -2,24 +2,43 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { auth, loginGoogle, logout } from '../services/firebase';
+import { auth, loginGoogle, logout, getUserRole, type UserRole } from '../services/firebase';
 
 interface AuthContextType {
   user: User | null;
+  userRole: UserRole | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  isMaster: boolean;
+  refreshUserRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadUserRole = async (userId: string) => {
+    try {
+      const role = await getUserRole(userId);
+      setUserRole(role);
+    } catch (error) {
+      console.error('Erro ao carregar role do usuário:', error);
+      setUserRole(null);
+    }
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        await loadUserRole(currentUser.uid);
+      } else {
+        setUserRole(null);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -31,10 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOutUser = async () => {
     await logout();
+    setUserRole(null);
   };
 
+  const refreshUserRole = async () => {
+    if (user) {
+      await loadUserRole(user.uid);
+    }
+  };
+
+  const isMaster = userRole?.role === 'master' || false;
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut: signOutUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      userRole, 
+      loading, 
+      signIn, 
+      signOut: signOutUser,
+      isMaster,
+      refreshUserRole
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );

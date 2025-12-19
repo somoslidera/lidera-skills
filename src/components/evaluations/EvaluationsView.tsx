@@ -7,7 +7,9 @@ import { collection, addDoc, getDocs, query, where, writeBatch, doc } from 'fire
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
-import { Modal } from '../ui/Modal'; // Assumindo que existe, se não, usamos um div simples
+import { Modal } from '../ui/Modal';
+import { toast } from '../../utils/toast';
+import { ErrorHandler } from '../../utils/errorHandler';
 
 // --- Interfaces para Tipagem ---
 interface Employee {
@@ -137,12 +139,12 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
   const handleSubmit = async () => {
     if (!currentEmployee || !evalMonth || !selectedCompanyId) {
-      alert("Por favor, selecione uma empresa e um funcionário antes de salvar.");
+      toast.warning("Por favor, selecione uma empresa e um funcionário antes de salvar.");
       return;
     }
     
     if (activeCriteria.length > 0 && Object.keys(scores).length !== activeCriteria.length) {
-      if(!confirm("Alguns critérios estão sem nota (serão considerados 0). Deseja continuar?")) return;
+      if(!window.confirm("Alguns critérios estão sem nota (serão considerados 0). Deseja continuar?")) return;
     }
 
     setLoading(true);
@@ -161,11 +163,10 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       };
 
       await addDoc(collection(db, 'evaluations'), payload);
-      alert("Avaliação salva com sucesso!");
+      toast.success("Avaliação salva com sucesso!");
       onSuccess();
     } catch (error) {
-      console.error(error);
-      alert("Erro ao salvar avaliação.");
+      toast.handleError(error, 'EvaluationsView.handleSubmit');
     } finally {
       setLoading(false);
     }
@@ -384,10 +385,10 @@ const EvaluationsTable = () => {
       setSelectedIds([]);
       setIsBulkEditOpen(false);
       setBulkLevel('');
-      alert(`Sucesso! ${selectedIds.length} avaliações atualizadas para o nível "${bulkLevel}".`);
+      toast.success(`${selectedIds.length} avaliações atualizadas para o nível "${bulkLevel}".`);
     } catch (error) {
       console.error("Erro na atualização em massa:", error);
-      alert("Erro ao atualizar avaliações.");
+      toast.handleError(error, 'EvaluationsView.handleBulkUpdate');
     } finally {
       setIsUpdating(false);
     }

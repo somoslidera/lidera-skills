@@ -9,6 +9,7 @@ import { EvaluationsView } from './components/evaluations/EvaluationsView';
 import { HelpView } from './components/help/HelpView';
 import { fetchCollection } from './services/firebase';
 import { ThemeToggle } from './components/ui/ThemeToggle';
+import { Toaster } from './components/ui/Toaster';
 
 import { 
   CriteriaView, 
@@ -255,6 +256,7 @@ function MainApp() {
           )}
 
         </main>
+        <Toaster />
       </div>
     </Router>
   );

@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to get user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user is master
+    function isMaster() {
+      return isAuthenticated() && getUserRole() == 'master';
+    }
+    
+    // Helper function to check if user has access to company
+    function hasCompanyAccess(companyId) {
+      return isAuthenticated() && (
+        isMaster() ||
+        get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.companyIds.hasAny([companyId])
+      );
+    }
+    
+    // Companies collection - readable by all authenticated users, writable by master
+    match /companies/{companyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated(); // Any authenticated user can create a company
+      allow update, delete: if isMaster();
+    }
+    
+    // User roles collection - only master can read/write
+    match /user_roles/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isMaster());
+      allow write: if isMaster();
+    }
+    
+    // Universal collections (sectors, roles, evaluation_criteria)
+    match /sectors/{sectorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Can be restricted further if needed
+    }
+    
+    match /roles/{roleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /evaluation_criteria/{criteriaId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Company-specific collections
+    match /employees/{employeeId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update, delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    match /evaluations/{evaluationId} {
+      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
+      allow update, delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isMaster();
+    }
+    
+    // Default deny for any other collection
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

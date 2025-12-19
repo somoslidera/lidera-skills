@@ -1,15 +1,15 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, query, where, addDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc } from "firebase/firestore";
 
-// Configuração fornecida por você
+// Configuração do Firebase usando variáveis de ambiente
 const firebaseConfig = {
-  apiKey: "AIzaSyDjyKAT2aZ4A3OrqaM8a6E6c0ht12BT278",
-  authDomain: "lidera-skills.firebaseapp.com",
-  projectId: "lidera-skills",
-  storageBucket: "lidera-skills.firebasestorage.app",
-  messagingSenderId: "187326943178",
-  appId: "1:187326943178:web:9f895ab33f246d83ca8933"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDjyKAT2aZ4A3OrqaM8a6E6c0ht12BT278",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "lidera-skills.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "lidera-skills",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "lidera-skills.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "187326943178",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:187326943178:web:9f895ab33f246d83ca8933"
 };
 
 // Inicialização
@@ -62,5 +62,64 @@ export const fetchCollection = async (collectionName: string, companyId?: string
   } catch (error) {
     console.error(`Erro ao buscar ${collectionName}:`, error);
     return [];
+  }
+};
+
+// --- SISTEMA DE ROLES ---
+
+export interface UserRole {
+  id: string;
+  userId: string;
+  email: string;
+  role: 'master' | 'admin' | 'gestor' | 'lider' | 'colaborador';
+  companyIds?: string[]; // Empresas que o usuário tem acesso (se aplicável)
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca o role do usuário no Firestore
+ */
+export const getUserRole = async (userId: string): Promise<UserRole | null> => {
+  try {
+    const roleDoc = await getDoc(doc(db, 'user_roles', userId));
+    if (roleDoc.exists()) {
+      return { id: roleDoc.id, ...roleDoc.data() } as UserRole;
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao buscar role do usuário:', error);
+    return null;
+  }
+};
+
+/**
+ * Cria ou atualiza o role de um usuário
+ * Apenas usuários master podem executar esta função
+ */
+export const setUserRole = async (userId: string, roleData: Omit<UserRole, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
+  try {
+    const roleRef = doc(db, 'user_roles', userId);
+    const existing = await getDoc(roleRef);
+    
+    const now = new Date().toISOString();
+    
+    if (existing.exists()) {
+      // Atualiza role existente
+      await setDoc(roleRef, {
+        ...roleData,
+        updatedAt: now
+      }, { merge: true });
+    } else {
+      // Cria novo role
+      await setDoc(roleRef, {
+        ...roleData,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao definir role do usuário:', error);
+    throw error;
   }
 };

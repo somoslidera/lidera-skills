@@ -4,6 +4,8 @@ import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, w
 import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
+import { toast } from '../../utils/toast';
+import { ErrorHandler } from '../../utils/errorHandler';
 
 interface Entity {
   id: string;
@@ -99,7 +101,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const handleSave = async () => {
     if (!isUniversalCollection && (!currentCompany || currentCompany.id === 'all')) {
       if (!currentItem.companyId) {
-         alert("Por favor, selecione a empresa vinculada a este registro.");
+         toast.warning("Por favor, selecione a empresa vinculada a este registro.");
          return;
       }
     }
@@ -113,26 +115,34 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
 
       if (currentItem.id) {
         await updateDoc(doc(db, collectionName, currentItem.id), itemToSave);
+        toast.success("Registro atualizado com sucesso!");
       } else {
         await addDoc(collection(db, collectionName), itemToSave);
+        toast.success("Registro criado com sucesso!");
       }
       setIsModalOpen(false);
       setCurrentItem({});
       fetchData();
     } catch (error) {
-      alert("Erro ao salvar: " + error);
+      ErrorHandler.handleFirebaseError(error);
+      toast.handleError(error, 'GenericDatabaseView.handleSave');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este registro?")) return;
-    await deleteDoc(doc(db, collectionName, id));
-    fetchData();
+    if (!window.confirm("Tem certeza que deseja excluir este registro?")) return;
+    try {
+      await deleteDoc(doc(db, collectionName, id));
+      toast.success("Registro excluído com sucesso!");
+      fetchData();
+    } catch (error) {
+      toast.handleError(error, 'GenericDatabaseView.handleDelete');
+    }
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Tem certeza que deseja excluir ${selectedIds.size} registros selecionados?`)) return;
+    if (!window.confirm(`Tem certeza que deseja excluir ${selectedIds.size} registros selecionados?`)) return;
 
     setIsLoading(true);
     try {
@@ -142,9 +152,10 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
         batch.delete(ref);
       });
       await batch.commit();
+      toast.success(`${selectedIds.size} registro(s) excluído(s) com sucesso!`);
       fetchData();
     } catch (error) {
-      alert("Erro ao excluir em massa: " + error);
+      toast.handleError(error, 'GenericDatabaseView.handleBulkDelete');
       setIsLoading(false);
     }
   };
