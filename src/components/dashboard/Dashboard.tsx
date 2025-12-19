@@ -20,7 +20,6 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   // Estado Local de Filtros
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [activeFilterLabel, setActiveFilterLabel] = useState('Todo o período');
@@ -56,7 +55,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
 
   // Hook de Analytics
   const analytics = useDashboardAnalytics(evaluations, employees, {
-    searchTerm,
+    searchTerm: '', // Removido - agora usa apenas selectedEmployees
     selectedSectors,
     selectedEmployees,
     dateStart,
@@ -138,26 +137,6 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         {/* Linha 1: Controles Principais */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-            {/* Busca */}
-            <div className="relative group flex-1 sm:flex-none">
-              <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input 
-                type="text" 
-                placeholder="Buscar colaborador..." 
-                className="pl-10 pr-4 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-2 ring-blue-500/20 w-full sm:w-64 transition-all"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button 
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
             {/* Filtro Setor (Múltipla Seleção) */}
             <div className="relative w-full sm:w-auto sector-filter">
               <Filter className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
@@ -260,14 +239,9 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
             </div>
             
             {/* Indicador de Filtros Ativos */}
-            {(searchTerm || selectedSectors.length > 0 || selectedEmployees.length > 0 || dateStart || dateEnd) && (
+            {(selectedSectors.length > 0 || selectedEmployees.length > 0 || dateStart || dateEnd) && (
               <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 flex-wrap">
                 <span className="font-medium">Filtros ativos:</span>
-                {searchTerm && (
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                    Busca: "{searchTerm}"
-                  </span>
-                )}
                 {selectedSectors.length > 0 && (
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
                     Setores: {selectedSectors.length}
@@ -285,7 +259,6 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                 )}
                 <button 
                   onClick={() => {
-                    setSearchTerm('');
                     setSelectedSectors([]);
                     setSelectedEmployees([]);
                     setEmployeeSearchTerm('');
