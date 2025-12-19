@@ -289,7 +289,14 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                            <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="p-3 text-gray-400 font-mono text-xs">#{idx + 1}</td>
                               <td className="p-3 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                 {isDestaque && <Star size={16} className="text-yellow-500 fill-yellow-500" title="Funcionário Destaque do Mês" />}
+                                 {isDestaque && (
+                                   <div className="relative group">
+                                     <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                                     <span className="absolute left-6 top-0 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                                       Funcionário Destaque do Mês
+                                     </span>
+                                   </div>
+                                 )}
                                  {item.realName}
                               </td>
                               <td className="p-3 text-gray-500">{item.realSector}</td>
