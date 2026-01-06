@@ -61,13 +61,27 @@ export const fetchCollection = async (collectionName: string, companyId?: string
       ...doc.data()
     }));
     
-    console.log(`fetchCollection(${collectionName}):`, results.length, 'documentos encontrados');
+    console.log(`✅ fetchCollection(${collectionName}):`, results.length, 'documentos encontrados');
+    if (results.length > 0) {
+      console.log(`   Primeiros resultados:`, results.slice(0, 3));
+    }
     return results;
   } catch (error) {
-    console.error(`Erro ao buscar ${collectionName}:`, error);
+    console.error(`❌ Erro ao buscar ${collectionName}:`, error);
     // Log detalhado do erro
     if (error instanceof Error) {
-      console.error('Erro detalhado:', error.message, error.stack);
+      console.error('   Mensagem:', error.message);
+      const firebaseError = error as any;
+      if (firebaseError.code) {
+        console.error('   Código do erro:', firebaseError.code);
+        if (firebaseError.code === 'permission-denied') {
+          console.error('   ⚠️ ERRO DE PERMISSÃO: Verifique se:');
+          console.error('      1. Você está autenticado');
+          console.error('      2. As regras do Firestore foram deployadas');
+          console.error('      3. As regras permitem leitura para usuários autenticados');
+        }
+      }
+      console.error('   Stack:', error.stack);
     }
     return [];
   }

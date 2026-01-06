@@ -20,7 +20,7 @@ interface CompanyContextType {
 const CompanyContext = createContext<CompanyContextType>({} as CompanyContextType);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
-  const { isMaster: userIsMaster } = useAuth();
+  const { isMaster: userIsMaster, user, loading: authLoading } = useAuth();
   
   const [currentCompany, setCurrentCompanyState] = useState<Company | null>(() => {
     const saved = localStorage.getItem('lidera_selected_company');
@@ -31,13 +31,26 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadCompanies = async () => {
+    // Não tenta carregar se não estiver autenticado
+    if (authLoading || !user) {
+      console.log('Aguardando autenticação...');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('🔍 Tentando carregar empresas...');
+      console.log('Usuário autenticado:', user?.email);
       const data = await fetchCollection('companies');
-      console.log('Companies loaded:', data);
+      console.log('✅ Companies loaded:', data);
       setCompanies(data as Company[]);
     } catch (error) {
-      console.error('Erro ao carregar empresas:', error);
+      console.error('❌ Erro ao carregar empresas:', error);
+      if (error instanceof Error) {
+        console.error('   Mensagem:', error.message);
+        console.error('   Código:', (error as any).code);
+      }
       setCompanies([]);
     } finally {
       setLoading(false);
@@ -45,8 +58,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    loadCompanies();
-  }, [userIsMaster]);
+    // Só carrega empresas após autenticação estar completa
+    if (!authLoading) {
+      loadCompanies();
+    }
+  }, [userIsMaster, user, authLoading]);
 
   const setCompany = (company: Company | null) => {
     setCurrentCompanyState(company);

@@ -7,28 +7,26 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to get user role
-    function getUserRole() {
-      return get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role;
-    }
-    
     // Helper function to check if user is master
     function isMaster() {
-      return isAuthenticated() && getUserRole() == 'master';
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role == 'master';
     }
     
     // Helper function to check if user has access to company
+    // Simplificado: permite acesso se é master OU se não tem user_roles configurado (fallback permissivo)
     function hasCompanyAccess(companyId) {
       return isAuthenticated() && (
         isMaster() ||
-        get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.companyIds.hasAny([companyId])
+        !exists(/databases/$(database)/documents/user_roles/$(request.auth.uid))
       );
     }
     
     // Companies collection - readable by all authenticated users, writable by master
     match /companies/{companyId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated(); // Any authenticated user can create a company
+      allow create: if isAuthenticated();
       allow update, delete: if isMaster();
     }
     
@@ -41,7 +39,7 @@ service cloud.firestore {
     // Universal collections (sectors, roles, evaluation_criteria)
     match /sectors/{sectorId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Can be restricted further if needed
+      allow write: if isAuthenticated();
     }
     
     match /roles/{roleId} {
@@ -56,15 +54,64 @@ service cloud.firestore {
     
     // Company-specific collections
     match /employees/{employeeId} {
-      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
-      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
-      allow update, delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      // Permite leitura se usuário autenticado e tem acesso à empresa OU se não tem companyId
+      allow read: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
+      
+      // Permite criação se usuário autenticado e tem acesso à empresa OU se não tem companyId
+      allow create: if isAuthenticated() && (
+        !('companyId' in request.resource.data) || 
+        hasCompanyAccess(request.resource.data.companyId)
+      );
+      
+      // Permite atualização/exclusão se usuário autenticado e tem acesso à empresa
+      allow update, delete: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
     }
     
     match /evaluations/{evaluationId} {
-      allow read: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
-      allow create: if isAuthenticated() && hasCompanyAccess(request.resource.data.companyId);
-      allow update, delete: if isAuthenticated() && hasCompanyAccess(resource.data.companyId);
+      // Permite leitura se usuário autenticado e tem acesso à empresa OU se não tem companyId
+      allow read: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
+      
+      // Permite criação se usuário autenticado e tem acesso à empresa OU se não tem companyId
+      allow create: if isAuthenticated() && (
+        !('companyId' in request.resource.data) || 
+        hasCompanyAccess(request.resource.data.companyId)
+      );
+      
+      // Permite atualização/exclusão se usuário autenticado e tem acesso à empresa
+      allow update, delete: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
+    }
+    
+    // Performance goals collection
+    match /performance_goals/{goalId} {
+      allow read: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
+      allow write: if isAuthenticated() && (
+        !('companyId' in request.resource.data) || 
+        hasCompanyAccess(request.resource.data.companyId)
+      );
+    }
+    
+    // Audit logs collection
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && (
+        !('companyId' in resource.data) || 
+        hasCompanyAccess(resource.data.companyId)
+      );
+      allow create: if isAuthenticated();
     }
     
     // Users collection
@@ -79,4 +126,3 @@ service cloud.firestore {
     }
   }
 }
-

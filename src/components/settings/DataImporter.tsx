@@ -55,20 +55,51 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
   });
 
   // --- Helpers de Parsing ---
-  const parseScore = (val: string) => {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    // Trata casos como "8,5" ou "8.5" ou "8"
-    return parseFloat(val.replace(',', '.')) || 0;
+  const parseScore = (val: string | number | undefined): number => {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') {
+      // Garante que está entre 0 e 10
+      return Math.max(0, Math.min(10, val));
+    }
+    
+    // Remove espaços e converte string
+    const cleanVal = String(val).trim().replace(/\s+/g, '');
+    if (!cleanVal) return 0;
+    
+    // Trata casos como "8,5" ou "8.5" ou "8" ou "8,50"
+    const parsed = parseFloat(cleanVal.replace(',', '.'));
+    if (isNaN(parsed)) {
+      console.warn(`Valor de nota inválido: ${val}, usando 0`);
+      return 0;
+    }
+    
+    // Garante que está entre 0 e 10
+    return Math.max(0, Math.min(10, parsed));
   };
 
   const parseGomesDate = (rawDate: string): string => {
     if (!rawDate) return new Date().toISOString().split('T')[0];
+    
+    // Se já está no formato YYYY-MM-DD, retorna direto
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+      return rawDate.trim();
+    }
+    
+    // Se está no formato DD/MM/YYYY ou DD-MM-YYYY
+    const dateMatch = rawDate.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (dateMatch) {
+      const [, day, month, year] = dateMatch;
+      const fullYear = year.length === 2 ? '20' + year : year;
+      return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
     const cleanDate = rawDate.replace(/\//g, '').trim().toLowerCase();
     
     const months: { [key: string]: string } = {
       'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
-      'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
+      'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
+      'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04', 'mai.': '05', 'jun.': '06',
+      'jul.': '07', 'ago.': '08', 'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
     };
 
     let monthPart = '';
@@ -90,7 +121,20 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
     if (monthPart && yearPart) {
       return `${yearPart}-${monthPart}-01`;
     }
-    return rawDate; // Retorna original se falhar (pode ser ISO já)
+    
+    // Fallback: tenta parsear como data ISO
+    try {
+      const parsed = new Date(rawDate);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Ignora erro
+    }
+    
+    // Último fallback: retorna data atual
+    console.warn(`Não foi possível parsear a data: ${rawDate}, usando data atual`);
+    return new Date().toISOString().split('T')[0];
   };
 
   // --- Helpers de Banco de Dados (Upsert) ---
@@ -334,10 +378,23 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         const level = row[columnMapping.level] || 'Operacional'; 
         
         // ID da avaliação (ID_Avaliacao do CSV) - usado como chave única para agrupar métricas
-        const evaluationId = row['ID_Avaliacao'] || row['ID'] || row['Matricula'] || `${name}-${rawDate}-${Date.now()}`;
+        // Tenta múltiplas variações de nome de coluna
+        const evaluationId = row['ID_Avaliacao'] || row['ID'] || row['id_avaliacao'] || row['id'] || 
+                             row['Matricula'] || row['matricula'] || row['ID_Funcionario'] || row['id_funcionario'] ||
+                             `${name}-${rawDate}-${processedRows}`;
         const employeeCode = evaluationId; // Usa o mesmo ID como employeeCode
 
-        if (!name || !rawDate) continue;
+        // Validação: pula linhas sem dados essenciais
+        if (!name || !rawDate) {
+          console.warn(`Linha ${processedRows + 1} ignorada: falta nome ou data`, { name, rawDate });
+          continue;
+        }
+        
+        // Validação: garante que há pelo menos uma métrica/nota
+        if (!metricName && score === 0) {
+          console.warn(`Linha ${processedRows + 1} ignorada: falta métrica e nota válida`, { name, metricName, score });
+          continue;
+        }
 
         // 2. Garantir Dependências (Upsert)
         const sectorId = await ensureSector(sectorName, safeCompanyId, cacheSectors);
@@ -381,8 +438,10 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         }
 
         const evalObj = groupedEvaluations.get(key);
-        if (metricName) {
-          evalObj.details[metricName] = score;
+        if (metricName && score > 0) {
+          // Normaliza o nome da métrica (remove espaços extras, capitaliza)
+          const normalizedMetricName = metricName.trim();
+          evalObj.details[normalizedMetricName] = score;
           evalObj.totalScore += score;
           evalObj.metricCount += 1;
         }
@@ -401,12 +460,19 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
           ? parseFloat((item.totalScore / item.metricCount).toFixed(2)) 
           : 0;
 
+        // Validação: garante que há pelo menos um detalhe/critério
+        if (Object.keys(item.details).length === 0) {
+          console.warn(`Avaliação ignorada: sem critérios/métricas`, item);
+          skippedCount++;
+          continue;
+        }
+        
         const finalDoc = {
-          employeeName: item.employeeName,
-          employeeId: item.employeeId,
-          role: item.role,
-          sector: item.sector,
-          type: item.type, // Persiste o nível correto
+          employeeName: item.employeeName.trim(),
+          employeeId: item.employeeId || '',
+          role: item.role || 'Não informado',
+          sector: item.sector || 'Geral',
+          type: item.type || 'Operacional', // Persiste o nível correto, fallback para Operacional
           date: item.date,
           average: average, // Média desta avaliação específica
           details: item.details,
@@ -451,21 +517,51 @@ export const DataImporter = ({ target }: { target: ImportTarget }) => {
         }
 
         if (querySnapshot.empty) {
-          await addDoc(collectionRef, finalDoc);
-          savedCount++;
+          try {
+            await addDoc(collectionRef, finalDoc);
+            savedCount++;
+          } catch (error: any) {
+            console.error(`Erro ao salvar avaliação ${item.evaluationId}:`, error);
+            // Se for erro de permissão, para o processamento
+            if (error?.code === 'permission-denied') {
+              throw new Error('Erro de permissão ao salvar avaliações. Verifique as regras do Firestore.');
+            }
+            skippedCount++;
+          }
         } else {
           skippedCount++;
         }
       }
 
+      const successMsg = `✅ Processamento concluído! 
+        • ${savedCount} avaliações criadas
+        • ${skippedCount} avaliações já existiam (ignoradas)
+        • ${processedRows} linhas processadas
+        • ${groupedEvaluations.size} avaliações únicas agrupadas`;
+      
       setStatus({ 
         type: 'success', 
-        msg: `Processamento concluído! ${savedCount} avaliações criadas. ${skippedCount} já existiam. (${processedRows} linhas processadas, ${groupedEvaluations.size} avaliações únicas)`
+        msg: successMsg
       });
+      
+      toast.success(`Importação concluída: ${savedCount} avaliações importadas com sucesso!`);
 
     } catch (error: any) {
-      console.error(error);
-      setStatus({ type: 'error', msg: 'Erro fatal na importação: ' + error.message });
+      console.error('Erro na importação de avaliações:', error);
+      const errorMsg = error?.message || 'Erro desconhecido na importação';
+      setStatus({ type: 'error', msg: `❌ Erro fatal: ${errorMsg}` });
+      toast.error(`Erro na importação: ${errorMsg}`);
+      
+      // Log detalhado para debug
+      if (error?.code) {
+        console.error('Código do erro:', error.code);
+        if (error.code === 'permission-denied') {
+          console.error('⚠️ Erro de permissão. Verifique:');
+          console.error('   1. Se você está autenticado');
+          console.error('   2. Se as regras do Firestore foram deployadas');
+          console.error('   3. Se você tem permissão para criar avaliações');
+        }
+      }
     } finally {
       setLoading(false);
       setIsMappingOpen(false);
