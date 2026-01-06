@@ -267,11 +267,9 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                   <th className="p-4">Setor</th>
                   <th className="p-4">Cargo</th>
                   <th className="p-4">Nível</th>
-                  <th className="p-4 text-center bg-blue-50 dark:bg-blue-900/10 text-blue-800 dark:text-blue-200">Nota Individual</th>
                   <th className="p-4 text-center">Média Setor</th>
                   <th className="p-4 text-center">Média Empresa</th>
-                  <th className="p-4 text-center">Abaixo Média Setor</th>
-                  <th className="p-4 text-center">Abaixo Média Empresa</th>
+                  <th className="p-4 text-center bg-blue-50 dark:bg-blue-900/10 text-blue-800 dark:text-blue-200">Nota Individual</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -287,9 +285,6 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                               {item.type}
                             </span>
                           </td>
-                          <td className="p-4 text-center bg-blue-50/50 dark:bg-blue-900/5 font-bold text-blue-600">
-                             {item.individualScore.toFixed(1)}
-                          </td>
                           <td className="p-4 text-center text-gray-600 dark:text-gray-400">
                              {item.sectorAvg.toFixed(1)}
                           </td>
@@ -297,22 +292,32 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                              {item.companyAvg.toFixed(1)}
                           </td>
                           <td className="p-4 text-center">
-                             <span className={`text-xs font-bold px-2 py-1 rounded ${
-                                item.belowSectorAvg 
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' 
-                                  : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                             }`}>
-                                {item.belowSectorAvg ? 'Sim' : 'Não'}
-                             </span>
-                          </td>
-                          <td className="p-4 text-center">
-                             <span className={`text-xs font-bold px-2 py-1 rounded ${
-                                item.belowCompanyAvg 
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' 
-                                  : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                             }`}>
-                                {item.belowCompanyAvg ? 'Sim' : 'Não'}
-                             </span>
+                             {(() => {
+                                // Determina cor baseada na performance
+                                let bgColor, textColor, borderColor;
+                                if (item.belowCompanyAvg) {
+                                  // Vermelho: abaixo da média da empresa
+                                  bgColor = 'bg-red-100 dark:bg-red-900/30';
+                                  textColor = 'text-red-700 dark:text-red-300';
+                                  borderColor = 'border-red-300 dark:border-red-700';
+                                } else if (item.belowSectorAvg) {
+                                  // Laranja: abaixo da média do setor mas acima da média da empresa
+                                  bgColor = 'bg-orange-100 dark:bg-orange-900/30';
+                                  textColor = 'text-orange-700 dark:text-orange-300';
+                                  borderColor = 'border-orange-300 dark:border-orange-700';
+                                } else {
+                                  // Azul/Verde: acima da média do setor
+                                  bgColor = 'bg-gradient-to-r from-blue-100 to-green-100 dark:from-blue-900/30 dark:to-green-900/30';
+                                  textColor = 'text-blue-700 dark:text-blue-300';
+                                  borderColor = 'border-blue-300 dark:border-blue-700';
+                                }
+                                
+                                return (
+                                  <span className={`font-bold px-3 py-1.5 rounded-lg border ${bgColor} ${textColor} ${borderColor}`}>
+                                    {item.individualScore.toFixed(1)}
+                                  </span>
+                                );
+                             })()}
                           </td>
                        </tr>
                     );
