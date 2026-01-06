@@ -435,7 +435,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
           </div>
         ) : (
           <>
-            {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} />}
+            {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} employees={employees} />}
             {activeTab === 'performance' && <PerformanceAnalysis data={analytics.competenceMetrics} />}
             {activeTab === 'individual' && <IndividualAnalysis data={analytics.comparativeMetrics} />}
           </>

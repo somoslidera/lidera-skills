@@ -51,7 +51,7 @@ const getHeatmapBgColor = (score: number): string => {
   return color + Math.round(opacity * 255).toString(16).padStart(2, '0');
 };
 
-export const CompanyOverview = ({ data }: { data: any }) => {
+export const CompanyOverview = ({ data, employees = [] }: { data: any; employees?: any[] }) => {
   const { 
     healthScore, 
     activeSectorsCount, 
@@ -65,6 +65,31 @@ export const CompanyOverview = ({ data }: { data: any }) => {
     highlightedByScore,
     highlightedBySelection
   } = data;
+  
+  // Funcionários mais novos e mais antigos
+  const newestEmployees = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+    return employees
+      .filter((emp: any) => emp.admissionDate && emp.status === 'Ativo')
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.admissionDate).getTime();
+        const dateB = new Date(b.admissionDate).getTime();
+        return dateB - dateA; // Mais recente primeiro
+      })
+      .slice(0, 3);
+  }, [employees]);
+  
+  const oldestEmployees = useMemo(() => {
+    if (!employees || employees.length === 0) return [];
+    return employees
+      .filter((emp: any) => emp.admissionDate && emp.status === 'Ativo')
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.admissionDate).getTime();
+        const dateB = new Date(b.admissionDate).getTime();
+        return dateA - dateB; // Mais antigo primeiro
+      })
+      .slice(0, 3);
+  }, [employees]);
   
   const [selectedLevel, setSelectedLevel] = useState<string>('Todos');
 
@@ -429,6 +454,88 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                </div>
             </div>
          </div>
+      </div>
+      
+      {/* Destaques de Funcionários (Mais Novos e Mais Antigos) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Funcionários Mais Novos */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl shadow-lg p-6 border border-green-200 dark:border-green-800">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <TrendingUp size={20} className="text-green-600 dark:text-green-400" />
+            Funcionários Mais Novos
+          </h3>
+          <div className="space-y-3">
+            {newestEmployees.length > 0 ? (
+              newestEmployees.map((emp: any, idx: number) => {
+                const admissionDate = new Date(emp.admissionDate);
+                const daysSince = Math.floor((new Date().getTime() - admissionDate.getTime()) / (1000 * 60 * 60 * 24));
+                return (
+                  <div key={emp.id || idx} className="flex items-center gap-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-gray-800 dark:text-white line-clamp-1" title={emp.name}>
+                        {emp.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{emp.role || 'Sem cargo'}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {admissionDate.toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                        {daysSince} dias
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Nenhum funcionário novo encontrado</p>
+            )}
+          </div>
+        </div>
+
+        {/* Funcionários Mais Antigos */}
+        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl shadow-lg p-6 border border-amber-200 dark:border-amber-800">
+          <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Award size={20} className="text-amber-600 dark:text-amber-400" />
+            Funcionários Mais Antigos
+          </h3>
+          <div className="space-y-3">
+            {oldestEmployees.length > 0 ? (
+              oldestEmployees.map((emp: any, idx: number) => {
+                const admissionDate = new Date(emp.admissionDate);
+                const daysSince = Math.floor((new Date().getTime() - admissionDate.getTime()) / (1000 * 60 * 60 * 24));
+                const years = Math.floor(daysSince / 365);
+                return (
+                  <div key={emp.id || idx} className="flex items-center gap-3 p-3 bg-white/50 dark:bg-gray-800/50 rounded-lg backdrop-blur-sm">
+                    <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-gray-800 dark:text-white line-clamp-1" title={emp.name}>
+                        {emp.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{emp.role || 'Sem cargo'}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {admissionDate.toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                        {years > 0 ? `${years} ano${years > 1 ? 's' : ''}` : `${daysSince} dias`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Nenhum funcionário antigo encontrado</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
