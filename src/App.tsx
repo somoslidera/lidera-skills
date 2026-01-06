@@ -7,6 +7,7 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
 import { EvaluationsView } from './components/evaluations/EvaluationsView';
 import { HelpView } from './components/help/HelpView';
+import DocumentationView from './components/documentation/DocumentationView';
 import { fetchCollection } from './services/firebase';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { Toaster } from './components/ui/Toaster';
@@ -638,9 +639,17 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <Routes>
+        {/* Rota pública de documentação - sem restrição de acesso */}
+        <Route path="/documentation" element={<DocumentationView />} />
+        
+        {/* Rotas protegidas */}
+        <Route path="*" element={
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        } />
+      </Routes>
     </Router>
   );
 }
