@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, Loader2, CheckSquare, Square, Edit, X
+  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
@@ -551,7 +551,11 @@ const EvaluationsTable = () => {
   const [filteredData, setFilteredData] = useState<EvaluationData[]>([]);
   const [filterName, setFilterName] = useState('');
   const [filterSector, setFilterSector] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   // Estados para seleção em massa
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -591,8 +595,28 @@ const EvaluationsTable = () => {
     let res = data;
     if (filterName) res = res.filter(d => d.employeeName.toLowerCase().includes(filterName.toLowerCase()));
     if (filterSector) res = res.filter(d => d.sector === filterSector);
+    if (filterMonth) {
+      res = res.filter(d => {
+        const date = new Date(d.date);
+        return (date.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
+      });
+    }
+    if (filterYear) {
+      res = res.filter(d => {
+        const date = new Date(d.date);
+        return date.getFullYear().toString() === filterYear;
+      });
+    }
     setFilteredData(res);
-  }, [filterName, filterSector, data]);
+    setCurrentPage(1); // Reset para primeira página quando filtros mudam
+  }, [filterName, filterSector, filterMonth, filterYear, data]);
+
+  // Paginação
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   // Handlers de Seleção
   const handleSelectAll = () => {
@@ -643,6 +667,17 @@ const EvaluationsTable = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta avaliação?')) return;
+    try {
+      await deleteDoc(doc(db, 'evaluations', id));
+      setData(data.filter(d => d.id !== id));
+      toast.success('Avaliação excluída com sucesso!');
+    } catch (error) {
+      toast.handleError(error, 'EvaluationsView.handleDelete');
+    }
+  };
+
   const handleExportCSV = () => {
     if (filteredData.length === 0) return;
     const csv = Papa.unparse(filteredData.map(d => ({
@@ -663,6 +698,17 @@ const EvaluationsTable = () => {
     document.body.appendChild(link);
     link.click();
   };
+
+  // Obter meses e anos únicos para filtros
+  const uniqueMonths = Array.from(new Set(data.map(d => {
+    const date = new Date(d.date);
+    return (date.getMonth() + 1).toString().padStart(2, '0');
+  }))).sort();
+  
+  const uniqueYears = Array.from(new Set(data.map(d => {
+    const date = new Date(d.date);
+    return date.getFullYear().toString();
+  }))).sort((a, b) => parseInt(b) - parseInt(a));
 
   const sectors = Array.from(new Set(data.map(d => d.sector))).sort();
 
@@ -689,6 +735,30 @@ const EvaluationsTable = () => {
             >
               <option value="">Todos Setores</option>
               {sectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="relative w-full sm:w-32">
+            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <select 
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+            >
+              <option value="">Todos Meses</option>
+              {uniqueMonths.map((m: string) => {
+                const monthNames = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                return <option key={m} value={m}>{monthNames[parseInt(m)]}</option>;
+              })}
+            </select>
+          </div>
+          <div className="relative w-full sm:w-24">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              value={filterYear}
+              onChange={e => setFilterYear(e.target.value)}
+            >
+              <option value="">Todos Anos</option>
+              {uniqueYears.map((y: string) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
@@ -729,14 +799,15 @@ const EvaluationsTable = () => {
                 <th className="p-4">Setor</th>
                 <th className="p-4">Nível</th>
                 <th className="p-4 text-right">Nota Média</th>
+                <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {isLoading ? (
-                <tr><td colSpan={7} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
-              ) : filteredData.length === 0 ? (
-                <tr><td colSpan={7} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
-              ) : filteredData.map((ev) => (
+                <tr><td colSpan={8} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
+              ) : paginatedData.length === 0 ? (
+                <tr><td colSpan={8} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
+              ) : paginatedData.map((ev) => (
                 <tr key={ev.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(ev.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                   <td className="p-4">
                     <button onClick={() => handleSelectOne(ev.id)} className="text-gray-400 hover:text-blue-500">
@@ -769,11 +840,50 @@ const EvaluationsTable = () => {
                       {typeof ev.average === 'number' ? ev.average.toFixed(2) : ev.average}
                     </span>
                   </td>
+                  <td className="p-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleDelete(ev.id)}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                        title="Excluir avaliação"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212]">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} avaliações
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="px-4 py-2 text-sm font-medium">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal de Edição em Massa */}
