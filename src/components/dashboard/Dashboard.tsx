@@ -90,27 +90,59 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     );
   }, [uniqueEmployees, employeeSearchTerm]);
 
-  // Funções de Filtro de Data
-  const applyDateFilter = (type: '30days' | '3months' | '6months' | 'year' | 'all') => {
-    const end = new Date();
+  // Funções de Filtro de Período (adequado para avaliações mensais)
+  const applyDateFilter = (type: 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'thisSemester' | 'lastSemester' | 'thisYear' | 'lastYear' | 'all') => {
+    const now = new Date();
     let start = new Date();
+    let end = new Date();
 
     switch (type) {
-      case '30days':
-        start.setDate(end.getDate() - 30);
-        setActiveFilterLabel('Últimos 30 dias');
+      case 'thisMonth':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        setActiveFilterLabel('Este Mês');
         break;
-      case '3months':
-        start.setMonth(end.getMonth() - 3);
-        setActiveFilterLabel('Últimos 3 meses');
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        setActiveFilterLabel('Mês Passado');
         break;
-      case '6months':
-        start.setMonth(end.getMonth() - 6);
-        setActiveFilterLabel('Últimos 6 meses');
+      case 'thisQuarter':
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        start = new Date(now.getFullYear(), currentQuarter * 3, 1);
+        end = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
+        setActiveFilterLabel('Este Trimestre');
         break;
-      case 'year':
-        start = new Date(end.getFullYear(), 0, 1); // 1 de Jan do ano atual
+      case 'lastQuarter':
+        const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
+        const lastQuarterYear = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
+        const lastQuarterMonth = lastQuarter < 0 ? 9 : lastQuarter * 3;
+        start = new Date(lastQuarterYear, lastQuarterMonth, 1);
+        end = new Date(lastQuarterYear, lastQuarterMonth + 3, 0);
+        setActiveFilterLabel('Trimestre Passado');
+        break;
+      case 'thisSemester':
+        const currentSemester = now.getMonth() < 6 ? 0 : 6;
+        start = new Date(now.getFullYear(), currentSemester, 1);
+        end = new Date(now.getFullYear(), currentSemester + 6, 0);
+        setActiveFilterLabel('Este Semestre');
+        break;
+      case 'lastSemester':
+        const lastSemester = now.getMonth() < 6 ? 6 : 0;
+        const lastSemesterYear = now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear();
+        start = new Date(lastSemesterYear, lastSemester, 1);
+        end = new Date(lastSemesterYear, lastSemester + 6, 0);
+        setActiveFilterLabel('Semestre Passado');
+        break;
+      case 'thisYear':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31);
         setActiveFilterLabel('Este Ano');
+        break;
+      case 'lastYear':
+        start = new Date(now.getFullYear() - 1, 0, 1);
+        end = new Date(now.getFullYear() - 1, 11, 31);
+        setActiveFilterLabel('Ano Passado');
         break;
       case 'all':
         setDateStart('');
@@ -281,23 +313,32 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
           </div>
 
           {/* Seleção Rápida de Período e Exportação */}
-          <div className="flex flex-wrap gap-2 justify-center lg:justify-end items-center">
-            <div className="flex flex-wrap gap-2">
-              {['all', '30days', '3months', 'year'].map((period) => {
-                const labels: Record<string, string> = { all: 'Tudo', '30days': '30 Dias', '3months': '3 Meses', year: 'Este Ano' };
-                const isActive = (period === 'all' && !dateStart) || (period === 'year' && activeFilterLabel === 'Este Ano') || (period === '3months' && activeFilterLabel === 'Últimos 3 meses');
+          <div className="flex flex-col gap-3 justify-center lg:justify-end items-center">
+            <div className="flex flex-wrap gap-2 justify-center">
+              {[
+                { key: 'thisMonth', label: 'Este Mês' },
+                { key: 'lastMonth', label: 'Mês Passado' },
+                { key: 'thisQuarter', label: 'Este Trimestre' },
+                { key: 'lastQuarter', label: 'Trimestre Passado' },
+                { key: 'thisSemester', label: 'Este Semestre' },
+                { key: 'lastSemester', label: 'Semestre Passado' },
+                { key: 'thisYear', label: 'Este Ano' },
+                { key: 'lastYear', label: 'Ano Passado' },
+                { key: 'all', label: 'Todo Período' }
+              ].map((period) => {
+                const isActive = (period.key === 'all' && !dateStart) || activeFilterLabel === period.label;
                 
                 return (
                   <button 
-                    key={period}
-                    onClick={() => applyDateFilter(period as any)}
+                    key={period.key}
+                    onClick={() => applyDateFilter(period.key as any)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
                        isActive 
-                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800' 
+                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md border border-blue-500' 
                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
-                    {labels[period]}
+                    {period.label}
                   </button>
                 );
               })}
