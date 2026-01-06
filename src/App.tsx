@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CompanyProvider, useCompany } from './contexts/CompanyContext';
 import { CompanySelector } from './components/layout/CompanySelector';
 import { Dashboard } from './components/dashboard/Dashboard';
@@ -43,6 +43,7 @@ import {
 
 function MainAppContent() {
   const { currentCompany, isMaster } = useCompany();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -183,7 +184,11 @@ function MainAppContent() {
 
               <div className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-4 ml-2 md:ml-4 gap-2">
                 <ThemeToggle />
-                <button className="text-gray-400 hover:text-red-600 transition-colors" title="Sair">
+                <button 
+                  onClick={() => signOut()} 
+                  className="text-gray-400 hover:text-red-600 transition-colors" 
+                  title="Sair"
+                >
                   <LogOut size={20} />
                 </button>
               </div>
@@ -417,6 +422,7 @@ function SettingsWrapper() {
 
 function MainApp() {
   const { currentCompany } = useCompany();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -496,7 +502,11 @@ function MainApp() {
 
             <div className="flex items-center border-l border-gray-200 dark:border-gray-700 pl-4 ml-2 md:ml-4 gap-2">
               <ThemeToggle />
-              <button className="text-gray-400 hover:text-red-600 transition-colors" title="Sair">
+              <button 
+                onClick={() => signOut()} 
+                className="text-gray-400 hover:text-red-600 transition-colors" 
+                title="Sair"
+              >
                 <LogOut size={20} />
               </button>
             </div>
