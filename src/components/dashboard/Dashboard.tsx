@@ -27,6 +27,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   const [dateEnd, setDateEnd] = useState('');
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Ativo']); // Por padrão mostra apenas ativos
   const [activeFilterLabel, setActiveFilterLabel] = useState('Todo o período');
   const [criteriaList, setCriteriaList] = useState<any[]>([]);
   const [showSectorDropdown, setShowSectorDropdown] = useState(false);
@@ -66,6 +67,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     searchTerm: '', // Removido - agora usa apenas selectedEmployees
     selectedSectors,
     selectedEmployees,
+    selectedStatuses,
     dateStart,
     dateEnd
   }, criteriaList, goalValue);

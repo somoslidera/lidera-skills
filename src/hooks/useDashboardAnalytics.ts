@@ -54,9 +54,9 @@ export const useDashboardAnalytics = (
   // 1. Processamento Inicial e Normalização
   const processedData = useMemo(() => {
     // Mapa para busca rápida de nome por ID
-    const empMapById = new Map(employees.map(e => [e.id, e.name]));
+    const empMapById = new Map(employees.map(e => [e.id, e]));
     // Mapa secundário por nome (caso o ID falhe)
-    const empMapByName = new Map(employees.map(e => [e.name?.toLowerCase().trim(), e.name]));
+    const empMapByName = new Map(employees.map(e => [e.name?.toLowerCase().trim(), e]));
 
     return evaluations.map((ev: any) => {
       // Normalização de nota
@@ -75,12 +75,19 @@ export const useDashboardAnalytics = (
          });
       }
 
-      // Resolução Inteligente de Nome
+      // Resolução Inteligente de Nome e Status
       let resolvedName = ev.employeeName || ev.displayName;
+      let employeeStatus = 'Ativo'; // Default
+      let employeeData = null;
+      
       if (ev.employeeId && empMapById.has(ev.employeeId)) {
-        resolvedName = empMapById.get(ev.employeeId);
+        employeeData = empMapById.get(ev.employeeId);
+        resolvedName = employeeData.name;
+        employeeStatus = employeeData.status || 'Ativo';
       } else if (resolvedName && empMapByName.has(resolvedName.toLowerCase().trim())) {
-        resolvedName = empMapByName.get(resolvedName.toLowerCase().trim());
+        employeeData = empMapByName.get(resolvedName.toLowerCase().trim());
+        resolvedName = employeeData.name;
+        employeeStatus = employeeData.status || 'Ativo';
       }
 
       // Normaliza o tipo/nível (garante que está no formato correto)
@@ -101,9 +108,10 @@ export const useDashboardAnalytics = (
       return {
         ...ev,
         realName: resolvedName || 'Colaborador Desconhecido',
-        realSector: ev.sector || 'Geral',
-        realRole: ev.role || 'Não definido',
+        realSector: ev.sector || employeeData?.sector || 'Geral',
+        realRole: ev.role || employeeData?.role || 'Não definido',
         realType: normalizedType, // Nível normalizado: Estratégico, Tático, Operacional
+        realStatus: employeeStatus, // Status do funcionário
         score,
         details,
         dateRaw: ev.date || '', // Mantém data original YYYY-MM-DD para filtro
@@ -132,11 +140,15 @@ export const useDashboardAnalytics = (
       // Filtro de funcionários (múltipla seleção)
       const employeeMatch = filters.selectedEmployees.length === 0 || filters.selectedEmployees.includes(item.realName);
       
+      // Filtro de status (múltipla seleção)
+      const statusMatch = !filters.selectedStatuses || filters.selectedStatuses.length === 0 || 
+        filters.selectedStatuses.includes(item.realStatus || 'Ativo');
+      
       let dateMatch = true;
       if (filters.dateStart) dateMatch = dateMatch && item.dateRaw >= filters.dateStart;
       if (filters.dateEnd) dateMatch = dateMatch && item.dateRaw <= filters.dateEnd;
 
-      return searchMatch && sectorMatch && employeeMatch && dateMatch;
+      return searchMatch && sectorMatch && employeeMatch && statusMatch && dateMatch;
     });
   }, [processedData, filters]);
 
