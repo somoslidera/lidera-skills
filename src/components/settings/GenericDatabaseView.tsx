@@ -130,7 +130,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
          itemToSave.companyId = currentCompany.id;
       }
 
-      // Verificação de duplicatas para setores, cargos e critérios
+      // Verificação de duplicatas para setores, cargos e critérios (apenas ao criar, não ao editar)
       if (!currentItem.id && (collectionName === 'sectors' || collectionName === 'roles' || collectionName === 'evaluation_criteria')) {
         const nameField = 'name';
         const nameValue = itemToSave[nameField];
@@ -159,22 +159,17 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
             const duplicate = duplicateSnap.docs[0].data();
             const duplicateId = duplicateSnap.docs[0].id;
             
-            // Se é edição e é o mesmo documento, permite
-            if (currentItem.id && currentItem.id === duplicateId) {
-              // Continua com a atualização
+            // Duplicata encontrada - oferece editar o existente
+            const confirmEdit = window.confirm(
+              `Já existe um ${collectionName === 'sectors' ? 'setor' : collectionName === 'roles' ? 'cargo' : 'critério'} com o nome "${nameValue}". Deseja editar o registro existente?`
+            );
+            
+            if (confirmEdit) {
+              setCurrentItem({ ...duplicate, id: duplicateId });
+              setIsModalOpen(true);
+              return;
             } else {
-              // Duplicata encontrada - oferece editar o existente
-              const confirmEdit = window.confirm(
-                `Já existe um ${collectionName === 'sectors' ? 'setor' : collectionName === 'roles' ? 'cargo' : 'critério'} com o nome "${nameValue}". Deseja editar o registro existente?`
-              );
-              
-              if (confirmEdit) {
-                setCurrentItem({ ...duplicate, id: duplicateId });
-                setIsModalOpen(true);
-                return;
-              } else {
-                return; // Cancela a criação
-              }
+              return; // Cancela a criação
             }
           }
         }
