@@ -123,10 +123,61 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     }
     
     try {
-      let itemToSave = { ...currentItem };
+      let itemToSave: any = { ...currentItem };
+      delete itemToSave.id;
 
       if (!isUniversalCollection && !itemToSave.companyId && currentCompany && currentCompany.id !== 'all') {
          itemToSave.companyId = currentCompany.id;
+      }
+
+      // Verificação de duplicatas para setores, cargos e critérios
+      if (!currentItem.id && (collectionName === 'sectors' || collectionName === 'roles' || collectionName === 'evaluation_criteria')) {
+        const nameField = 'name';
+        const nameValue = itemToSave[nameField];
+        
+        if (nameValue) {
+          // Busca por nome (e tipo para critérios)
+          let duplicateQuery;
+          if (collectionName === 'evaluation_criteria') {
+            // Para critérios, verifica nome + tipo
+            duplicateQuery = query(
+              collection(db, collectionName),
+              where('name', '==', nameValue),
+              where('type', '==', itemToSave.type || 'Geral')
+            );
+          } else {
+            // Para setores e cargos, verifica apenas nome
+            duplicateQuery = query(
+              collection(db, collectionName),
+              where('name', '==', nameValue)
+            );
+          }
+          
+          const duplicateSnap = await getDocs(duplicateQuery);
+          
+          if (!duplicateSnap.empty) {
+            const duplicate = duplicateSnap.docs[0].data();
+            const duplicateId = duplicateSnap.docs[0].id;
+            
+            // Se é edição e é o mesmo documento, permite
+            if (currentItem.id && currentItem.id === duplicateId) {
+              // Continua com a atualização
+            } else {
+              // Duplicata encontrada - oferece editar o existente
+              const confirmEdit = window.confirm(
+                `Já existe um ${collectionName === 'sectors' ? 'setor' : collectionName === 'roles' ? 'cargo' : 'critério'} com o nome "${nameValue}". Deseja editar o registro existente?`
+              );
+              
+              if (confirmEdit) {
+                setCurrentItem({ ...duplicate, id: duplicateId });
+                setIsModalOpen(true);
+                return;
+              } else {
+                return; // Cancela a criação
+              }
+            }
+          }
+        }
       }
 
       if (currentItem.id) {

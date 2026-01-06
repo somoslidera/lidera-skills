@@ -58,7 +58,9 @@ export const SectorsView = () => {
   const { isMaster } = useCompany();
   
   const columns: any[] = [
-     { key: 'name', label: 'Nome do Setor' }
+     { key: 'name', label: 'Nome do Setor' },
+     { key: 'manager', label: 'Gerente Responsável' },
+     { key: 'unit', label: 'Unidade/Filial' }
   ];
 
   if (isMaster) {
@@ -71,8 +73,11 @@ export const SectorsView = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm text-gray-500">
-        Setores são universais e compartilhados entre todas as empresas.
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+        <h3 className="font-bold text-blue-800 dark:text-blue-300">Gerenciamento de Setores</h3>
+        <p className="text-sm text-blue-600 dark:text-blue-400">
+          Setores são universais e podem ser vinculados a múltiplas empresas. O sistema evita duplicatas automaticamente.
+        </p>
       </div>
       <DataImporter target="sectors" />
       <GenericDatabaseView 
@@ -95,7 +100,8 @@ export const RolesView = () => {
         label: 'Nível Hierárquico', 
         type: 'select', 
         options: ['Estratégico', 'Tático', 'Operacional', 'Colaborador', 'Líder'] 
-      }
+      },
+      { key: 'unit', label: 'Unidade/Filial' }
   ];
 
   if (isMaster) {
@@ -108,10 +114,10 @@ export const RolesView = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800">
-        <h3 className="font-bold text-yellow-800 dark:text-yellow-300">Atenção aos Níveis</h3>
-        <p className="text-sm text-yellow-700 dark:text-yellow-400">
-          Cargos são universais. O <strong>"Nível Hierárquico"</strong> define qual formulário de avaliação será usado.
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+        <h3 className="font-bold text-blue-800 dark:text-blue-300">Gerenciamento de Cargos</h3>
+        <p className="text-sm text-blue-600 dark:text-blue-400">
+          Cargos são universais e podem ser vinculados a múltiplas empresas. O sistema evita duplicatas automaticamente. O <strong>"Nível Hierárquico"</strong> define qual formulário de avaliação será usado.
         </p>
       </div>
       <DataImporter target="roles" />
