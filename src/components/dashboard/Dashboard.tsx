@@ -280,8 +280,30 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
               </div>
             </div>
             
+            {/* Filtros de Status */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Status:</span>
+              {['Ativo', 'Inativo', 'Férias', 'Afastado'].map((status) => (
+                <label key={status} className="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes(status)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStatuses([...selectedStatuses, status]);
+                      } else {
+                        setSelectedStatuses(selectedStatuses.filter(s => s !== status));
+                      }
+                    }}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-gray-700 dark:text-gray-300">{status}</span>
+                </label>
+              ))}
+            </div>
+            
             {/* Indicador de Filtros Ativos */}
-            {(selectedSectors.length > 0 || selectedEmployees.length > 0 || dateStart || dateEnd) && (
+            {(selectedSectors.length > 0 || selectedEmployees.length > 0 || selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo' || dateStart || dateEnd) && (
               <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 flex-wrap">
                 <span className="font-medium">Filtros ativos:</span>
                 {selectedSectors.length > 0 && (
@@ -294,6 +316,11 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                     Funcionários: {selectedEmployees.length}
                   </span>
                 )}
+                {(selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo') && (
+                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                    Status: {selectedStatuses.join(', ')}
+                  </span>
+                )}
                 {(dateStart || dateEnd) && (
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
                     {activeFilterLabel}
@@ -303,6 +330,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   onClick={() => {
                     setSelectedSectors([]);
                     setSelectedEmployees([]);
+                    setSelectedStatuses(['Ativo']);
                     setEmployeeSearchTerm('');
                     applyDateFilter('all');
                   }}
