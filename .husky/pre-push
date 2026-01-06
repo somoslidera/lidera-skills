@@ -1,0 +1,3 @@
+# Run full validation before push (critical for Vercel deployment)
+echo "Running pre-push validation..."
+npm run validate
