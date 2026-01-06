@@ -68,8 +68,12 @@ export const CompanyOverview = ({ data }: { data: any }) => {
   
   const [selectedLevel, setSelectedLevel] = useState<string>('Todos');
 
-  // Cor do Health Score
-  const healthColor = healthScore >= 8 ? 'text-emerald-500' : healthScore >= 6 ? 'text-yellow-500' : 'text-red-500';
+  // Cor do Health Score (com gradiente dourado)
+  const healthColor = healthScore >= 8 
+    ? 'text-emerald-500' 
+    : healthScore >= 6 
+    ? 'bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent' 
+    : 'text-red-500';
   
   // Filtrar performanceList por nível
   const filteredPerformanceList = useMemo(() => {
@@ -119,12 +123,12 @@ export const CompanyOverview = ({ data }: { data: any }) => {
       
       {/* 1. Scorecards Superiores */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <Card title="Colaboradores" value={activeEmployeesCount} icon={Users} className="bg-blue-50 dark:bg-blue-900/10" />
-        <Card title="Setores" value={activeSectorsCount} icon={Briefcase} />
-        <Card title="Cargos" value={activeRolesCount} icon={Award} />
-        <Card title="Avaliações" value={totalEvaluations} icon={TrendingUp} />
-        <Card title="Férias" value={0} icon={CheckCircle} subtitle="Mock Data" /> 
-        <Card title="Afastados" value={0} icon={AlertCircle} subtitle="Mock Data" />
+        <Card title="Colaboradores" value={activeEmployeesCount} icon={Users} className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" />
+        <Card title="Setores" value={activeSectorsCount} icon={Briefcase} className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/20 dark:to-gray-700/20" />
+        <Card title="Cargos" value={activeRolesCount} icon={Award} className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20" />
+        <Card title="Avaliações" value={totalEvaluations} icon={TrendingUp} className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20" />
+        <Card title="Férias" value={0} icon={CheckCircle} subtitle="Mock Data" className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20" /> 
+        <Card title="Afastados" value={0} icon={AlertCircle} subtitle="Mock Data" className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20" />
       </div>
 
       {/* 1.1. Ranking de Setores (Barras Laterais) */}
@@ -166,11 +170,17 @@ export const CompanyOverview = ({ data }: { data: any }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2. Medidor de Saúde */}
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-[#1E1E1E] dark:to-[#171717] p-6 rounded-xl shadow-lg border border-gray-200 dark:border-[#121212] flex flex-col items-center justify-center relative overflow-hidden">
           <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 absolute top-6 left-6">Saúde da Empresa</h3>
           <div className="relative mt-8">
             <ResponsiveContainer width={250} height={250}>
                <PieChart>
+                 <defs>
+                   <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                     <stop offset="0%" stopColor="#D4AF37" />
+                     <stop offset="100%" stopColor="#F3E5AB" />
+                   </linearGradient>
+                 </defs>
                  <Pie
                     data={[{ value: healthScore }, { value: 10 - healthScore }]}
                     cx="50%" cy="50%"
@@ -178,7 +188,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                     startAngle={180} endAngle={0}
                     dataKey="value"
                  >
-                    <Cell fill={healthScore >= 8 ? '#10B981' : healthScore >= 6 ? '#F59E0B' : '#EF4444'} />
+                    <Cell fill={healthScore >= 8 ? '#10B981' : healthScore >= 6 ? 'url(#goldGradient)' : '#EF4444'} />
                     <Cell fill="#e5e7eb" />
                  </Pie>
                </PieChart>
@@ -293,7 +303,7 @@ export const CompanyOverview = ({ data }: { data: any }) => {
                               <td className="p-3 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                                  {isDestaque && (
                                    <div className="relative group">
-                                     <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                                     <Star size={16} className="text-yellow-500 dark:text-yellow-400 fill-yellow-500 dark:fill-yellow-400" />
                                      <span className="absolute left-6 top-0 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                                        Funcionário Destaque do Mês
                                      </span>

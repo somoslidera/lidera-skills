@@ -332,10 +332,10 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   <button 
                     key={period.key}
                     onClick={() => applyDateFilter(period.key as any)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
                        isActive 
-                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md border border-blue-500' 
-                       : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                       ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white shadow-lg border border-blue-400 transform scale-105' 
+                       : 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 text-gray-600 dark:text-gray-400 hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-700 dark:hover:to-gray-600'
                     }`}
                   >
                     {period.label}
