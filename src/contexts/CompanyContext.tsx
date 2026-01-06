@@ -32,9 +32,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   const loadCompanies = async () => {
     setLoading(true);
-    const data = await fetchCollection('companies');
-    setCompanies(data as Company[]);
-    setLoading(false);
+    try {
+      const data = await fetchCollection('companies');
+      console.log('Companies loaded:', data);
+      setCompanies(data as Company[]);
+    } catch (error) {
+      console.error('Erro ao carregar empresas:', error);
+      setCompanies([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

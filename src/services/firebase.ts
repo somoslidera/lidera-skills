@@ -51,16 +51,24 @@ export const fetchCollection = async (collectionName: string, companyId?: string
     if (companyId && collectionName !== 'companies' && collectionName !== 'users') {
       q = query(collection(db, collectionName), where("companyId", "==", companyId));
     } else {
-      q = collection(db, collectionName);
+      // Para companies e users, busca todos os documentos sem filtro
+      q = query(collection(db, collectionName));
     }
 
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const results = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+    
+    console.log(`fetchCollection(${collectionName}):`, results.length, 'documentos encontrados');
+    return results;
   } catch (error) {
     console.error(`Erro ao buscar ${collectionName}:`, error);
+    // Log detalhado do erro
+    if (error instanceof Error) {
+      console.error('Erro detalhado:', error.message, error.stack);
+    }
     return [];
   }
 };

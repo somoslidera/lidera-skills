@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCompany } from '../../contexts/CompanyContext';
 import { Building2, Check } from 'lucide-react';
+import { debugCompanies } from '../../utils/debugCompanies';
 
 export const CompanySelector = () => {
-  const { companies, currentCompany, setCompany, addNewCompany, isMaster } = useCompany();
+  const { companies, currentCompany, setCompany, addNewCompany, isMaster, loading } = useCompany();
   const [isCreating, setIsCreating] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
+
+  // Debug: log das empresas carregadas
+  useEffect(() => {
+    console.log('CompanySelector - companies:', companies, 'loading:', loading);
+    
+    // Se não há empresas e não está carregando, executa diagnóstico
+    if (companies.length === 0 && !loading) {
+      console.warn('⚠️ Nenhuma empresa encontrada. Executando diagnóstico...');
+      debugCompanies().catch(err => {
+        console.error('Erro no diagnóstico:', err);
+      });
+    }
+  }, [companies, loading]);
 
   const handleCreate = async () => {
     if (!newCompanyName.trim()) return;
@@ -50,11 +64,19 @@ export const CompanySelector = () => {
               }
             }}
           >
-            <option value="" disabled>Selecione...</option>
+            <option value="" disabled>
+              {loading ? 'Carregando...' : companies.length === 0 ? 'Nenhuma empresa encontrada' : 'Selecione...'}
+            </option>
             
             {/* Opção TODAS AS EMPRESAS (Apenas para Master) */}
             {isMaster && (
               <option value="all" className="font-bold text-blue-600">🌐 Todas as Empresas</option>
+            )}
+
+            {companies.length === 0 && !loading && (
+              <option value="" disabled className="text-red-500">
+                ⚠️ Nenhuma empresa cadastrada. Crie uma nova empresa.
+              </option>
             )}
 
             {companies.map(c => (
