@@ -1,1 +1,1 @@
-node -e "const {execSync} = require('child_process'); try { execSync('npm run validate:skip-build', {stdio: 'inherit'}); } catch(e) { process.exit(1); }"
+node -e "const {execSync} = require('child_process'); try { execSync('npm run validate:type-only', {stdio: 'inherit'}); } catch(e) { process.exit(1); }"

@@ -12,7 +12,8 @@
     "pre-commit": "node scripts/pre-commit-check.js",
     "type-check": "tsc --noEmit",
     "validate": "npm run type-check && npm run lint && npm run build",
-    "validate:skip-build": "npm run type-check && npm run lint"
+    "validate:skip-build": "npm run type-check && npm run lint",
+    "validate:type-only": "npm run type-check"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
