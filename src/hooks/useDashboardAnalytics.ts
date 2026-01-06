@@ -330,11 +330,15 @@ export const useDashboardAnalytics = (
       return result;
     });
 
+    // allSectors deve usar os setores originais (não agrupados) para filtros
+    // O agrupamento "Outros" é apenas para visualização no gráfico
+    const allSectorsOriginal = Array.from(new Set(filteredData.map(d => d.realSector))).sort();
+    
     return { 
       matrixData, 
       evolutionData, 
       sectorEvolutionData,
-      allSectors: Array.from(generalMetrics.sectorDistribution.map(s => s.name)) 
+      allSectors: allSectorsOriginal // Usa setores originais, não os agrupados
     };
   }, [filteredData, generalMetrics]);
 
