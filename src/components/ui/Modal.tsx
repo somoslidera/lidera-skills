@@ -11,19 +11,28 @@ interface ModalProps {
 export const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
   // Fechar com ESC
   useEffect(() => {
+    if (!isOpen) return;
+    
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+  }, [onClose, isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 pt-10 overflow-y-auto animate-fadeIn">
+    <div 
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 pt-10 sm:pt-20 overflow-y-auto animate-fadeIn"
+      onClick={(e) => {
+        // Fecha ao clicar fora do modal
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
-        className="bg-white dark:bg-lidera-gray w-full max-w-3xl rounded-xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh]"
+        className="bg-white dark:bg-lidera-gray w-full max-w-3xl rounded-xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh] sm:max-h-[85vh] relative my-auto"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header fixo (permanece visível) */}
         <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800 shrink-0 sticky top-0 bg-white/95 dark:bg-lidera-gray/95 backdrop-blur">

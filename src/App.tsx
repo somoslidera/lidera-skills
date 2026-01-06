@@ -426,6 +426,26 @@ function MainApp() {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Backspace para voltar (apenas quando não está em input/textarea)
+  useEffect(() => {
+    const handleBackspace = (e: KeyboardEvent) => {
+      // Não faz nada se estiver em um campo de input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as HTMLElement).isContentEditable) {
+        return;
+      }
+      
+      // Backspace volta na navegação
+      if (e.key === 'Backspace' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        navigate(-1);
+      }
+    };
+    
+    window.addEventListener('keydown', handleBackspace);
+    return () => window.removeEventListener('keydown', handleBackspace);
+  }, [navigate]);
+  
   const pathParts = location.pathname.split('/').filter(Boolean);
   const currentView = pathParts[0] || 'dashboard';
 
@@ -542,13 +562,84 @@ function MainApp() {
   );
 }
 
+// Componente interno que verifica autenticação
+function AppContent() {
+  const { user, loading, signIn } = useAuth();
+  
+  // Tela de Login
+  if (!loading && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
+        <div className="bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-200 dark:border-[#121212] relative overflow-hidden">
+          {/* Elementos decorativos dourados */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-amber-600/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-yellow-500/20 to-amber-500/20 rounded-full blur-2xl"></div>
+          
+          <div className="relative z-10">
+            <div className="mb-8 flex justify-center">
+              <div className="w-24 h-24 rounded-full overflow-hidden shadow-xl ring-4 ring-yellow-500/30 dark:ring-yellow-600/50">
+                <img 
+                  src="/lidera-logo.png" 
+                  alt="Lidera Skills" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+            
+            <h1 className="text-3xl font-bold text-center mb-2 bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
+              Lidera Skills
+            </h1>
+            <p className="text-center text-gray-600 dark:text-gray-400 mb-8">
+              Sistema de Gestão de Performance e Avaliações
+            </p>
+            
+            <button
+              onClick={signIn}
+              className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-3"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Entrar com Google
+            </button>
+            
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-6">
+              Ao entrar, você concorda com nossos termos de uso
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Loading
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // App principal
+  return (
+    <CompanyProvider>
+      <MainApp />
+    </CompanyProvider>
+  );
+}
+
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <CompanyProvider>
-          <MainApp />
-        </CompanyProvider>
+        <AppContent />
       </AuthProvider>
     </Router>
   );
