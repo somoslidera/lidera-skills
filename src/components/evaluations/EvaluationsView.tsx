@@ -184,9 +184,9 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     return criteriaList.filter(c => c.type === formType);
   }, [formType, criteriaList]);
 
-  // Filtrar e ordenar funcionários disponíveis
+  // Filtrar e ordenar funcionários (mostra todos, mas marca os já avaliados)
   const availableEmployees = useMemo(() => {
-    let filtered = employees.filter(emp => !existingEvaluations.has(emp.id));
+    let filtered = [...employees]; // Mostra todos os funcionários
     
     // Busca por nome
     if (searchTerm) {
@@ -209,7 +209,12 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
     }
     
     return filtered;
-  }, [employees, existingEvaluations, searchTerm, sortOrder]);
+  }, [employees, searchTerm, sortOrder]);
+  
+  // Funcionários já avaliados (para desabilitar)
+  const evaluatedEmployees = useMemo(() => {
+    return new Set(availableEmployees.filter(emp => existingEvaluations.has(emp.id)).map(emp => emp.id));
+  }, [availableEmployees, existingEvaluations]);
 
   const currentAverage = useMemo(() => {
     const values = Object.values(scores);
@@ -328,6 +333,27 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Mês de Referência - PRIMEIRO CAMPO */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Mês de Referência <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="month" 
+            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+            value={evalMonth}
+            onChange={(e) => {
+              setEvalMonth(e.target.value);
+              setSelectedEmployeeId(''); // Limpa seleção ao mudar mês
+            }}
+          />
+          {existingEvaluations.size > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {existingEvaluations.size} funcionário{existingEvaluations.size !== 1 ? 's' : ''} já avaliado{existingEvaluations.size !== 1 ? 's' : ''} neste mês
+            </p>
+          )}
+        </div>
+        
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Empresa <span className="text-red-500">*</span></label>
           <select 
@@ -340,8 +366,9 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               setScores({});
               setSearchTerm('');
             }}
+            disabled={!evalMonth}
           >
-            <option value="">Selecione uma empresa...</option>
+            <option value="">{evalMonth ? "Selecione uma empresa..." : "Selecione o mês primeiro"}</option>
             {companies.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -351,29 +378,37 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Colaborador 
             <span className="text-xs text-gray-500 ml-2">
-              ({availableEmployees.length} disponível{availableEmployees.length !== 1 ? 'eis' : ''})
+              ({availableEmployees.filter(e => !evaluatedEmployees.has(e.id)).length} disponível{availableEmployees.filter(e => !evaluatedEmployees.has(e.id)).length !== 1 ? 'eis' : ''})
             </span>
           </label>
           <div className="relative">
             <select 
-              className="w-full p-2 pr-24 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+              className="w-full p-2 pr-24 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
-              disabled={!selectedCompanyId}
+              disabled={!selectedCompanyId || !evalMonth}
             >
               <option value="">
-                  {selectedCompanyId 
-                    ? availableEmployees.length > 0 
-                      ? "Selecione um funcionário..." 
-                      : "Todos os funcionários já foram avaliados neste mês"
-                    : "Selecione a empresa primeiro"}
+                  {!evalMonth
+                    ? "Selecione o mês primeiro"
+                    : !selectedCompanyId 
+                    ? "Selecione a empresa primeiro"
+                    : availableEmployees.length > 0 
+                    ? "Selecione um funcionário..." 
+                    : "Nenhum funcionário disponível"}
               </option>
               {availableEmployees.map(e => {
+                const isEvaluated = evaluatedEmployees.has(e.id);
                 const status = e.status || 'Ativo';
                 const statusDisplay = status === 'Férias' ? ' 🏖️ Férias' : status === 'Afastado' ? ' 🏥 Afastado' : '';
                 return (
-                  <option key={e.id} value={e.id}>
-                    {sortOrder === 'sector' ? `[${e.sector}] ` : ''}{e.name} - {e.role}{statusDisplay}
+                  <option 
+                    key={e.id} 
+                    value={e.id}
+                    disabled={isEvaluated}
+                    className={isEvaluated ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500' : ''}
+                  >
+                    {isEvaluated ? '✓ ' : ''}{sortOrder === 'sector' ? `[${e.sector}] ` : ''}{e.name} - {e.role}{statusDisplay}{isEvaluated ? ' (Já avaliado)' : ''}
                   </option>
                 );
               })}
@@ -402,28 +437,27 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             const selectedEmp = availableEmployees.find(e => e.id === selectedEmployeeId);
             if (!selectedEmp) return null;
             const status = selectedEmp.status || 'Ativo';
-            if (status === 'Férias' || status === 'Afastado') {
-              return (
-                <div className={`mt-1 text-xs font-medium px-2 py-1 rounded inline-flex items-center gap-1 ${
-                  status === 'Férias' 
-                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' 
-                    : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                }`}>
-                  {status === 'Férias' ? '🏖️' : '🏥'} Status: {status}
-                </div>
-              );
-            }
-            return null;
+            const isEvaluated = evaluatedEmployees.has(selectedEmp.id);
+            
+            return (
+              <div className="mt-1 flex flex-wrap gap-2">
+                {isEvaluated && (
+                  <div className="text-xs font-medium px-2 py-1 rounded inline-flex items-center gap-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                    ✓ Já avaliado neste mês
+                  </div>
+                )}
+                {status === 'Férias' || status === 'Afastado' ? (
+                  <div className={`text-xs font-medium px-2 py-1 rounded inline-flex items-center gap-1 ${
+                    status === 'Férias' 
+                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' 
+                      : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                  }`}>
+                    {status === 'Férias' ? '🏖️' : '🏥'} Status: {status}
+                  </div>
+                ) : null}
+              </div>
+            );
           })()}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mês de Referência</label>
-          <input 
-            type="month" 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
-            value={evalMonth}
-            onChange={(e) => setEvalMonth(e.target.value)}
-          />
         </div>
       </div>
 
