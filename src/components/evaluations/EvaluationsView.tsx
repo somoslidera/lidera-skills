@@ -58,6 +58,9 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [formType, setFormType] = useState<string | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
+  const [observations, setObservations] = useState('');
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const [highlightReason, setHighlightReason] = useState('');
   
   const [evalMonth, setEvalMonth] = useState(() => {
     const date = new Date();
@@ -245,6 +248,9 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         date: `${evalMonth}-01`,
         average: Number(currentAverage.toFixed(2)),
         details: scores,
+        observations: observations.trim(),
+        funcionarioMes: isHighlighted ? 'Sim' : 'Não',
+        highlightReason: isHighlighted ? highlightReason.trim() : '',
         createdAt: new Date().toISOString()
       };
 
@@ -263,6 +269,9 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
       // Limpa seleção para facilitar próxima avaliação
       setSelectedEmployeeId('');
       setScores({});
+      setObservations('');
+      setIsHighlighted(false);
+      setHighlightReason('');
       
       onSuccess();
     } catch (error) {
@@ -468,6 +477,52 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                 Vá em <strong>Configurações &gt; Critérios</strong> e cadastre novos itens.
               </div>
             )}
+          </div>
+
+          {/* Campos de Observações e Destaque */}
+          <div className="space-y-4 mt-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Observações
+              </label>
+              <textarea
+                rows={3}
+                className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
+                placeholder="Adicione observações sobre a avaliação..."
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+              />
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isHighlighted}
+                  onChange={(e) => setIsHighlighted(e.target.checked)}
+                  className="w-5 h-5 accent-yellow-600 dark:accent-yellow-500 rounded"
+                />
+                <span className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <span className="text-yellow-600 dark:text-yellow-400">⭐</span>
+                  Destaque do Mês
+                </span>
+              </label>
+              
+              {isHighlighted && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Motivo do Destaque
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
+                    placeholder="Explique o motivo pelo qual este colaborador se destacou..."
+                    value={highlightReason}
+                    onChange={(e) => setHighlightReason(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center bg-gray-100 dark:bg-gray-800 p-6 rounded-lg mt-6 border border-gray-200 dark:border-gray-700">
