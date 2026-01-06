@@ -63,7 +63,9 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
     totalEvaluations,
     performanceList,
     highlightedByScore,
-    highlightedBySelection
+    highlightedBySelection,
+    discPerformanceBySector,
+    discPerformanceByRole
   } = data;
   
   // Funcionários mais novos e mais antigos

@@ -113,6 +113,7 @@ export const useDashboardAnalytics = (
         realRole: ev.role || employeeData?.role || 'Não definido',
         realType: normalizedType, // Nível normalizado: Estratégico, Tático, Operacional
         realStatus: employeeStatus, // Status do funcionário
+        realDiscProfile: employeeData?.discProfile || null, // Perfil DISC do funcionário
         score,
         details,
         dateRaw: ev.date || '', // Mantém data original YYYY-MM-DD para filtro
@@ -206,6 +207,65 @@ export const useDashboardAnalytics = (
       })()
     })); // Top 10 para a tabela
 
+    // Análise de Perfil Comportamental (DISC) por Setor e Cargo
+    const discBySector: Record<string, Record<string, { sum: number; count: number }>> = {};
+    const discByRole: Record<string, Record<string, { sum: number; count: number }>> = {};
+    
+    filteredData.forEach((item: any) => {
+      const discProfile = item.realDiscProfile;
+      if (!discProfile) return;
+      
+      const sector = item.realSector;
+      const role = item.realRole;
+      
+      // Por Setor
+      if (!discBySector[sector]) discBySector[sector] = {};
+      if (!discBySector[sector][discProfile]) {
+        discBySector[sector][discProfile] = { sum: 0, count: 0 };
+      }
+      discBySector[sector][discProfile].sum += item.score;
+      discBySector[sector][discProfile].count += 1;
+      
+      // Por Cargo
+      if (!discByRole[role]) discByRole[role] = {};
+      if (!discByRole[role][discProfile]) {
+        discByRole[role][discProfile] = { sum: 0, count: 0 };
+      }
+      discByRole[role][discProfile].sum += item.score;
+      discByRole[role][discProfile].count += 1;
+    });
+    
+    // Calcular médias e ordenar
+    const discPerformanceBySector = Object.entries(discBySector).map(([sector, profiles]) => {
+      const profileData = Object.entries(profiles).map(([profile, data]) => ({
+        profile,
+        average: data.count > 0 ? data.sum / data.count : 0,
+        count: data.count
+      })).sort((a, b) => b.average - a.average);
+      
+      return {
+        sector,
+        topProfile: profileData[0]?.profile || 'N/A',
+        topAverage: profileData[0]?.average || 0,
+        profiles: profileData
+      };
+    });
+    
+    const discPerformanceByRole = Object.entries(discByRole).map(([role, profiles]) => {
+      const profileData = Object.entries(profiles).map(([profile, data]) => ({
+        profile,
+        average: data.count > 0 ? data.sum / data.count : 0,
+        count: data.count
+      })).sort((a, b) => b.average - a.average);
+      
+      return {
+        role,
+        topProfile: profileData[0]?.profile || 'N/A',
+        topAverage: profileData[0]?.average || 0,
+        profiles: profileData
+      };
+    });
+
     return {
         healthScore: avg,
         totalEvaluations: total,
@@ -217,7 +277,9 @@ export const useDashboardAnalytics = (
         topEmployee,
         performanceList,
         highlightedByScore, // Top 5 por pontuação
-        highlightedBySelection // Top 5 por seleção (destaque do mês)
+        highlightedBySelection, // Top 5 por seleção (destaque do mês)
+        discPerformanceBySector, // Performance DISC por setor
+        discPerformanceByRole // Performance DISC por cargo
     };
   }, [filteredData]);
 
