@@ -20,7 +20,12 @@ export const GoalsView = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<PerformanceGoal | null>(null);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    sectorId: string;
+    roleId: string;
+    level: 'Estratégico' | 'Tático' | 'Operacional' | 'Geral' | '';
+    goalValue: number;
+  }>({
     sectorId: '',
     roleId: '',
     level: '',
@@ -62,7 +67,7 @@ export const GoalsView = () => {
       setFormData({
         sectorId: goal.sectorId || '',
         roleId: goal.roleId || '',
-        level: goal.level || '',
+        level: (goal.level || '') as 'Estratégico' | 'Tático' | 'Operacional' | 'Geral' | '',
         goalValue: goal.goalValue
       });
     } else {
@@ -103,7 +108,7 @@ export const GoalsView = () => {
       await setPerformanceGoal(currentCompany.id, {
         sectorId: formData.sectorId || undefined,
         roleId: formData.roleId || undefined,
-        level: formData.level || undefined,
+        level: (formData.level || undefined) as 'Estratégico' | 'Tático' | 'Operacional' | 'Geral' | undefined,
         goalValue: formData.goalValue
       });
 
@@ -302,7 +307,7 @@ export const GoalsView = () => {
             </label>
             <select
               value={formData.level}
-              onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, level: e.target.value as 'Estratégico' | 'Tático' | 'Operacional' | 'Geral' | '' })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1E1E1E] text-gray-900 dark:text-gray-100"
             >
               <option value="">Nenhum (Meta Geral)</option>
