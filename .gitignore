@@ -26,3 +26,7 @@ dist-ssr
 .vercel
 .env*.local
 src/components/dashboard/EvaluationHistory.tsx.rtf
+
+# Generated TypeScript files
+*.config.js
+*.config.d.ts
