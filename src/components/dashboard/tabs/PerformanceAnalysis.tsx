@@ -371,7 +371,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
           </div>
 
       {/* 3. Gráfico de Gaps (Focado em Oportunidades de Melhoria) */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-[#1E1E1E] dark:to-[#171717] p-6 rounded-xl shadow-lg border border-gray-200 dark:border-[#121212]">
              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Análise de Gaps</h3>
              <p className="text-sm text-gray-500 mb-6">Competências que mais precisam de treinamento. Quanto maior a barra de Gap, maior a oportunidade de melhoria.</p>
              
@@ -380,27 +380,38 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                    <BarChart 
                       data={gapData} 
                       layout="vertical" 
-                      margin={{ left: 150, right: 20, top: 20, bottom: 20 }}
+                      margin={{ left: 250, right: 30, top: 30, bottom: 30 }}
+                      barCategoryGap="20%"
                    >
+                      <defs>
+                        <linearGradient id="gapGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#EF4444" stopOpacity={0.8} />
+                          <stop offset="100%" stopColor="#DC2626" stopOpacity={0.6} />
+                        </linearGradient>
+                        <linearGradient id="performanceGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.7} />
+                          <stop offset="100%" stopColor="#2563EB" stopOpacity={0.5} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} />
                       <XAxis 
                         type="number" 
                         domain={[0, 10]} 
                         stroke="#9ca3af" 
-                        tick={{fontSize: 11}}
+                        tick={{fontSize: 12}}
                         tickFormatter={(value) => value.toFixed(0)}
                         label={{ value: 'Nota', position: 'insideBottom', offset: -5, style: { fill: '#6B7280' } }}
                       />
                       <YAxis 
                         dataKey="name" 
                         type="category" 
-                        width={140} 
-                        tick={{fontSize: 10, fill: '#6B7280'}} 
+                        width={240} 
+                        tick={{fontSize: 12, fill: '#6B7280'}} 
                         interval={0}
                       />
                       <Tooltip 
                         cursor={{fill: 'rgba(59, 130, 246, 0.1)'}} 
-                        contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                        contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px'}}
                         formatter={(value: any, name: string, props: any) => {
                           if (name === 'Gap') {
                             return [`${value.toFixed(1)} pontos de oportunidade`, 'Gap'];
@@ -418,25 +429,29 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                       <Bar 
                         dataKey="Gap" 
                         stackId="a" 
-                        fill="#EF4444" 
+                        fill="url(#gapGradient)" 
                         name="Gap" 
-                        radius={[0, 4, 4, 0]} 
-                        barSize={28}
+                        radius={[0, 6, 6, 0]} 
+                        barSize={32}
+                        stroke="#DC2626"
+                        strokeWidth={1}
                       />
                       {/* Barra de Performance Atual */}
                       <Bar 
                         dataKey="Atual" 
                         stackId="a" 
-                        fill="#3B82F6" 
+                        fill="url(#performanceGradient)" 
                         name="Atual" 
                         radius={[0, 0, 0, 0]} 
-                        barSize={28}
+                        barSize={32}
+                        stroke="#2563EB"
+                        strokeWidth={1}
                       />
                    </BarChart>
                 </ResponsiveContainer>
              </div>
-             <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
-                <p className="text-xs text-red-700 dark:text-red-300">
+             <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                    <strong>Interpretação:</strong> As barras vermelhas (Gap) mostram o quanto cada competência está abaixo da nota máxima (10). 
                    Quanto maior o gap, maior a necessidade de treinamento e desenvolvimento.
                 </p>
