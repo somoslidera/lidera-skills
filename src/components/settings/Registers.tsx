@@ -222,3 +222,6 @@ export const CompaniesView = () => (
     ]}
   />
 );
+
+// --- 8. Metas de Desempenho ---
+export { GoalsView } from './GoalsView';

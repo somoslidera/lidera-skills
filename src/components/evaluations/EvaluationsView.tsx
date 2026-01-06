@@ -10,6 +10,7 @@ import Papa from 'papaparse';
 import { Modal } from '../ui/Modal';
 import { toast } from '../../utils/toast';
 import { ErrorHandler } from '../../utils/errorHandler';
+import { useAuditLogger } from '../../utils/auditLogger';
 
 // --- Interfaces para Tipagem ---
 interface Employee {
@@ -48,6 +49,7 @@ interface EvaluationData {
 // --- Subcomponente: Formulário de Avaliação (Mantido igual, apenas tipos ajustados) ---
 const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const { currentCompany, companies } = useCompany();
+  const { logAction } = useAuditLogger();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [criteriaList, setCriteriaList] = useState<Criteria[]>([]);
@@ -246,8 +248,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         createdAt: new Date().toISOString()
       };
 
-      await addDoc(collection(db, 'evaluations'), payload);
+      const docRef = await addDoc(collection(db, 'evaluations'), payload);
       toast.success("Avaliação salva com sucesso!");
+      
+      // Log de auditoria
+      await logAction('create', 'evaluation', docRef.id, {
+        entityName: `${currentEmployee.name} - ${evalMonth}`,
+        metadata: { average: payload.average, type: formType }
+      });
       
       // Adiciona o funcionário à lista de já avaliados
       setExistingEvaluations(prev => new Set([...prev, currentEmployee.id]));

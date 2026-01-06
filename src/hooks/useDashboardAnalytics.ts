@@ -43,7 +43,13 @@ const aggregateDonutData = (data: { name: string; value: number }[]) => {
   return top5;
 };
 
-export const useDashboardAnalytics = (evaluations: any[], employees: any[], filters: FilterState, criteriaList?: any[]) => {
+export const useDashboardAnalytics = (
+  evaluations: any[], 
+  employees: any[], 
+  filters: FilterState, 
+  criteriaList?: any[],
+  goalValue: number = 9.0
+) => {
   
   // 1. Processamento Inicial e Normalização
   const processedData = useMemo(() => {
@@ -303,7 +309,7 @@ export const useDashboardAnalytics = (evaluations: any[], employees: any[], filt
         Tático: vals.taticoCount ? Number((vals.taticoSum / vals.taticoCount).toFixed(1)) : 0,
         Operacional: vals.operacionalCount ? Number((vals.operacionalSum / vals.operacionalCount).toFixed(1)) : 0,
         'Média Geral': totalCount > 0 ? Number((totalSum / totalCount).toFixed(1)) : 0,
-        Meta: 9.0
+        Meta: goalValue
       };
     });
     

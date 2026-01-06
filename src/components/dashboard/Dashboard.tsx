@@ -1,8 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Calendar, X, Check } from 'lucide-react';
 import { useDashboardAnalytics } from '../../hooks/useDashboardAnalytics';
 import { fetchCollection } from '../../services/firebase';
+import { useCompany } from '../../contexts/CompanyContext';
+import { ReportExporter } from '../reports/ReportExporter';
+import { usePerformanceGoals } from '../../hooks/usePerformanceGoals';
 
 // Import Tabs
 import { CompanyOverview } from './tabs/CompanyOverview';
@@ -16,6 +19,8 @@ interface DashboardProps {
 
 export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { evaluations?: any[]; employees?: any[]; initialTab?: string }) => {
   const navigate = useNavigate();
+  const { currentCompany } = useCompany();
+  const dashboardContentRef = useRef<HTMLDivElement>(null);
   
   // Estado Local de Filtros
   const [dateStart, setDateStart] = useState('');
@@ -53,6 +58,9 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     }
   }, [initialTab]);
 
+  // Hook de Metas
+  const { goalValue } = usePerformanceGoals();
+
   // Hook de Analytics
   const analytics = useDashboardAnalytics(evaluations, employees, {
     searchTerm: '', // Removido - agora usa apenas selectedEmployees
@@ -60,7 +68,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     selectedEmployees,
     dateStart,
     dateEnd
-  }, criteriaList);
+  }, criteriaList, goalValue);
 
   // Lista de Setores para o Select
   const uniqueSectors = analytics.competenceMetrics.allSectors || [];
@@ -272,9 +280,10 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
             )}
           </div>
 
-          {/* Seleção Rápida de Período */}
-          <div className="flex flex-wrap gap-2 justify-center lg:justify-end">
-             {['all', '30days', '3months', 'year'].map((period) => {
+          {/* Seleção Rápida de Período e Exportação */}
+          <div className="flex flex-wrap gap-2 justify-center lg:justify-end items-center">
+            <div className="flex flex-wrap gap-2">
+              {['all', '30days', '3months', 'year'].map((period) => {
                 const labels: Record<string, string> = { all: 'Tudo', '30days': '30 Dias', '3months': '3 Meses', year: 'Este Ano' };
                 const isActive = (period === 'all' && !dateStart) || (period === 'year' && activeFilterLabel === 'Este Ano') || (period === '3months' && activeFilterLabel === 'Últimos 3 meses');
                 
@@ -291,7 +300,23 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                     {labels[period]}
                   </button>
                 );
-             })}
+              })}
+            </div>
+            
+            {/* Botão de Exportação */}
+            {evaluations.length > 0 && (
+              <div className="ml-2">
+                <ReportExporter
+                  title="Dashboard de Desempenho"
+                  contentRef={dashboardContentRef}
+                  generalMetrics={analytics.generalMetrics}
+                  competenceMetrics={analytics.competenceMetrics}
+                  comparativeMetrics={analytics.comparativeMetrics}
+                  companyName={currentCompany?.name || 'Empresa'}
+                  exportType="dashboard"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -362,17 +387,19 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       </div>
 
       {/* --- CONTEÚDO DAS ABAS --- */}
-      {evaluations.length === 0 ? (
-         <div className="p-10 text-center text-gray-500 bg-white dark:bg-[#1E1E1E] rounded-xl border border-dashed border-gray-300">
+      <div ref={dashboardContentRef}>
+        {evaluations.length === 0 ? (
+          <div className="p-10 text-center text-gray-500 bg-white dark:bg-[#1E1E1E] rounded-xl border border-dashed border-gray-300">
             Nenhuma avaliação encontrada. Utilize a aba "Histórico" para importar dados via CSV.
-         </div>
-      ) : (
-         <>
+          </div>
+        ) : (
+          <>
             {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} />}
             {activeTab === 'performance' && <PerformanceAnalysis data={analytics.competenceMetrics} />}
             {activeTab === 'individual' && <IndividualAnalysis data={analytics.comparativeMetrics} />}
-         </>
-      )}
+          </>
+        )}
+      </div>
 
     </div>
   );

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc, limit, startAfter, QueryDocumentSnapshot, DocumentData, Query } from "firebase/firestore";
+import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc, deleteDoc, limit, startAfter, QueryDocumentSnapshot, DocumentData, Query } from "firebase/firestore";
 
 // Configuração do Firebase usando variáveis de ambiente
 const firebaseConfig = {
@@ -186,5 +186,283 @@ export const setUserRole = async (userId: string, roleData: Omit<UserRole, 'id' 
   } catch (error) {
     console.error('Erro ao definir role do usuário:', error);
     throw error;
+  }
+};
+
+// --- SISTEMA DE METAS ---
+
+export interface PerformanceGoal {
+  id: string;
+  companyId: string;
+  sectorId?: string; // Opcional: meta específica por setor
+  roleId?: string; // Opcional: meta específica por cargo
+  goalValue: number; // Valor da meta (0-10)
+  level?: 'Estratégico' | 'Tático' | 'Operacional' | 'Geral'; // Nível hierárquico
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Busca metas de desempenho para uma empresa
+ * Prioridade: Meta específica (setor/cargo) > Meta por nível > Meta geral
+ */
+export const getPerformanceGoals = async (companyId: string, sectorId?: string, roleId?: string, level?: string): Promise<PerformanceGoal[]> => {
+  try {
+    const goals: PerformanceGoal[] = [];
+    
+    // Busca meta geral da empresa
+    const generalQuery = query(
+      collection(db, 'performance_goals'),
+      where('companyId', '==', companyId),
+      where('sectorId', '==', null)
+    );
+    const generalSnapshot = await getDocs(generalQuery);
+    generalSnapshot.docs.forEach(doc => {
+      goals.push({ id: doc.id, ...doc.data() } as PerformanceGoal);
+    });
+    
+    // Busca meta por setor se fornecido
+    if (sectorId) {
+      const sectorQuery = query(
+        collection(db, 'performance_goals'),
+        where('companyId', '==', companyId),
+        where('sectorId', '==', sectorId)
+      );
+      const sectorSnapshot = await getDocs(sectorQuery);
+      sectorSnapshot.docs.forEach(doc => {
+        goals.push({ id: doc.id, ...doc.data() } as PerformanceGoal);
+      });
+    }
+    
+    // Busca meta por cargo se fornecido
+    if (roleId) {
+      const roleQuery = query(
+        collection(db, 'performance_goals'),
+        where('companyId', '==', companyId),
+        where('roleId', '==', roleId)
+      );
+      const roleSnapshot = await getDocs(roleQuery);
+      roleSnapshot.docs.forEach(doc => {
+        goals.push({ id: doc.id, ...doc.data() } as PerformanceGoal);
+      });
+    }
+    
+    // Busca meta por nível se fornecido
+    if (level) {
+      const levelQuery = query(
+        collection(db, 'performance_goals'),
+        where('companyId', '==', companyId),
+        where('level', '==', level),
+        where('sectorId', '==', null),
+        where('roleId', '==', null)
+      );
+      const levelSnapshot = await getDocs(levelQuery);
+      levelSnapshot.docs.forEach(doc => {
+        goals.push({ id: doc.id, ...doc.data() } as PerformanceGoal);
+      });
+    }
+    
+    return goals;
+  } catch (error) {
+    console.error('Erro ao buscar metas:', error);
+    return [];
+  }
+};
+
+/**
+ * Obtém o valor da meta mais específica disponível
+ */
+export const getGoalValue = async (
+  companyId: string,
+  sectorId?: string,
+  roleId?: string,
+  level?: string
+): Promise<number> => {
+  const goals = await getPerformanceGoals(companyId, sectorId, roleId, level);
+  
+  // Prioridade: setor+cargo > setor > cargo > nível > geral
+  const specificGoal = goals.find(g => g.sectorId && g.roleId) ||
+                       goals.find(g => g.sectorId) ||
+                       goals.find(g => g.roleId) ||
+                       goals.find(g => g.level) ||
+                       goals.find(g => !g.sectorId && !g.roleId && !g.level);
+  
+  return specificGoal?.goalValue || 9.0; // Default: 9.0
+};
+
+/**
+ * Cria ou atualiza uma meta de desempenho
+ */
+export const setPerformanceGoal = async (
+  companyId: string,
+  goalData: Omit<PerformanceGoal, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  try {
+    const now = new Date().toISOString();
+    
+    // Verifica se já existe uma meta com os mesmos critérios
+    let existingGoalId: string | null = null;
+    
+    if (goalData.sectorId || goalData.roleId || goalData.level) {
+      const existingQuery = query(
+        collection(db, 'performance_goals'),
+        where('companyId', '==', companyId),
+        where('sectorId', '==', goalData.sectorId || null),
+        where('roleId', '==', goalData.roleId || null),
+        where('level', '==', goalData.level || null)
+      );
+      const existingSnapshot = await getDocs(existingQuery);
+      if (!existingSnapshot.empty) {
+        existingGoalId = existingSnapshot.docs[0].id;
+      }
+    }
+    
+    const goalRef = existingGoalId ? doc(db, 'performance_goals', existingGoalId) : doc(collection(db, 'performance_goals'));
+    
+    if (existingGoalId) {
+      // Atualiza meta existente
+      await setDoc(goalRef, {
+        companyId,
+        ...goalData,
+        updatedAt: now
+      }, { merge: true });
+    } else {
+      // Cria nova meta
+      await setDoc(goalRef, {
+        companyId,
+        ...goalData,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+    
+    return goalRef.id;
+  } catch (error) {
+    console.error('Erro ao salvar meta:', error);
+    throw error;
+  }
+};
+
+/**
+ * Remove uma meta de desempenho
+ */
+export const deletePerformanceGoal = async (goalId: string): Promise<void> => {
+  try {
+    const goalRef = doc(db, 'performance_goals', goalId);
+    await deleteDoc(goalRef);
+  } catch (error) {
+    console.error('Erro ao deletar meta:', error);
+    throw error;
+  }
+};
+
+// --- SISTEMA DE AUDIT LOGS ---
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  action: 'create' | 'update' | 'delete' | 'view' | 'export' | 'import';
+  entityType: string; // Tipo de entidade: 'evaluation', 'employee', 'sector', etc.
+  entityId: string; // ID da entidade afetada
+  entityName?: string; // Nome/identificação da entidade
+  companyId: string;
+  changes?: Record<string, { old?: any; new?: any }>; // Mudanças específicas (para updates)
+  metadata?: Record<string, any>; // Dados adicionais
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+}
+
+/**
+ * Cria um log de auditoria
+ */
+export const createAuditLog = async (
+  userId: string,
+  userEmail: string,
+  action: AuditLog['action'],
+  entityType: string,
+  entityId: string,
+  companyId: string,
+  options?: {
+    userName?: string;
+    entityName?: string;
+    changes?: Record<string, { old?: any; new?: any }>;
+    metadata?: Record<string, any>;
+  }
+): Promise<string> => {
+  try {
+    const auditLog: Omit<AuditLog, 'id'> = {
+      userId,
+      userEmail,
+      userName: options?.userName,
+      action,
+      entityType,
+      entityId,
+      entityName: options?.entityName,
+      companyId,
+      changes: options?.changes,
+      metadata: options?.metadata,
+      timestamp: new Date().toISOString()
+    };
+
+    const docRef = await addDoc(collection(db, 'audit_logs'), auditLog);
+    return docRef.id;
+  } catch (error) {
+    console.error('Erro ao criar audit log:', error);
+    // Não lança erro para não quebrar o fluxo principal
+    return '';
+  }
+};
+
+/**
+ * Busca logs de auditoria
+ */
+export const getAuditLogs = async (
+  companyId: string,
+  filters?: {
+    userId?: string;
+    action?: AuditLog['action'];
+    entityType?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }
+): Promise<AuditLog[]> => {
+  try {
+    let q: Query<DocumentData> = query(
+      collection(db, 'audit_logs'),
+      where('companyId', '==', companyId)
+    );
+
+    if (filters?.userId) {
+      q = query(q, where('userId', '==', filters.userId));
+    }
+    if (filters?.action) {
+      q = query(q, where('action', '==', filters.action));
+    }
+    if (filters?.entityType) {
+      q = query(q, where('entityType', '==', filters.entityType));
+    }
+    if (filters?.startDate) {
+      q = query(q, where('timestamp', '>=', filters.startDate));
+    }
+    if (filters?.endDate) {
+      q = query(q, where('timestamp', '<=', filters.endDate));
+    }
+
+    if (filters?.limit) {
+      q = query(q, limit(filters.limit));
+    }
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as AuditLog));
+  } catch (error) {
+    console.error('Erro ao buscar audit logs:', error);
+    return [];
   }
 };

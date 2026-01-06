@@ -18,7 +18,8 @@ import {
   EmployeesView, 
   UsersView,
   CompaniesView,
-  HistoryImportView // <--- Importação da nova View
+  HistoryImportView, // <--- Importação da nova View
+  GoalsView
 } from './components/settings/Registers';
 
 import { 
@@ -27,7 +28,8 @@ import {
   LogOut, 
   Settings,
   Users, 
-  Briefcase, 
+  Briefcase,
+  Target, 
   Layers, 
   UserCog,
   ClipboardList,
@@ -263,6 +265,8 @@ function MainAppContent() {
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
                     <div className="space-y-1">
                       <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
+            <SettingsButton view="goals" icon={Target} label="Metas de Desempenho" />
+                      <SettingsButton view="goals" icon={Target} label="Metas de Desempenho" />
                     </div>
 
                     {isMaster && (
@@ -282,6 +286,7 @@ function MainAppContent() {
                   {settingsView === 'employees' && <EmployeesView />}
                   {settingsView === 'users' && <UsersView />}
                   {settingsView === 'import' && <HistoryImportView />}
+                  {settingsView === 'goals' && <GoalsView />}
                   {isMaster && settingsView === 'companies' && <CompaniesView />}
                 </section>
               </div>
@@ -383,6 +388,7 @@ function SettingsWrapper() {
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Dados</h3>
           <div className="space-y-1">
             <SettingsButton view="import" icon={FileSpreadsheet} label="Importar Histórico" />
+            <SettingsButton view="goals" icon={Target} label="Metas de Desempenho" />
           </div>
 
           {isMaster && (
@@ -402,6 +408,7 @@ function SettingsWrapper() {
         {view === 'employees' && <EmployeesView />}
         {view === 'users' && <UsersView />}
         {view === 'import' && <HistoryImportView />}
+        {view === 'goals' && <GoalsView />}
         {isMaster && view === 'companies' && <CompaniesView />}
       </section>
     </div>
