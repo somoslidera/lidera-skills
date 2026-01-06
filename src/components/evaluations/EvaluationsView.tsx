@@ -3,7 +3,7 @@ import {
   Plus, FileText, Search, Download, Filter, Save, 
   Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
@@ -562,6 +562,13 @@ const EvaluationsTable = () => {
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [bulkLevel, setBulkLevel] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Estados para edição individual
+  const [editingEvaluation, setEditingEvaluation] = useState<EvaluationData | null>(null);
+  const [editScores, setEditScores] = useState<Record<string, number>>({});
+  const [editObservations, setEditObservations] = useState('');
+  const [editIsHighlighted, setEditIsHighlighted] = useState(false);
+  const [editHighlightReason, setEditHighlightReason] = useState('');
 
   // Carrega dados
   const loadData = async () => {
@@ -675,6 +682,45 @@ const EvaluationsTable = () => {
       toast.success('Avaliação excluída com sucesso!');
     } catch (error) {
       toast.handleError(error, 'EvaluationsView.handleDelete');
+    }
+  };
+
+  const handleEdit = (ev: EvaluationData) => {
+    setEditingEvaluation(ev);
+    setEditScores(ev.details || {});
+    setEditObservations((ev as any).observations || '');
+    setEditIsHighlighted((ev as any).funcionarioMes === 'Sim' || (ev as any).funcionarioMes === true);
+    setEditHighlightReason((ev as any).highlightReason || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEvaluation) return;
+    
+    const newAverage = Object.values(editScores).length > 0
+      ? Object.values(editScores).reduce((a, b) => a + b, 0) / Object.values(editScores).length
+      : editingEvaluation.average;
+
+    try {
+      await updateDoc(doc(db, 'evaluations', editingEvaluation.id), {
+        details: editScores,
+        average: Number(newAverage.toFixed(2)),
+        observations: editObservations.trim(),
+        funcionarioMes: editIsHighlighted ? 'Sim' : 'Não',
+        highlightReason: editIsHighlighted ? editHighlightReason.trim() : '',
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Atualiza localmente
+      setData(data.map(d => 
+        d.id === editingEvaluation.id 
+          ? { ...d, details: editScores, average: newAverage, observations: editObservations, funcionarioMes: editIsHighlighted ? 'Sim' : 'Não', highlightReason: editHighlightReason }
+          : d
+      ));
+      
+      setEditingEvaluation(null);
+      toast.success('Avaliação atualizada com sucesso!');
+    } catch (error) {
+      toast.handleError(error, 'EvaluationsView.handleSaveEdit');
     }
   };
 
@@ -843,6 +889,13 @@ const EvaluationsTable = () => {
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
+                        onClick={() => handleEdit(ev)}
+                        className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                        title="Editar avaliação"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
                         onClick={() => handleDelete(ev.id)}
                         className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                         title="Excluir avaliação"
@@ -885,6 +938,105 @@ const EvaluationsTable = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Edição Individual Completa */}
+      <Modal isOpen={!!editingEvaluation} onClose={() => setEditingEvaluation(null)} title="Editar Avaliação">
+        {editingEvaluation && (
+          <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg">
+              <p className="font-bold text-gray-800 dark:text-white">{editingEvaluation.employeeName}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{editingEvaluation.role} - {editingEvaluation.sector}</p>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-bold text-gray-700 dark:text-gray-300">Critérios e Notas</h4>
+              {Object.entries(editScores).map(([criteria, score]) => (
+                <div key={criteria} className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-700">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{criteria}</span>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="1"
+                      className="w-32 accent-blue-600"
+                      value={score}
+                      onChange={(e) => setEditScores({...editScores, [criteria]: parseInt(e.target.value)})}
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      step="1"
+                      className="w-16 p-2 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700"
+                      value={score}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (val >= 0 && val <= 10) setEditScores({...editScores, [criteria]: val});
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label>
+              <textarea
+                rows={3}
+                className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
+                value={editObservations}
+                onChange={(e) => setEditObservations(e.target.value)}
+              />
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editIsHighlighted}
+                  onChange={(e) => setEditIsHighlighted(e.target.checked)}
+                  className="w-5 h-5 accent-yellow-600 dark:accent-yellow-500 rounded"
+                />
+                <span className="font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                  <span className="text-yellow-600 dark:text-yellow-400">⭐</span>
+                  Destaque do Mês
+                </span>
+              </label>
+              
+              {editIsHighlighted && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Motivo do Destaque
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
+                    value={editHighlightReason}
+                    onChange={(e) => setEditHighlightReason(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold flex justify-center gap-2"
+              >
+                <Save size={18} />
+                Salvar Alterações
+              </button>
+              <button
+                onClick={() => setEditingEvaluation(null)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal de Edição em Massa */}
       <Modal isOpen={isBulkEditOpen} onClose={() => setIsBulkEditOpen(false)} title={`Editar ${selectedIds.length} Itens Selecionados`}>
