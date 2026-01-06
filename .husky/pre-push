@@ -1,3 +1,4 @@
 # Run full validation before push (critical for Vercel deployment)
+# Skip build to speed up (build will run on Vercel anyway)
 echo "Running pre-push validation..."
-npm run validate
+npm run validate:skip-build || exit 1

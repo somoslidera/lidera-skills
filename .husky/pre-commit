@@ -1,6 +1,6 @@
 # Run lint-staged for staged files
-npx lint-staged
+npx lint-staged || exit 1
 
 # Run full validation before commit (optional - can be slow)
 # Uncomment the line below if you want full validation on every commit
-# npm run pre-commit
+# npm run pre-commit || exit 1
