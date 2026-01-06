@@ -61,7 +61,9 @@ export const CompanyOverview = ({ data }: { data: any }) => {
     roleDistribution, 
     topEmployee, 
     totalEvaluations,
-    performanceList 
+    performanceList,
+    highlightedByScore,
+    highlightedBySelection
   } = data;
   
   const [selectedLevel, setSelectedLevel] = useState<string>('Todos');
@@ -351,34 +353,72 @@ export const CompanyOverview = ({ data }: { data: any }) => {
             </div>
          </div>
 
-         {/* Funcionário do Mês Card */}
-         {topEmployee && (
+         {/* Cards de Destaques */}
+         <div className="space-y-4">
+            {/* Destaque por Pontuação (Azul) */}
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4 opacity-20"><Award size={100} /></div>
-               <h3 className="text-blue-100 uppercase tracking-widest text-xs font-bold mb-4">Destaque do Período</h3>
+               <div className="absolute top-0 right-0 p-4 opacity-20"><Award size={80} /></div>
+               <h3 className="text-blue-100 uppercase tracking-widest text-xs font-bold mb-4 flex items-center gap-2">
+                  <TrendingUp size={16} />
+                  Destaque por Pontuação
+               </h3>
                
-               <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold">
-                     {topEmployee.realName.charAt(0)}
-                  </div>
-                  <div>
-                     <h2 className="text-2xl font-bold line-clamp-1" title={topEmployee.realName}>{topEmployee.realName}</h2>
-                     <p className="text-blue-200">{topEmployee.realRole}</p>
-                  </div>
-               </div>
-
-               <div className="flex justify-between items-end border-t border-white/20 pt-4">
-                  <div>
-                     <p className="text-xs text-blue-200">Setor</p>
-                     <p className="font-medium">{topEmployee.realSector}</p>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-xs text-blue-200">Nota Média</p>
-                     <p className="text-3xl font-bold">{topEmployee.score.toFixed(1)}</p>
-                  </div>
+               <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {highlightedByScore && highlightedByScore.length > 0 ? (
+                     highlightedByScore.map((emp: any, idx: number) => (
+                        <div key={emp.id || idx} className="flex items-center gap-3 p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                              {idx + 1}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm line-clamp-1" title={emp.realName || emp.employeeName}>
+                                 {emp.realName || emp.employeeName}
+                              </p>
+                              <p className="text-xs text-blue-200 line-clamp-1">{emp.realRole || emp.role}</p>
+                           </div>
+                           <div className="text-right flex-shrink-0">
+                              <p className="text-lg font-bold">{emp.score?.toFixed(1) || '0.0'}</p>
+                           </div>
+                        </div>
+                     ))
+                  ) : (
+                     <p className="text-blue-200 text-sm text-center py-4">Nenhum destaque por pontuação</p>
+                  )}
                </div>
             </div>
-         )}
+
+            {/* Destaque por Seleção (Dourado) */}
+            <div className="bg-gradient-to-br from-yellow-500 via-yellow-600 to-amber-600 rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4 opacity-20"><Star size={80} className="fill-white" /></div>
+               <h3 className="text-yellow-100 uppercase tracking-widest text-xs font-bold mb-4 flex items-center gap-2">
+                  <Star size={16} className="fill-yellow-200" />
+                  Destaque por Seleção
+               </h3>
+               
+               <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {highlightedBySelection && highlightedBySelection.length > 0 ? (
+                     highlightedBySelection.map((emp: any, idx: number) => (
+                        <div key={emp.id || idx} className="flex items-center gap-3 p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                           <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Star size={20} className="fill-yellow-200 text-yellow-200" />
+                           </div>
+                           <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm line-clamp-1" title={emp.realName || emp.employeeName}>
+                                 {emp.realName || emp.employeeName}
+                              </p>
+                              <p className="text-xs text-yellow-200 line-clamp-1">{emp.realRole || emp.role}</p>
+                           </div>
+                           <div className="text-right flex-shrink-0">
+                              <p className="text-lg font-bold">{emp.score?.toFixed(1) || '0.0'}</p>
+                           </div>
+                        </div>
+                     ))
+                  ) : (
+                     <p className="text-yellow-200 text-sm text-center py-4">Nenhum destaque por seleção</p>
+                  )}
+               </div>
+            </div>
+         </div>
       </div>
     </div>
   );

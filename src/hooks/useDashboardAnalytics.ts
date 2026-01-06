@@ -168,6 +168,19 @@ export const useDashboardAnalytics = (
     // Funcionário do Mês (Top 1) e Lista de Performance
     const sortedByScore = [...filteredData].sort((a, b) => b.score - a.score);
     const topEmployee = sortedByScore[0];
+    
+    // Destaques por Seleção (funcionarioMes === 'Sim')
+    const highlightedBySelection = filteredData
+      .filter(item => {
+        const value = item.funcionarioMes || item.funcionario_mes;
+        return value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM';
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5); // Top 5 por seleção
+    
+    // Destaques por Pontuação (top 5 por nota)
+    const highlightedByScore = sortedByScore.slice(0, 5);
+    
     const performanceList = sortedByScore.slice(0, 10).map(item => ({
       ...item,
       // Normalizar funcionarioMes para garantir formato consistente
@@ -189,7 +202,9 @@ export const useDashboardAnalytics = (
         sectorDistribution,
         roleDistribution,
         topEmployee,
-        performanceList
+        performanceList,
+        highlightedByScore, // Top 5 por pontuação
+        highlightedBySelection // Top 5 por seleção (destaque do mês)
     };
   }, [filteredData]);
 
