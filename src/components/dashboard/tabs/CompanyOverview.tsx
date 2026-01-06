@@ -539,6 +539,105 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
           </div>
         </div>
       </div>
+      
+      {/* Dashboard de Perfil Comportamental (DISC) */}
+      {(discPerformanceBySector && discPerformanceBySector.length > 0) || (discPerformanceByRole && discPerformanceByRole.length > 0) ? (
+        <div className="space-y-6 mt-6">
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 flex items-center gap-2">
+              <Award size={24} className="text-purple-600 dark:text-purple-400" />
+              Análise de Perfil Comportamental (DISC)
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Identifique quais perfis DISC estão performando melhor em cada setor e cargo
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Performance DISC por Setor */}
+            {discPerformanceBySector && discPerformanceBySector.length > 0 && (
+              <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg p-6 border border-gray-200 dark:border-[#121212]">
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Performance por Setor</h4>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {discPerformanceBySector.map((item: any) => (
+                    <div key={item.sector} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center mb-3">
+                        <h5 className="font-bold text-gray-800 dark:text-white">{item.sector}</h5>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.profiles.reduce((acc: number, p: any) => acc + p.count, 0)} avaliações
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {item.profiles.slice(0, 3).map((profile: any, idx: number) => (
+                          <div key={profile.profile} className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                idx === 0 
+                                  ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white' 
+                                  : idx === 1
+                                  ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800'
+                                  : 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">{profile.profile}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-gray-800 dark:text-white">{profile.average.toFixed(1)}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({profile.count})</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Performance DISC por Cargo */}
+            {discPerformanceByRole && discPerformanceByRole.length > 0 && (
+              <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg p-6 border border-gray-200 dark:border-[#121212]">
+                <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Performance por Cargo</h4>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {discPerformanceByRole.map((item: any) => (
+                    <div key={item.role} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center mb-3">
+                        <h5 className="font-bold text-gray-800 dark:text-white">{item.role}</h5>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.profiles.reduce((acc: number, p: any) => acc + p.count, 0)} avaliações
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {item.profiles.slice(0, 3).map((profile: any, idx: number) => (
+                          <div key={profile.profile} className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                idx === 0 
+                                  ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white' 
+                                  : idx === 1
+                                  ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800'
+                                  : 'bg-gradient-to-br from-amber-600 to-amber-700 text-white'
+                              }`}>
+                                {idx + 1}
+                              </span>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">{profile.profile}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-gray-800 dark:text-white">{profile.average.toFixed(1)}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({profile.count})</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
