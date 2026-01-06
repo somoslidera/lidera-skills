@@ -14,11 +14,12 @@ interface Evaluation {
 }
 
 interface FilterState {
-  searchTerm: string;
+  searchTerm?: string;
   selectedSectors: string[]; // Mudado para array
   selectedEmployees: string[]; // Novo: seleção múltipla de funcionários
-  dateStart: string;
-  dateEnd: string;
+  selectedStatuses?: string[]; // Filtro de status de funcionários
+  dateStart?: string;
+  dateEnd?: string;
 }
 
 // Função auxiliar para formatar Mês/Ano (ex: jan/24)
