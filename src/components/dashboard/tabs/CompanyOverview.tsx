@@ -317,8 +317,8 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 interval={0}
               />
               <Tooltip 
-                content={(props: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
-                  if (!props.active || !props.payload || props.payload.length === 0) return null;
+                content={(props: any) => {
+                  if (!props?.active || !props?.payload || props.payload.length === 0) return null;
                   const entry = sectorRanking.find((r: { name: string; overallAverage?: number }) => r.name === props.label);
                   return (
                     <CustomTooltip
