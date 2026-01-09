@@ -19,17 +19,54 @@ type RankingType = 'geral' | 'setor' | 'cargo' | 'nivel';
 export const RankingView = ({ evaluations = [], employees = [], filters }: RankingViewProps) => {
   const [rankingType, setRankingType] = useState<RankingType>('geral');
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
-  const [selectedFilter, setSelectedFilter] = useState<string>('');
 
   // Mapa de funcionários para busca rápida
   const employeeMap = useMemo(() => {
     const map = new Map();
     employees.forEach((emp: any) => {
       map.set(emp.id, emp);
-      map.set(emp.name?.toLowerCase().trim(), emp);
+      if (emp.employeeCode) map.set(emp.employeeCode.toString().toLowerCase().trim(), emp);
+      if (emp.name) map.set(emp.name.toLowerCase().trim(), emp);
     });
     return map;
   }, [employees]);
+
+  // Função para normalizar ID do funcionário (remove duplicatas)
+  const normalizeEmployeeId = React.useCallback((evaluation: any): string | null => {
+    // Estratégia 1: Usar employeeId se disponível
+    if (evaluation.employeeId) {
+      const emp = employeeMap.get(evaluation.employeeId);
+      if (emp) {
+        return emp.id || evaluation.employeeId;
+      }
+      // Tentar como string normalizada
+      const normalizedId = evaluation.employeeId.toString().toLowerCase().trim();
+      const empById = Array.from(employeeMap.values()).find((e: any) => 
+        e.id?.toString().toLowerCase().trim() === normalizedId ||
+        e.employeeCode?.toString().toLowerCase().trim() === normalizedId
+      );
+      if (empById) return empById.id;
+    }
+
+    // Estratégia 2: Usar employeeCode se disponível
+    if (evaluation.employeeCode) {
+      const emp = employeeMap.get(evaluation.employeeCode.toString().toLowerCase().trim());
+      if (emp) return emp.id;
+    }
+
+    // Estratégia 3: Usar employeeName normalizado
+    if (evaluation.employeeName) {
+      const normalizedName = evaluation.employeeName.toLowerCase().trim();
+      const emp = employeeMap.get(normalizedName);
+      if (emp) return emp.id;
+    }
+
+    // Fallback: usar employeeId ou employeeName como string única
+    return evaluation.employeeId?.toString().toLowerCase().trim() || 
+           evaluation.employeeCode?.toString().toLowerCase().trim() ||
+           evaluation.employeeName?.toLowerCase().trim() ||
+           null;
+  }, [employeeMap]);
 
   // Processar avaliações e calcular pontuação acumulada
   const processedRankings = useMemo(() => {
@@ -62,7 +99,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
       return true;
     });
 
-    // Agrupar por funcionário e calcular pontuação acumulada
+    // Agrupar por funcionário e calcular pontuação acumulada (sem duplicatas)
     const employeeScores = new Map<string, {
       name: string;
       employeeId: string;
@@ -84,17 +121,24 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
       const score = typeof ev.average === 'number' ? ev.average : parseFloat((ev.notaFinal || '0').replace(',', '.'));
       if (isNaN(score)) return;
 
-      const emp = employeeMap.get(ev.employeeId) || employeeMap.get(ev.employeeName?.toLowerCase().trim());
+      // Usar função de normalização para garantir ID único
+      const normalizedId = normalizeEmployeeId(ev);
+      if (!normalizedId) return; // Pular se não conseguir normalizar
+
+      const emp = employeeMap.get(ev.employeeId) || 
+                  employeeMap.get(ev.employeeCode?.toString().toLowerCase().trim()) ||
+                  employeeMap.get(ev.employeeName?.toLowerCase().trim());
       const employeeName = emp?.name || ev.employeeName || 'Desconhecido';
-      const employeeId = ev.employeeId || ev.employeeName;
+      const employeeId = normalizedId; // Usar ID normalizado como chave única
       const sector = emp?.sector || ev.sector || 'Não definido';
       const role = emp?.role || ev.role || 'Não definido';
       const level = emp?.jobLevel || ev.level || ev.type || 'Operacional';
 
+      // Usar ID normalizado como chave para evitar duplicatas
       if (!employeeScores.has(employeeId)) {
         employeeScores.set(employeeId, {
           name: employeeName,
-          employeeId,
+          employeeId: emp?.id || ev.employeeId || ev.employeeCode || ev.employeeName || normalizedId, // ID real se disponível
           sector,
           role,
           level,
@@ -138,11 +182,12 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
         .slice(0, 5);
 
       top5.forEach((ev: any) => {
-        const emp = employeeMap.get(ev.employeeId) || employeeMap.get(ev.employeeName?.toLowerCase().trim());
-        const employeeId = ev.employeeId || ev.employeeName;
-        const empData = employeeScores.get(employeeId);
-        if (empData) {
-          empData.highlights.byScore++;
+        const normalizedId = normalizeEmployeeId(ev);
+        if (normalizedId) {
+          const empData = employeeScores.get(normalizedId);
+          if (empData) {
+            empData.highlights.byScore++;
+          }
         }
       });
     });
@@ -151,23 +196,14 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     const rankings = Array.from(employeeScores.values())
       .sort((a, b) => b.averageScore - a.averageScore);
 
-    // Separar por tipo
+    // Separar por tipo - os dados já são filtrados pelos filtros do Dashboard principal
+    // Quando rankingType é diferente de 'geral', mostra todos os rankings (já filtrados pelo Dashboard)
     const byType: Record<RankingType, typeof rankings> = {
       geral: rankings,
-      setor: [],
-      cargo: [],
-      nivel: []
+      setor: rankings, // Já filtrado por setor pelo Dashboard
+      cargo: rankings, // Já filtrado por cargo pelo Dashboard (se houver)
+      nivel: rankings  // Já filtrado por nível pelo Dashboard (se houver)
     };
-
-    if (selectedFilter) {
-      byType.setor = rankings.filter(r => r.sector === selectedFilter);
-      byType.cargo = rankings.filter(r => r.role === selectedFilter);
-      byType.nivel = rankings.filter(r => r.level === selectedFilter);
-    } else {
-      byType.setor = rankings;
-      byType.cargo = rankings;
-      byType.nivel = rankings;
-    }
 
     return {
       rankings: byType[rankingType],
@@ -176,7 +212,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
       uniqueRoles: Array.from(new Set(rankings.map(r => r.role))).sort(),
       uniqueLevels: Array.from(new Set(rankings.map(r => r.level))).sort()
     };
-  }, [evaluations, employees, filters, rankingType, selectedFilter, employeeMap]);
+  }, [evaluations, employees, filters, rankingType, employeeMap, normalizeEmployeeId]);
 
   // Preparar dados para gráfico de linhas (evolução temporal CUMULATIVA - SOMA)
   const chartData = useMemo(() => {
@@ -186,17 +222,17 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     const allDates = Array.from(new Set(
       evaluations
         .filter(ev => {
-          // Verificar se esta avaliação pertence a algum dos top10
-          const evEmployeeId = (ev.employeeId || '').toString().toLowerCase().trim();
-          const evEmployeeName = (ev.employeeName || '').toString().toLowerCase().trim();
+          // Verificar se esta avaliação pertence a algum dos top10 usando normalização
+          const evNormalizedId = normalizeEmployeeId(ev);
+          if (!evNormalizedId) return false;
           
           return top10.some(emp => {
-            const empEmployeeId = (emp.employeeId || '').toString().toLowerCase().trim();
+            // Normalizar ID do emp do ranking também
+            const empNormalizedId = (emp.employeeId || '').toString().toLowerCase().trim();
             const empName = (emp.name || '').toString().toLowerCase().trim();
-            return evEmployeeId === empEmployeeId ||
-                   evEmployeeName === empName ||
-                   evEmployeeId === empName ||
-                   evEmployeeName === empEmployeeId;
+            return evNormalizedId === empNormalizedId ||
+                   evNormalizedId === empName ||
+                   evNormalizedId === (emp.employeeId || '').toString().toLowerCase().trim();
           });
         })
         .map(ev => ev.date || ev.month)
@@ -211,18 +247,26 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
       const dataPoint: any = { date: currentDate };
       
       top10.forEach((emp) => {
-        // Buscar TODAS as avaliações deste funcionário
-        // Identificar funcionário por employeeId ou employeeName (comparação case-insensitive)
+        // Buscar TODAS as avaliações deste funcionário usando normalização
+        // Identificar funcionário por ID normalizado
+        const empNormalizedId = (emp.employeeId || '').toString().toLowerCase().trim();
+        const empName = (emp.name || '').toString().toLowerCase().trim();
+        
         const allEmpEvals = evaluations.filter((e: any) => {
-          const evEmployeeId = (e.employeeId || '').toString().toLowerCase().trim();
-          const evEmployeeName = (e.employeeName || '').toLowerCase().trim();
-          const empEmployeeId = (emp.employeeId || '').toString().toLowerCase().trim();
-          const empName = (emp.name || '').toLowerCase().trim();
+          const normalizedId = normalizeEmployeeId(e);
+          if (!normalizedId) return false;
           
-          return evEmployeeId === empEmployeeId ||
+          const evEmployeeId = (e.employeeId || '').toString().toLowerCase().trim();
+          const evEmployeeCode = (e.employeeCode || '').toString().toLowerCase().trim();
+          const evEmployeeName = (e.employeeName || '').toString().toLowerCase().trim();
+          
+          return normalizedId === empNormalizedId ||
+                 normalizedId === empName ||
+                 evEmployeeId === empNormalizedId ||
+                 evEmployeeCode === empNormalizedId ||
                  evEmployeeName === empName ||
                  evEmployeeId === empName ||
-                 evEmployeeName === empEmployeeId;
+                 evEmployeeName === empNormalizedId;
         }).sort((a: any, b: any) => {
           const dateA = (a.date || a.month || '').toString();
           const dateB = (b.date || b.month || '').toString();
@@ -259,7 +303,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     });
 
     return cumulativeData;
-  }, [processedRankings.rankings, evaluations, employeeMap]);
+  }, [processedRankings.rankings, evaluations, employeeMap, normalizeEmployeeId]);
 
   const colors = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
 
@@ -282,7 +326,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
             {/* Tipo de Ranking */}
             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
               <button
-                onClick={() => { setRankingType('geral'); setSelectedFilter(''); }}
+                onClick={() => setRankingType('geral')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   rankingType === 'geral'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -293,7 +337,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 Geral
               </button>
               <button
-                onClick={() => { setRankingType('setor'); setSelectedFilter(''); }}
+                onClick={() => setRankingType('setor')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   rankingType === 'setor'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -304,7 +348,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 Setor
               </button>
               <button
-                onClick={() => { setRankingType('cargo'); setSelectedFilter(''); }}
+                onClick={() => setRankingType('cargo')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   rankingType === 'cargo'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -315,7 +359,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 Cargo
               </button>
               <button
-                onClick={() => { setRankingType('nivel'); setSelectedFilter(''); }}
+                onClick={() => setRankingType('nivel')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                   rankingType === 'nivel'
                     ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -327,21 +371,6 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
               </button>
             </div>
 
-            {/* Filtro Específico */}
-            {rankingType !== 'geral' && (
-              <select
-                value={selectedFilter}
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:ring-2 ring-blue-500/20 outline-none"
-              >
-                <option value="">Todos {rankingType === 'setor' ? 'Setores' : rankingType === 'cargo' ? 'Cargos' : 'Níveis'}</option>
-                {(rankingType === 'setor' ? processedRankings.uniqueSectors :
-                  rankingType === 'cargo' ? processedRankings.uniqueRoles :
-                  processedRankings.uniqueLevels).map((item: string) => (
-                  <option key={item} value={item}>{item}</option>
-                ))}
-              </select>
-            )}
 
             {/* Modo de Visualização */}
             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">

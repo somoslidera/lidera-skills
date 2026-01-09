@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star, ArrowUpDown, ArrowUp, ArrowDown
+  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Star, ArrowUpDown, ArrowUp, ArrowDown, Users
 } from 'lucide-react';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -594,11 +594,12 @@ const EvaluationsTable = () => {
   const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   
   // Estado para modal de resumo
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationData | null>(null);
+  const [criteriaList, setCriteriaList] = useState<Criteria[]>([]);
   
   // Estado para ordenação da tabela
   const [tableSort, setTableSort] = useState<{field: string | null, direction: 'asc' | 'desc'}>({field: null, direction: 'asc'});
@@ -608,6 +609,9 @@ const EvaluationsTable = () => {
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const [bulkLevel, setBulkLevel] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Estado para grupos expandidos/colapsados (inicia com todos expandidos)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
   // Estados para edição individual
   const [editingEvaluation, setEditingEvaluation] = useState<EvaluationData | null>(null);
@@ -648,6 +652,20 @@ const EvaluationsTable = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Carregar critérios para o modal
+  useEffect(() => {
+    const loadCriteria = async () => {
+      try {
+        const critSnap = await getDocs(collection(db, 'evaluation_criteria'));
+        const allCriteria = critSnap.docs.map(d => ({ id: d.id, ...d.data() } as Criteria));
+        setCriteriaList(allCriteria);
+      } catch (error) {
+        console.error('Erro ao carregar critérios:', error);
+      }
+    };
+    loadCriteria();
+  }, []);
 
   useEffect(() => {
     let res = [...data];
@@ -906,6 +924,59 @@ const EvaluationsTable = () => {
     return grouped;
   }, [data]);
 
+  // Agrupar dados paginados por mês/ano
+  const groupedTableData = useMemo(() => {
+    const grouped: Record<string, EvaluationData[]> = {};
+    
+    sortedTableData.forEach((ev) => {
+      const date = new Date(ev.date);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = [];
+      }
+      grouped[monthKey].push(ev);
+    });
+
+    // Ordenar avaliações dentro de cada grupo por data (mais recente primeiro)
+    Object.values(grouped).forEach(group => {
+      group.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    // Ordenar grupos por data (mais recente primeiro)
+    const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
+      return b.localeCompare(a); // Mais recente primeiro
+    });
+
+    return sortedGroups;
+  }, [sortedTableData]);
+
+  // Expandir automaticamente o primeiro grupo se nenhum estiver expandido
+  useEffect(() => {
+    if (groupedTableData.length > 0 && expandedGroups.size === 0) {
+      setExpandedGroups(new Set([groupedTableData[0][0]]));
+    }
+  }, [groupedTableData]);
+
+  // Função para expandir/colapsar grupo
+  const toggleGroup = (monthKey: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Função para formatar mês/ano
+  const formatMonthYear = (monthKey: string) => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
   return (
     <div className="space-y-4">
       {/* Barra de Ferramentas / Ações em Massa */}
@@ -953,17 +1024,22 @@ const EvaluationsTable = () => {
           </div>
           <div className="relative">
             <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterMonth}
-              onChange={e => setFilterMonth(e.target.value)}
-            >
-              <option value="">Todos Meses</option>
-              {uniqueMonths.map((m: string) => {
-                const monthNames = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                return <option key={m} value={m}>{monthNames[parseInt(m)]}</option>;
-              })}
-            </select>
+            <input
+              type="month"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
+              value={filterMonth && filterYear ? `${filterYear}-${filterMonth}` : ''}
+              onChange={e => {
+                const value = e.target.value;
+                if (value) {
+                  const [year, month] = value.split('-');
+                  setFilterYear(year);
+                  setFilterMonth(month);
+                } else {
+                  setFilterYear('');
+                  setFilterMonth('');
+                }
+              }}
+            />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -984,9 +1060,9 @@ const EvaluationsTable = () => {
               onChange={e => setFilterScoreRange(e.target.value)}
             >
               <option value="">Todas Notas</option>
-              <option value="0-4">0-4 (Baixa)</option>
-              <option value="5-6">5-6 (Média)</option>
-              <option value="7-8">7-8 (Boa)</option>
+              <option value="0-4">0-4 (Ruim)</option>
+              <option value="5-6">5-6 (Regular)</option>
+              <option value="7-8">7-8 (Bom)</option>
               <option value="9-10">9-10 (Excelente)</option>
             </select>
           </div>
@@ -1103,94 +1179,158 @@ const EvaluationsTable = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {isLoading ? (
                 <tr><td colSpan={8} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
-              ) : sortedTableData.length === 0 ? (
+              ) : groupedTableData.length === 0 ? (
                 <tr><td colSpan={8} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
-              ) : sortedTableData.map((ev) => (
-                <tr key={ev.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(ev.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                  <td className="p-4">
-                    <button onClick={() => handleSelectOne(ev.id)} className="text-gray-400 hover:text-blue-500">
-                      {selectedIds.includes(ev.id) ? <CheckSquare size={20} className="text-blue-500" /> : <Square size={20} />}
-                    </button>
-                  </td>
-                  <td className="p-4 text-gray-500 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                        <Calendar size={14}/> 
-                        {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', month: 'short', year: 'numeric'})}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className="font-bold text-gray-800 dark:text-white">
-                      {ev.employeeName}
-                    </span>
-                  </td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
-                  <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
-                  <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded border font-medium 
-                        ${ev.type === 'Estratégico' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 
-                          ev.type === 'Tático' ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800' :
-                          'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
-                        }`}>
-                      {ev.type}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <span className={`font-bold px-3 py-1 rounded-full ${
-                      ev.average >= 8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
-                      ev.average >= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                    }`}>
-                      {typeof ev.average === 'number' ? ev.average.toFixed(2) : ev.average}
-                    </span>
-                  </td>
-                  <td className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(ev)}
-                        className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                        title="Editar avaliação"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(ev.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                        title="Excluir avaliação"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : groupedTableData.map(([monthKey, evaluations]) => {
+                const isExpanded = expandedGroups.has(monthKey);
+                const uniqueEmployees = new Set(evaluations.map(ev => ev.employeeId || ev.employeeName)).size;
+                const monthYear = formatMonthYear(monthKey);
+                
+                return (
+                  <React.Fragment key={monthKey}>
+                    {/* Cabeçalho do Grupo */}
+                    <tr className="bg-gray-100 dark:bg-navy-900 border-b-2 border-gray-300 dark:border-navy-700 hover:bg-gray-200 dark:hover:bg-navy-800 transition-colors">
+                      <td colSpan={8} className="p-4">
+                        <button
+                          onClick={() => toggleGroup(monthKey)}
+                          className="w-full flex items-center justify-between text-left group"
+                        >
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <ChevronUp size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-gold-400 transition-colors" />
+                            ) : (
+                              <ChevronDown size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-gold-400 transition-colors" />
+                            )}
+                            <div>
+                              <span className="text-lg font-bold text-gray-800 dark:text-white capitalize">
+                                {monthYear}
+                              </span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                  <Users size={14} />
+                                  {uniqueEmployees} {uniqueEmployees === 1 ? 'funcionário avaliado' : 'funcionários avaliados'} em {evaluations.length} {evaluations.length === 1 ? 'avaliação' : 'avaliações'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {isExpanded ? 'Ocultar' : 'Expandir'}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                    {/* Avaliações do Grupo */}
+                    {isExpanded && evaluations.map((ev) => (
+                      <tr key={ev.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(ev.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                        <td className="p-4">
+                          <button onClick={() => handleSelectOne(ev.id)} className="text-gray-400 hover:text-blue-500">
+                            {selectedIds.includes(ev.id) ? <CheckSquare size={20} className="text-blue-500" /> : <Square size={20} />}
+                          </button>
+                        </td>
+                        <td className="p-4 text-gray-500 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                              <Calendar size={14}/> 
+                              {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric'})}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleShowSummary(ev)}
+                            className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
+                          >
+                            {ev.employeeName}
+                          </button>
+                        </td>
+                        <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
+                        <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
+                        <td className="p-4">
+                          <span className={`text-xs px-2 py-1 rounded border font-medium 
+                              ${ev.type === 'Estratégico' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 
+                                ev.type === 'Tático' ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800' :
+                                'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                              }`}>
+                            {ev.type}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <span className={`font-bold px-3 py-1 rounded-full ${
+                            (typeof ev.average === 'number' ? ev.average : parseFloat(String(ev.average)) || 0) >= 8 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 
+                            (typeof ev.average === 'number' ? ev.average : parseFloat(String(ev.average)) || 0) >= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          }`}>
+                            {typeof ev.average === 'number' ? ev.average.toFixed(2) : parseFloat(String(ev.average || 0)).toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEdit(ev)}
+                              className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              title="Editar avaliação"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(ev.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                              title="Excluir avaliação"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
         
         {/* Paginação */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} avaliações
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="p-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="px-4 py-2 text-sm font-medium">
-                Página {currentPage} de {totalPages}
+        {(totalPages > 1 || filteredData.length > 0) && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
+            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+              <span>
+                Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} avaliações
               </span>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-gray-300 dark:border-navy-700 rounded-lg dark:bg-navy-800 text-gray-700 dark:text-gray-300 outline-none text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors"
               >
-                <ChevronRight size={18} />
-              </button>
+                <option value={10}>10 por página</option>
+                <option value={20}>20 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={100}>100 por página</option>
+              </select>
             </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                  title="Página anterior"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-navy-800 border border-gray-300 dark:border-navy-700 rounded-lg">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                  title="Próxima página"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1234,12 +1374,17 @@ const EvaluationsTable = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-navy-700">
-                    {Object.entries(selectedEvaluation.details || {}).map(([criteria, score]) => (
-                      <tr key={criteria} className="hover:bg-gray-50 dark:hover:bg-navy-800">
-                        <td className="p-2 text-gray-700 dark:text-gray-300">{criteria}</td>
-                        <td className="p-2 text-right font-bold text-gray-800 dark:text-white">{Number(score).toFixed(1)}</td>
-                      </tr>
-                    ))}
+                    {Object.entries(selectedEvaluation.details || {}).map(([criteriaId, score]) => {
+                      // Tentar encontrar o critério pelo ID ou pelo nome
+                      const criterion = criteriaList.find(c => c.id === criteriaId || c.name === criteriaId);
+                      const criteriaName = criterion?.name || criteriaId;
+                      return (
+                        <tr key={criteriaId} className="hover:bg-gray-50 dark:hover:bg-navy-800">
+                          <td className="p-2 text-gray-700 dark:text-gray-300">{criteriaName}</td>
+                          <td className="p-2 text-right font-bold text-gray-800 dark:text-white">{Number(score).toFixed(1)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1249,11 +1394,11 @@ const EvaluationsTable = () => {
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold text-gray-700 dark:text-gray-300">Média Final:</span>
                 <span className={`text-2xl font-bold ${
-                  selectedEvaluation.average >= 8 ? 'text-green-600 dark:text-green-400' :
-                  selectedEvaluation.average >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                  (typeof selectedEvaluation.average === 'number' ? selectedEvaluation.average : parseFloat(String(selectedEvaluation.average)) || 0) >= 8 ? 'text-green-600 dark:text-green-400' :
+                  (typeof selectedEvaluation.average === 'number' ? selectedEvaluation.average : parseFloat(String(selectedEvaluation.average)) || 0) >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
                   'text-red-600 dark:text-red-400'
                 }`}>
-                  {typeof selectedEvaluation.average === 'number' ? selectedEvaluation.average.toFixed(2) : selectedEvaluation.average}
+                  {typeof selectedEvaluation.average === 'number' ? selectedEvaluation.average.toFixed(2) : parseFloat(String(selectedEvaluation.average || 0)).toFixed(2)}
                 </span>
               </div>
             </div>
