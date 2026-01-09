@@ -205,13 +205,21 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
 
       {/* 1.1. Ranking de Setores (Barras Laterais) */}
       <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Setores</h3>
-          <ChartInfoTooltip
-            title="Ranking de Setores"
-            description="Este gráfico mostra a média de performance de cada setor da empresa, ordenada do maior para o menor desempenho. Use para identificar quais setores estão performando melhor e quais precisam de atenção."
-            usage="Analise as barras para comparar o desempenho entre setores. Setores com barras mais longas (mais próximas de 10) têm melhor performance média."
-          />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Setores</h3>
+            <ChartInfoTooltip
+              title="Ranking de Setores"
+              description="Este gráfico mostra a média de performance de cada setor da empresa, ordenada do maior para o menor desempenho. Use para identificar quais setores estão performando melhor e quais precisam de atenção."
+              usage="Analise as barras para comparar o desempenho entre setores. Setores com barras mais longas (mais próximas de 10) têm melhor performance média."
+            />
+          </div>
+          <button
+            onClick={() => toggleSection('rankings')}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg transition-colors"
+          >
+            {expandedSections.rankings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          </button>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por setor (ordenado do maior para o menor)</p>
         {expandedSections.rankings && (
@@ -251,6 +259,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
             </BarChart>
           </ResponsiveContainer>
         </div>
+        )}
       </div>
 
       {/* 1.2. Ranking de Cargos (Barras Laterais) */}
@@ -273,6 +282,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
             </button>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por cargo (ordenado do maior para o menor)</p>
+          {expandedSections.rankings && (
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={roleRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
@@ -310,7 +320,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
               </BarChart>
             </ResponsiveContainer>
           </div>
-        )}
+          )}
         </div>
       )}
 
