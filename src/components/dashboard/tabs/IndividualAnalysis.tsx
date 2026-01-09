@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { Filter, ArrowUp, ArrowDown, Minus, X } from 'lucide-react';
+import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
 
 export const IndividualAnalysis = ({ data }: { data: any }) => {
   const { individualData, monthlyComparison } = data;
@@ -58,7 +59,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
     <div className="space-y-6 animate-fadeIn">
       
       {/* Tabs de Visualização */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+      <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setViewMode('comparative')}
@@ -85,17 +86,24 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
 
       {viewMode === 'comparative' ? (
         /* 1. Análise Comparativa Melhorada */
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
              <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Análise Comparativa</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">Análise Comparativa</h3>
+                  <ChartInfoTooltip
+                    title="Análise Comparativa"
+                    description="Este gráfico compara a performance de diferentes colaboradores lado a lado. Use para identificar os melhores e piores desempenhos e entender a distribuição de performance na equipe."
+                    usage="Cada barra representa um colaborador. Barras mais altas indicam melhor performance. Use os filtros para focar em setores, cargos ou níveis específicos."
+                  />
+                </div>
                 <p className="text-sm text-gray-500">Comparação: Colaborador vs Setor vs Empresa</p>
              </div>
              <div className="flex gap-2 flex-wrap">
                <input 
                   type="text" 
                   placeholder="Buscar colaborador..." 
-                  className="p-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
+                  className="p-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm"
                   value={localSearch}
                   onChange={e => setLocalSearch(e.target.value)}
                />
@@ -108,25 +116,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowRoleDropdown(false);
                      setShowTypeDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Setor{selectedSectors.length > 0 ? ` (${selectedSectors.length})` : ''}</span>
                  </button>
                  {showSectorDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedSectors([]);
                            setShowSectorDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Setores
                        </button>
                        {uniqueSectors.map((s: string) => (
-                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedSectors.includes(s)}
@@ -155,25 +163,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowSectorDropdown(false);
                      setShowTypeDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Cargo{selectedRoles.length > 0 ? ` (${selectedRoles.length})` : ''}</span>
                  </button>
                  {showRoleDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedRoles([]);
                            setShowRoleDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Cargos
                        </button>
                        {uniqueRoles.map((r: string) => (
-                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedRoles.includes(r)}
@@ -202,25 +210,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowSectorDropdown(false);
                      setShowRoleDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Nível{selectedTypes.length > 0 ? ` (${selectedTypes.length})` : ''}</span>
                  </button>
                  {showTypeDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedTypes([]);
                            setShowTypeDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Níveis
                        </button>
                        {uniqueTypes.map((t: string) => (
-                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedTypes.includes(t)}
@@ -260,7 +268,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase text-xs">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 uppercase text-xs">
                 <tr>
                   <th className="p-4">Colaborador</th>
                   <th className="p-4">Mês</th>
@@ -275,7 +283,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                  {displayData.map((item: any, idx: number) => {
                     return (
-                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
                           <td className="p-4 font-medium text-gray-800 dark:text-white">{item.name}</td>
                           <td className="p-4 text-gray-500 text-xs">{item.monthYear || '-'}</td>
                           <td className="p-4 text-gray-500">{item.sector}</td>
@@ -334,17 +342,24 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
         </div>
       ) : (
         /* 2. Tabela de Evolução Mês a Mês */
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
              <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Percentual Mês a Mês</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Percentual Mês a Mês</h3>
+                  <ChartInfoTooltip
+                    title="Evolução Percentual Mês a Mês"
+                    description="Este gráfico mostra a evolução da performance de cada colaborador ao longo dos meses. Use para identificar tendências de melhoria ou declínio individual."
+                    usage="Cada linha representa um colaborador. Linhas ascendentes indicam melhoria, linhas descendentes indicam declínio. Use os filtros para focar em colaboradores específicos."
+                  />
+                </div>
                 <p className="text-sm text-gray-500">Comparação de performance mês a mês por colaborador</p>
              </div>
              <div className="flex gap-2 flex-wrap">
                <input 
                   type="text" 
                   placeholder="Buscar colaborador..." 
-                  className="p-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm"
+                  className="p-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm"
                   value={localSearch}
                   onChange={e => setLocalSearch(e.target.value)}
                />
@@ -357,25 +372,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowRoleDropdown(false);
                      setShowTypeDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Setor{selectedSectors.length > 0 ? ` (${selectedSectors.length})` : ''}</span>
                  </button>
                  {showSectorDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedSectors([]);
                            setShowSectorDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Setores
                        </button>
                        {uniqueSectors.map((s: string) => (
-                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedSectors.includes(s)}
@@ -404,25 +419,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowSectorDropdown(false);
                      setShowTypeDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Cargo{selectedRoles.length > 0 ? ` (${selectedRoles.length})` : ''}</span>
                  </button>
                  {showRoleDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedRoles([]);
                            setShowRoleDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Cargos
                        </button>
                        {uniqueRoles.map((r: string) => (
-                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={r} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedRoles.includes(r)}
@@ -451,25 +466,25 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                      setShowSectorDropdown(false);
                      setShowRoleDropdown(false);
                    }}
-                   className="pl-8 pr-3 py-2 border rounded dark:bg-[#121212] dark:border-gray-700 outline-none text-sm text-left flex items-center gap-2"
+                   className="pl-8 pr-3 py-2 border rounded dark:bg-navy-900 dark:border-navy-700 outline-none text-sm text-left flex items-center gap-2"
                  >
                    <Filter size={16} className="text-gray-400" />
                    <span>Nível{selectedTypes.length > 0 ? ` (${selectedTypes.length})` : ''}</span>
                  </button>
                  {showTypeDropdown && (
-                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
+                   <div className="absolute top-full left-0 mt-1 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto min-w-[200px]">
                      <div className="p-2">
                        <button
                          onClick={() => {
                            setSelectedTypes([]);
                            setShowTypeDropdown(false);
                          }}
-                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-navy-700 rounded"
                        >
                          Todos Níveis
                        </button>
                        {uniqueTypes.map((t: string) => (
-                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                         <label key={t} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-navy-700 cursor-pointer">
                            <input
                              type="checkbox"
                              checked={selectedTypes.includes(t)}
@@ -509,12 +524,12 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase text-xs sticky top-0">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 uppercase text-xs sticky top-0">
                 <tr>
-                  <th className="p-3 sticky left-0 bg-gray-50 dark:bg-[#121212] z-10 border-r">Colaborador</th>
-                  <th className="p-3 sticky left-[150px] bg-gray-50 dark:bg-[#121212] z-10 border-r">Setor</th>
-                  <th className="p-3 sticky left-[250px] bg-gray-50 dark:bg-[#121212] z-10 border-r">Cargo</th>
-                  <th className="p-3 sticky left-[350px] bg-gray-50 dark:bg-[#121212] z-10 border-r">Nível</th>
+                  <th className="p-3 sticky left-0 bg-gray-50 dark:bg-navy-900 z-10 border-r">Colaborador</th>
+                  <th className="p-3 sticky left-[150px] bg-gray-50 dark:bg-navy-900 z-10 border-r">Setor</th>
+                  <th className="p-3 sticky left-[250px] bg-gray-50 dark:bg-navy-900 z-10 border-r">Cargo</th>
+                  <th className="p-3 sticky left-[350px] bg-gray-50 dark:bg-navy-900 z-10 border-r">Nível</th>
                   {monthlyComparison && monthlyComparison.length > 0 && monthlyComparison[0]?.months.map((m: any, idx: number) => (
                     <th key={idx} className="p-2 text-center min-w-[100px]">
                       <div className="flex flex-col">
@@ -539,17 +554,17 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                    })
                    .map((item: any, idx: number) => {
                     return (
-                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="p-3 font-medium text-gray-800 dark:text-white sticky left-0 bg-white dark:bg-[#1E1E1E] z-10 border-r">
+                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                          <td className="p-3 font-medium text-gray-800 dark:text-white sticky left-0 bg-white dark:bg-navy-800 z-10 border-r">
                             {item.name}
                           </td>
-                          <td className="p-3 text-gray-500 sticky left-[150px] bg-white dark:bg-[#1E1E1E] z-10 border-r">
+                          <td className="p-3 text-gray-500 sticky left-[150px] bg-white dark:bg-navy-800 z-10 border-r">
                             {item.sector}
                           </td>
-                          <td className="p-3 text-gray-500 sticky left-[250px] bg-white dark:bg-[#1E1E1E] z-10 border-r">
+                          <td className="p-3 text-gray-500 sticky left-[250px] bg-white dark:bg-navy-800 z-10 border-r">
                             {item.role}
                           </td>
-                          <td className="p-3 sticky left-[350px] bg-white dark:bg-[#1E1E1E] z-10 border-r">
+                          <td className="p-3 sticky left-[350px] bg-white dark:bg-navy-800 z-10 border-r">
                             <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                               {item.type}
                             </span>

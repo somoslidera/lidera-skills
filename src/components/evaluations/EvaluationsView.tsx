@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight
+  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star
 } from 'lucide-react';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -287,14 +287,14 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] max-w-4xl mx-auto">
+    <div className="bg-white dark:bg-navy-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 max-w-4xl mx-auto">
       <h3 className="text-xl font-bold mb-6 text-gray-800 dark:text-white flex items-center gap-2">
         <FileText className="text-blue-600" /> Nova Avaliação de Desempenho
       </h3>
 
       {/* Controles de Filtro e Ordenação */}
       {selectedCompanyId && (
-        <div className="bg-gray-50 dark:bg-[#121212] p-4 rounded-lg mb-4 border border-gray-200 dark:border-gray-700">
+        <div className="bg-gray-50 dark:bg-navy-900 p-4 rounded-lg mb-4 border border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="flex-1 w-full sm:w-auto">
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Buscar Colaborador</label>
@@ -303,7 +303,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                 <input
                   type="text"
                   placeholder="Nome, cargo ou setor..."
-                  className="w-full pl-10 pr-3 py-2 text-sm border rounded dark:bg-[#1E1E1E] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+                  className="w-full pl-10 pr-3 py-2 text-sm border rounded dark:bg-navy-800 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -312,7 +312,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
             <div className="w-full sm:w-auto">
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ordenar por</label>
               <select
-                className="w-full sm:w-40 px-3 py-2 text-sm border rounded dark:bg-[#1E1E1E] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+                className="w-full sm:w-40 px-3 py-2 text-sm border rounded dark:bg-navy-800 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as 'name' | 'sector')}
               >
@@ -340,7 +340,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           </label>
           <input 
             type="month" 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+            className="w-full p-2 border rounded dark:bg-navy-900 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={evalMonth}
             onChange={(e) => {
               setEvalMonth(e.target.value);
@@ -357,7 +357,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Empresa <span className="text-red-500">*</span></label>
           <select 
-            className="w-full p-2 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+            className="w-full p-2 border rounded dark:bg-navy-900 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
             value={selectedCompanyId}
             onChange={(e) => {
               setSelectedCompanyId(e.target.value);
@@ -383,7 +383,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
           </label>
           <div className="relative">
             <select 
-              className="w-full p-2 pr-24 border rounded dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full p-2 pr-24 border rounded dark:bg-navy-900 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               value={selectedEmployeeId}
               onChange={(e) => setSelectedEmployeeId(e.target.value)}
               disabled={!selectedCompanyId || !evalMonth}
@@ -494,7 +494,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                     <div className="relative">
                       <input 
                         type="number" min="0" max="10" step="1"
-                        className="w-16 p-2 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700 text-gray-800 dark:text-white"
+                        className="w-16 p-2 text-center border rounded font-bold dark:bg-navy-900 dark:border-gray-700 text-gray-800 dark:text-white"
                         value={scores[crit.name] || 0}
                         onChange={(e) => {
                           const val = parseInt(e.target.value);
@@ -521,7 +521,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
               </label>
               <textarea
                 rows={3}
-                className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
+                className="w-full p-3 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
                 placeholder="Adicione observações sobre a avaliação..."
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
@@ -549,7 +549,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
                   </label>
                   <textarea
                     rows={2}
-                    className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
+                    className="w-full p-3 border rounded-lg dark:bg-navy-900 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
                     placeholder="Explique o motivo pelo qual este colaborador se destacou..."
                     value={highlightReason}
                     onChange={(e) => setHighlightReason(e.target.value)}
@@ -585,11 +585,19 @@ const EvaluationsTable = () => {
   const [filteredData, setFilteredData] = useState<EvaluationData[]>([]);
   const [filterName, setFilterName] = useState('');
   const [filterSector, setFilterSector] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterLevel, setFilterLevel] = useState('');
+  const [filterScoreRange, setFilterScoreRange] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [filterYear, setFilterYear] = useState('');
+  const [sortOrder, setSortOrder] = useState<'recent' | 'oldest'>('recent');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+  
+  // Estado para modal de resumo
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationData | null>(null);
 
   // Estados para seleção em massa
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -633,9 +641,20 @@ const EvaluationsTable = () => {
   }, [currentCompany]);
 
   useEffect(() => {
-    let res = data;
+    let res = [...data];
+    
+    // Filtros
     if (filterName) res = res.filter(d => d.employeeName.toLowerCase().includes(filterName.toLowerCase()));
     if (filterSector) res = res.filter(d => d.sector === filterSector);
+    if (filterRole) res = res.filter(d => d.role === filterRole);
+    if (filterLevel) res = res.filter(d => d.type === filterLevel);
+    if (filterScoreRange) {
+      const [min, max] = filterScoreRange.split('-').map(Number);
+      res = res.filter(d => {
+        const score = typeof d.average === 'number' ? d.average : parseFloat(String(d.average));
+        return score >= min && score <= max;
+      });
+    }
     if (filterMonth) {
       res = res.filter(d => {
         const date = new Date(d.date);
@@ -648,9 +667,23 @@ const EvaluationsTable = () => {
         return date.getFullYear().toString() === filterYear;
       });
     }
+    
+    // Ordenação
+    if (sortOrder === 'recent') {
+      res.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    } else {
+      res.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    
     setFilteredData(res);
     setCurrentPage(1); // Reset para primeira página quando filtros mudam
-  }, [filterName, filterSector, filterMonth, filterYear, data]);
+  }, [filterName, filterSector, filterRole, filterLevel, filterScoreRange, filterMonth, filterYear, sortOrder, data]);
+  
+  // Função para mostrar resumo (usada no onClick do nome)
+  const handleShowSummary = React.useCallback((ev: EvaluationData) => {
+    setSelectedEvaluation(ev);
+    setSummaryModalOpen(true);
+  }, []);
 
   // Paginação
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -791,17 +824,37 @@ const EvaluationsTable = () => {
   }))).sort((a, b) => parseInt(b) - parseInt(a));
 
   const sectors = Array.from(new Set(data.map(d => d.sector))).sort();
+  const roles = Array.from(new Set(data.map(d => d.role))).sort();
+  const levels = Array.from(new Set(data.map(d => d.type))).sort();
+  
+  // Agrupar avaliações por mês/ano para mostrar contagem de funcionários avaliados
+  const evaluationsByMonth = React.useMemo(() => {
+    const grouped: Record<string, Set<string>> = {};
+    data.forEach(d => {
+      const date = new Date(d.date);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = new Set();
+      }
+      if (d.employeeId) {
+        grouped[monthKey].add(d.employeeId);
+      } else if (d.employeeName) {
+        grouped[monthKey].add(d.employeeName);
+      }
+    });
+    return grouped;
+  }, [data]);
 
   return (
     <div className="space-y-4">
       {/* Barra de Ferramentas / Ações em Massa */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col md:flex-row gap-4 justify-between items-end">
+      <div className="bg-white dark:bg-navy-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col md:flex-row gap-4 justify-between items-end">
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative group w-full md:w-64">
             <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input 
               placeholder="Buscar por nome..."
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
               value={filterName}
               onChange={e => setFilterName(e.target.value)}
             />
@@ -809,7 +862,7 @@ const EvaluationsTable = () => {
           <div className="relative w-full sm:w-48">
             <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
               value={filterSector}
               onChange={e => setFilterSector(e.target.value)}
             >
@@ -820,7 +873,7 @@ const EvaluationsTable = () => {
           <div className="relative w-full sm:w-32">
             <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
               value={filterMonth}
               onChange={e => setFilterMonth(e.target.value)}
             >
@@ -833,12 +886,56 @@ const EvaluationsTable = () => {
           </div>
           <div className="relative w-full sm:w-24">
             <select 
-              className="w-full p-2 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
               value={filterYear}
               onChange={e => setFilterYear(e.target.value)}
             >
               <option value="">Todos Anos</option>
               {uniqueYears.map((y: string) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          {/* Novos Filtros */}
+          <div className="relative w-full sm:w-40">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              value={filterRole}
+              onChange={e => setFilterRole(e.target.value)}
+            >
+              <option value="">Todos Cargos</option>
+              {roles.map((r: string) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="relative w-full sm:w-40">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              value={filterLevel}
+              onChange={e => setFilterLevel(e.target.value)}
+            >
+              <option value="">Todos Níveis</option>
+              {levels.map((l: string) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="relative w-full sm:w-40">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              value={filterScoreRange}
+              onChange={e => setFilterScoreRange(e.target.value)}
+            >
+              <option value="">Todas Notas</option>
+              <option value="0-4">0-4 (Baixa)</option>
+              <option value="5-6">5-6 (Média)</option>
+              <option value="7-8">7-8 (Boa)</option>
+              <option value="9-10">9-10 (Excelente)</option>
+            </select>
+          </div>
+          <div className="relative w-full sm:w-40">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              value={sortOrder}
+              onChange={e => setSortOrder(e.target.value as 'recent' | 'oldest')}
+            >
+              <option value="recent">Mais Recente</option>
+              <option value="oldest">Mais Antigo</option>
             </select>
           </div>
         </div>
@@ -862,11 +959,26 @@ const EvaluationsTable = () => {
         </div>
       </div>
 
+      {/* Informação sobre avaliações vs funcionários avaliados */}
+      {data.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            <strong>Total de avaliações:</strong> {data.length} | 
+            <strong className="ml-4">Funcionários únicos avaliados:</strong> {new Set(data.map(d => d.employeeId || d.employeeName)).size}
+          </p>
+          {Object.keys(evaluationsByMonth).length > 0 && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+              Exemplo: Em {Object.keys(evaluationsByMonth)[0]}, {evaluationsByMonth[Object.keys(evaluationsByMonth)[0]].size} funcionário(s) foram avaliados.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Tabela */}
-      <div className="bg-white dark:bg-[#1E1E1E] rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] overflow-hidden">
+      <div className="bg-white dark:bg-navy-800 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 uppercase font-medium border-b dark:border-gray-800">
+            <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 uppercase font-medium border-b dark:border-navy-700">
               <tr>
                 <th className="p-4 w-10">
                   <button onClick={handleSelectAll} className="text-gray-400 hover:text-blue-500">
@@ -946,7 +1058,7 @@ const EvaluationsTable = () => {
         
         {/* Paginação */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212]">
+          <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
             <div className="text-sm text-gray-600 dark:text-gray-400">
               Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} avaliações
             </div>
@@ -972,6 +1084,104 @@ const EvaluationsTable = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Resumo da Avaliação */}
+      <Modal isOpen={summaryModalOpen} onClose={() => setSummaryModalOpen(false)} title="Resumo da Avaliação">
+        {selectedEvaluation && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-2">{selectedEvaluation.employeeName}</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Cargo:</span>
+                  <span className="ml-2 font-medium text-gray-800 dark:text-white">{selectedEvaluation.role}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Setor:</span>
+                  <span className="ml-2 font-medium text-gray-800 dark:text-white">{selectedEvaluation.sector}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Nível:</span>
+                  <span className="ml-2 font-medium text-gray-800 dark:text-white">{selectedEvaluation.type}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Data:</span>
+                  <span className="ml-2 font-medium text-gray-800 dark:text-white">
+                    {new Date(selectedEvaluation.date).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-3">Notas por Critério</h4>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 font-medium">
+                    <tr>
+                      <th className="p-2 text-left">Critério</th>
+                      <th className="p-2 text-right">Nota</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-navy-700">
+                    {Object.entries(selectedEvaluation.details || {}).map(([criteria, score]) => (
+                      <tr key={criteria} className="hover:bg-gray-50 dark:hover:bg-navy-800">
+                        <td className="p-2 text-gray-700 dark:text-gray-300">{criteria}</td>
+                        <td className="p-2 text-right font-bold text-gray-800 dark:text-white">{Number(score).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-gray-100 dark:bg-navy-900 p-4 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold text-gray-700 dark:text-gray-300">Média Final:</span>
+                <span className={`text-2xl font-bold ${
+                  selectedEvaluation.average >= 8 ? 'text-green-600 dark:text-green-400' :
+                  selectedEvaluation.average >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                  'text-red-600 dark:text-red-400'
+                }`}>
+                  {typeof selectedEvaluation.average === 'number' ? selectedEvaluation.average.toFixed(2) : selectedEvaluation.average}
+                </span>
+              </div>
+            </div>
+
+            {(selectedEvaluation as any).observations && (
+              <div>
+                <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-2">Observações</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-navy-900 p-3 rounded-lg">
+                  {(selectedEvaluation as any).observations}
+                </p>
+              </div>
+            )}
+
+            {((selectedEvaluation as any).funcionarioMes === 'Sim' || (selectedEvaluation as any).funcionarioMes === true) && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Star size={20} className="text-yellow-600 dark:text-yellow-400 fill-yellow-600 dark:fill-yellow-400" />
+                  <span className="font-bold text-gray-800 dark:text-white">Funcionário Destaque do Mês</span>
+                </div>
+                {(selectedEvaluation as any).highlightReason && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {(selectedEvaluation as any).highlightReason}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => setSummaryModalOpen(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal de Edição Individual Completa */}
       <Modal isOpen={!!editingEvaluation} onClose={() => setEditingEvaluation(null)} title="Editar Avaliação">
@@ -1002,7 +1212,7 @@ const EvaluationsTable = () => {
                       min="0"
                       max="10"
                       step="1"
-                      className="w-16 p-2 text-center border rounded font-bold dark:bg-[#121212] dark:border-gray-700"
+                      className="w-16 p-2 text-center border rounded font-bold dark:bg-navy-900 dark:border-gray-700"
                       value={score}
                       onChange={(e) => {
                         const val = parseInt(e.target.value);
@@ -1018,7 +1228,7 @@ const EvaluationsTable = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Observações</label>
               <textarea
                 rows={3}
-                className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
+                className="w-full p-3 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 resize-none"
                 value={editObservations}
                 onChange={(e) => setEditObservations(e.target.value)}
               />
@@ -1045,7 +1255,7 @@ const EvaluationsTable = () => {
                   </label>
                   <textarea
                     rows={2}
-                    className="w-full p-3 border rounded-lg dark:bg-[#121212] dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
+                    className="w-full p-3 border rounded-lg dark:bg-navy-900 dark:border-gray-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-yellow-500/20 resize-none"
                     value={editHighlightReason}
                     onChange={(e) => setEditHighlightReason(e.target.value)}
                   />
@@ -1063,7 +1273,7 @@ const EvaluationsTable = () => {
               </button>
               <button
                 onClick={() => setEditingEvaluation(null)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-4 py-2 border border-gray-300 dark:border-navy-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-navy-700"
               >
                 Cancelar
               </button>
@@ -1122,7 +1332,7 @@ export const EvaluationsView = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-[#1E1E1E] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Gestão de Avaliações</h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm">Central de lançamento e histórico de desempenho.</p>
@@ -1132,7 +1342,7 @@ export const EvaluationsView = () => {
             onClick={() => setActiveTab('list')}
             className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
               activeTab === 'list' 
-              ? 'bg-white dark:bg-[#121212] text-blue-600 shadow-sm' 
+              ? 'bg-white dark:bg-navy-900 text-blue-600 shadow-sm' 
               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
             }`}
           >

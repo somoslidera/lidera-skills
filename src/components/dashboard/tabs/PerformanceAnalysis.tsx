@@ -4,6 +4,7 @@ import {
   BarChart, Bar
 } from 'recharts';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
 
 // Função para calcular luminosidade de uma cor (0-255)
 const getLuminance = (hex: string): number => {
@@ -50,6 +51,9 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
   
   // Estados para mostrar/ocultar setores no gráfico
   const [visibleSectors, setVisibleSectors] = useState<Set<string>>(() => new Set(allSectors));
+  
+  // Estado para highlight no heatmap
+  const [hoveredCell, setHoveredCell] = useState<{criteria: string, sector: string} | null>(null);
   
   // Atualizar setores visíveis quando allSectors mudar
   React.useEffect(() => {
@@ -118,10 +122,17 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
     <div className="space-y-8 animate-fadeIn">
       
       {/* 1. Gráfico de Evolução por Nível (Linhas) */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+      <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Temporal por Nível</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Temporal por Nível</h3>
+              <ChartInfoTooltip
+                title="Evolução Temporal por Nível"
+                description="Este gráfico mostra a evolução da performance média ao longo do tempo, separada por nível hierárquico (Estratégico, Tático, Operacional). Use para identificar tendências e melhorias ao longo dos meses."
+                usage="Cada linha representa um nível. A linha tracejada mostra a média geral. Passe o mouse sobre os pontos para ver valores específicos. Use a legenda para mostrar/ocultar níveis."
+              />
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">Acompanhamento das médias mensais por nível hierárquico.</p>
           </div>
         </div>
@@ -149,10 +160,17 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
       
       {/* 1.2. Gráfico de Evolução por Setor (Linhas) */}
       {sectorEvolutionData && sectorEvolutionData.length > 0 && (
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Temporal por Setor</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Evolução Temporal por Setor</h3>
+                <ChartInfoTooltip
+                  title="Evolução Temporal por Setor"
+                  description="Este gráfico mostra a evolução da performance média ao longo do tempo, separada por setor. Use para comparar o desempenho de diferentes áreas da empresa."
+                  usage="Cada linha representa um setor. Clique na legenda para mostrar/ocultar setores específicos. Passe o mouse sobre os pontos para ver valores."
+                />
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Acompanhamento das médias mensais por setor. Clique na legenda para mostrar/ocultar setores.</p>
             </div>
           </div>
@@ -207,9 +225,16 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
       )}
 
       {/* 2. Matriz de Competências (Heatmap Dinâmico - Largura Total) */}
-      <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col">
-             <div className="p-6 border-b border-gray-100 dark:border-gray-800">
-                <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-2">Heatmap de Competências</h3>
+      <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col">
+             <div className="p-6 border-b border-gray-100 dark:border-navy-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-bold text-gray-800 dark:text-white text-lg">Heatmap de Competências</h3>
+                  <ChartInfoTooltip
+                    title="Heatmap de Competências"
+                    description="Este heatmap mostra a média de cada competência (métrica) em cada setor. Use para identificar quais competências estão bem desenvolvidas em cada área e onde há oportunidades de melhoria."
+                    usage="Cada célula mostra a média da competência no setor. Cores verdes indicam boa performance, amarelas indicam média, e vermelhas indicam baixa. Passe o mouse sobre uma célula para destacar a linha e coluna correspondentes."
+                  />
+                </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Cruzamento de médias: Competência vs Setor</p>
                 
                 {/* Controles de Ordenação e Filtros */}
@@ -219,7 +244,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                       <select
                          value={sortBy}
                          onChange={(e) => setSortBy(e.target.value as any)}
-                         className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
+                         className="px-2 py-1 text-xs border border-gray-200 dark:border-navy-700 rounded bg-white dark:bg-navy-900 text-gray-700 dark:text-gray-300"
                       >
                          <option value="average">Média Geral</option>
                          <option value="type">Nível</option>
@@ -240,7 +265,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                       <select
                          value={selectedLevelFilter}
                          onChange={(e) => setSelectedLevelFilter(e.target.value)}
-                         className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
+                         className="px-2 py-1 text-xs border border-gray-200 dark:border-navy-700 rounded bg-white dark:bg-navy-900 text-gray-700 dark:text-gray-300"
                       >
                          <option value="Todos">Todos</option>
                          <option value="Estratégico">Estratégico</option>
@@ -254,7 +279,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                       <select
                          value={selectedSectorFilter}
                          onChange={(e) => setSelectedSectorFilter(e.target.value)}
-                         className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300"
+                         className="px-2 py-1 text-xs border border-gray-200 dark:border-navy-700 rounded bg-white dark:bg-navy-900 text-gray-700 dark:text-gray-300"
                       >
                          <option value="Todos">Todos</option>
                          {allSectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
@@ -265,20 +290,20 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
              
              <div className="flex-1 overflow-auto p-4">
                 <table className="w-full text-xs text-center border-collapse">
-                   <thead className="text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-[#121212]">
+                   <thead className="text-gray-500 dark:text-gray-400 font-medium bg-gray-50 dark:bg-navy-900">
                       <tr>
-                         <th className="p-2 text-left min-w-[80px] sticky left-0 bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700">
+                         <th className="p-2 text-left min-w-[80px] sticky left-0 bg-gray-50 dark:bg-navy-900 z-10 border-b dark:border-navy-700">
                            Nível
                          </th>
-                         <th className="p-3 text-left min-w-[180px] sticky left-[80px] bg-gray-50 dark:bg-[#121212] z-10 border-b dark:border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                         <th className="p-3 text-left min-w-[180px] sticky left-[80px] bg-gray-50 dark:bg-navy-900 z-10 border-b dark:border-navy-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                            Métrica
                          </th>
                          {(selectedSectorFilter === 'Todos' ? allSectors : [selectedSectorFilter]).map((s: string) => (
-                           <th key={s} className="p-2 border-b dark:border-gray-700 min-w-[70px] max-w-[90px] truncate text-[10px]" title={s}>
+                           <th key={s} className="p-2 border-b dark:border-navy-700 min-w-[70px] max-w-[90px] truncate text-[10px]" title={s}>
                              {s}
                            </th>
                          ))}
-                         <th className="p-3 border-b dark:border-gray-700 min-w-[80px] bg-gray-100 dark:bg-gray-900 font-bold">
+                         <th className="p-3 border-b dark:border-navy-700 min-w-[80px] bg-gray-100 dark:bg-navy-900 font-bold">
                            Média Geral
                          </th>
                       </tr>
@@ -289,22 +314,35 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                          const nivelColor = row.type === 'Estratégico' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
                                           row.type === 'Tático' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' :
                                           'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+                         const isRowHighlighted = hoveredCell?.criteria === row.criteria;
                          return (
-                            <tr key={row.criteria} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                               <td className="p-2 text-center sticky left-0 bg-white dark:bg-[#1E1E1E] z-10">
+                            <tr 
+                              key={row.criteria} 
+                              className={`transition-colors ${
+                                isRowHighlighted 
+                                  ? 'bg-blue-100 dark:bg-blue-900/40' 
+                                  : 'hover:bg-gray-50 dark:hover:bg-navy-700/30'
+                              }`}
+                            >
+                               <td className="p-2 text-center sticky left-0 bg-white dark:bg-navy-800 z-10">
                                  <span className={`px-2 py-1 rounded text-[10px] font-bold ${nivelColor}`}>
                                    {row.type || 'Operacional'}
                                  </span>
                                </td>
-                               <td className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 sticky left-[80px] bg-white dark:bg-[#1E1E1E] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                               <td className="p-3 text-left font-semibold text-gray-700 dark:text-gray-300 sticky left-[80px] bg-white dark:bg-navy-800 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                  {row.criteria}
                                </td>
                                {(selectedSectorFilter === 'Todos' ? allSectors : [selectedSectorFilter]).map((s: string) => {
                                   const score = row[s];
+                                  const isCellHighlighted = hoveredCell?.criteria === row.criteria && hoveredCell?.sector === s;
+                                  const isColumnHighlighted = hoveredCell?.sector === s;
+                                  
                                   if (score === undefined) {
                                     return (
                                       <td key={s} className="p-0">
-                                        <div className="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                        <div className={`w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center ${
+                                          isColumnHighlighted ? 'ring-2 ring-blue-500 dark:ring-gold-500' : ''
+                                        }`}>
                                           <span className="text-gray-300 dark:text-gray-700 text-[11px]">-</span>
                                         </div>
                                       </td>
@@ -314,12 +352,17 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                   return (
                                     <td key={s} className="p-0">
                                       <div 
-                                        className="flex items-center justify-center w-full h-full font-bold text-[11px] min-h-[40px]"
+                                        className={`flex items-center justify-center w-full h-full font-bold text-[11px] min-h-[40px] transition-all ${
+                                          isCellHighlighted ? 'ring-4 ring-blue-500 dark:ring-gold-500 scale-105 z-20 relative' :
+                                          isColumnHighlighted ? 'ring-2 ring-blue-400 dark:ring-gold-400/50' : ''
+                                        }`}
                                         style={{ 
                                           backgroundColor: color.bg,
                                           color: color.text
                                         }}
                                         title={`Setor: ${s}\nNota: ${score.toFixed(2)}`}
+                                        onMouseEnter={() => setHoveredCell({criteria: row.criteria, sector: s})}
+                                        onMouseLeave={() => setHoveredCell(null)}
                                       >
                                         {score.toFixed(1)}
                                       </div>
@@ -328,7 +371,9 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                })}
                                <td className="p-0">
                                  <div 
-                                   className="flex items-center justify-center w-full h-full font-bold text-xs min-h-[40px] bg-gray-50 dark:bg-gray-900"
+                                   className={`flex items-center justify-center w-full h-full font-bold text-xs min-h-[40px] bg-gray-50 dark:bg-navy-900 ${
+                                     isRowHighlighted ? 'ring-2 ring-blue-400 dark:ring-gold-400/50' : ''
+                                   }`}
                                    style={{ 
                                      backgroundColor: avgColor.bg,
                                      color: avgColor.text
@@ -343,7 +388,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                    </tbody>
                 </table>
              </div>
-             <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#121212]">
+             <div className="p-4 border-t border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
                 <div className="flex items-center justify-center gap-2 mb-2">
                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Formato</span>
                 </div>
@@ -371,8 +416,15 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
           </div>
 
       {/* 3. Gráfico de Gaps (Focado em Oportunidades de Melhoria) */}
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-[#1E1E1E] dark:to-[#171717] p-6 rounded-xl shadow-lg border border-gray-200 dark:border-[#121212]">
-             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Análise de Gaps</h3>
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-navy-800 dark:to-navy-900 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-navy-700">
+             <div className="flex items-center gap-2 mb-2">
+               <h3 className="text-lg font-bold text-gray-800 dark:text-white">Análise de Gaps</h3>
+               <ChartInfoTooltip
+                 title="Análise de Gaps"
+                 description="Este gráfico mostra as oportunidades de melhoria para cada competência. O Gap é calculado como a diferença entre a nota máxima (10) e a performance atual."
+                 usage="Barras vermelhas maiores indicam maiores oportunidades de melhoria. Foque em desenvolver competências com gaps maiores para maximizar o impacto do treinamento."
+               />
+             </div>
              <p className="text-sm text-gray-500 mb-6">Competências que mais precisam de treinamento. Quanto maior a barra de Gap, maior a oportunidade de melhoria.</p>
              
              <div className="h-[500px]">

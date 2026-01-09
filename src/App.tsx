@@ -8,6 +8,7 @@ import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
 import { EvaluationsView } from './components/evaluations/EvaluationsView';
 import { HelpView } from './components/help/HelpView';
 import DocumentationView from './components/documentation/DocumentationView';
+import { WelcomeView } from './components/welcome/WelcomeView';
 import { fetchCollection } from './services/firebase';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { Toaster } from './components/ui/Toaster';
@@ -96,12 +97,17 @@ function MainAppContent() {
       }
     };
     loadData();
-  }, [currentCompany]); 
+  }, [currentCompany]);
+
+  // Se estiver na página welcome, não mostrar header
+  if (location.pathname === '/welcome') {
+    return <WelcomeView />;
+  }
 
   if (!currentCompany) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-lidera-dark text-center p-4">
-        <div className="bg-white dark:bg-lidera-gray p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-md w-full animate-fadeIn">
+      <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-navy-900 text-center p-4">
+        <div className="bg-white dark:bg-navy-800 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-navy-700 max-w-md w-full animate-fadeIn">
           <div className="mb-6 flex justify-center">
              <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-blue-100 dark:ring-gray-700">
                <img 
@@ -126,7 +132,7 @@ function MainAppContent() {
       onClick={() => setCurrentView(view)}
       className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 py-2 rounded-md transition-all text-xs md:text-sm font-medium ${
         currentView === view
-          ? 'bg-skills-blue-primary/10 text-skills-blue-primary dark:bg-lidera-gold/20 dark:text-lidera-gold'
+          ? 'bg-skills-blue-primary/10 text-skills-blue-primary dark:bg-gold-500/20 dark:text-gold-400'
           : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
       }`}
     >
@@ -150,9 +156,9 @@ function MainAppContent() {
   );
 
   return (
-    <div className="min-h-screen bg-skills-light dark:bg-lidera-dark flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-skills-light dark:bg-navy-900 flex flex-col font-sans transition-colors duration-300">
         
-        <header className="bg-white dark:bg-lidera-gray shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-20">
+        <header className="bg-white dark:bg-navy-800 shadow-sm border-b border-gray-200 dark:border-navy-700 sticky top-0 z-20">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex justify-between h-16 items-center">
               
@@ -199,8 +205,8 @@ function MainAppContent() {
 
         <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
           <Routes>
-            {/* Home - Redireciona para dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Home - Redireciona para welcome */}
+            <Route path="/" element={<Navigate to="/welcome" replace />} />
             
             {/* Dashboard com tabs */}
             <Route path="/dashboard" element={<Navigate to="/dashboard/overview" replace />} />
@@ -248,7 +254,7 @@ function MainAppContent() {
                 </div>
 
                 <aside className={`md:w-64 flex-shrink-0 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}>
-                  <div className="bg-white dark:bg-lidera-gray rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 sticky top-24">
+                  <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 p-4 sticky top-24">
                     
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-4">Cadastros Gerais</h3>
                     <div className="space-y-1">
@@ -455,7 +461,7 @@ function MainApp() {
       onClick={() => navigate(`/${view}`)}
       className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 px-3 py-2 rounded-md transition-all text-xs md:text-sm font-medium ${
         currentView === view
-          ? 'bg-skills-blue-primary/10 text-skills-blue-primary dark:bg-lidera-gold/20 dark:text-lidera-gold'
+          ? 'bg-skills-blue-primary/10 text-skills-blue-primary dark:bg-gold-500/20 dark:text-gold-400'
           : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
       }`}
     >
@@ -466,8 +472,8 @@ function MainApp() {
 
   if (!currentCompany) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-lidera-dark text-center p-4">
-        <div className="bg-white dark:bg-lidera-gray p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 max-w-md w-full animate-fadeIn">
+      <div className="flex flex-col items-center justify-center h-screen bg-skills-light dark:bg-navy-900 text-center p-4">
+        <div className="bg-white dark:bg-navy-800 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-navy-700 max-w-md w-full animate-fadeIn">
           <div className="mb-6 flex justify-center">
              <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg ring-4 ring-blue-100 dark:ring-gray-700">
                <img 
@@ -537,7 +543,8 @@ function MainApp() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8">
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard/overview" replace />} />
+          <Route path="/" element={<Navigate to="/welcome" replace />} />
+          <Route path="/welcome" element={<WelcomeView />} />
           <Route path="/dashboard" element={<Navigate to="/dashboard/overview" replace />} />
           <Route path="/dashboard/:tab" element={<DashboardWrapper />} />
           <Route path="/evaluations" element={<EvaluationsView />} />
@@ -555,7 +562,7 @@ function MainApp() {
           <Route path="/help" element={<HelpView />} />
           <Route path="/settings" element={<Navigate to="/settings/criteria" replace />} />
           <Route path="/settings/:view" element={<SettingsWrapper />} />
-          <Route path="*" element={<Navigate to="/dashboard/overview" replace />} />
+          <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
       </main>
       <Toaster />

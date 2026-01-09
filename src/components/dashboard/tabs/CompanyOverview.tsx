@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { Card } from '../../ui/Card';
+import { MetricDonut } from '../../ui/MetricDonut';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter } from 'lucide-react';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
@@ -51,7 +52,7 @@ const getHeatmapBgColor = (score: number): string => {
   return color + Math.round(opacity * 255).toString(16).padStart(2, '0');
 };
 
-export const CompanyOverview = ({ data, employees = [] }: { data: any; employees?: any[] }) => {
+export const CompanyOverview = ({ data, competenceData, employees = [] }: { data: any; competenceData?: any; employees?: any[] }) => {
   const { 
     healthScore, 
     activeSectorsCount, 
@@ -65,8 +66,12 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
     highlightedByScore,
     highlightedBySelection,
     discPerformanceBySector,
-    discPerformanceByRole
+    discPerformanceByRole,
+    roleRanking
   } = data;
+  
+  // Dados das métricas para os scorecards
+  const metricsData = competenceData?.matrixData || [];
   
   // Funcionários mais novos e mais antigos
   const newestEmployees = useMemo(() => {
@@ -144,6 +149,9 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
       }))
       .sort((a, b) => b.average - a.average);
   }, [performanceList]);
+  
+  // Cores para gráficos (Navy Blue + Dourado em dark mode)
+  const navyGoldColors = ['#0A1128', '#162447', '#1F3A5F', '#274472', '#D4AF37', '#E5C158', '#F3E5AB', '#B8941F'];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -159,13 +167,20 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
       </div>
 
       {/* 1.1. Ranking de Setores (Barras Laterais) */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
-        <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ranking de Setores</h3>
+      <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Setores</h3>
+          <ChartInfoTooltip
+            title="Ranking de Setores"
+            description="Este gráfico mostra a média de performance de cada setor da empresa, ordenada do maior para o menor desempenho. Use para identificar quais setores estão performando melhor e quais precisam de atenção."
+            usage="Analise as barras para comparar o desempenho entre setores. Setores com barras mais longas (mais próximas de 10) têm melhor performance média."
+          />
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por setor (ordenado do maior para o menor)</p>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sectorRanking} layout="vertical" margin={{ left: 100, right: 20, top: 20, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
               <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
               <YAxis 
                 dataKey="name" 
@@ -194,11 +209,88 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
         </div>
       </div>
 
+      {/* 1.2. Ranking de Cargos (Barras Laterais) */}
+      {roleRanking && roleRanking.length > 0 && (
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Cargos</h3>
+            <ChartInfoTooltip
+              title="Ranking de Cargos"
+              description="Este gráfico mostra a média de performance de cada cargo da empresa, ordenada do maior para o menor desempenho. Use para identificar quais cargos estão performando melhor."
+              usage="Analise as barras para comparar o desempenho entre cargos. Cargos com barras mais longas têm melhor performance média."
+            />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por cargo (ordenado do maior para o menor)</p>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={roleRanking} layout="vertical" margin={{ left: 100, right: 20, top: 20, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
+                <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  width={90} 
+                  tick={{fontSize: 11, fill: '#6B7280'}} 
+                  interval={0}
+                />
+                <Tooltip 
+                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                  formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
+                  labelFormatter={(label) => `Cargo: ${label}`}
+                />
+                <Bar 
+                  dataKey="average" 
+                  fill="#D4AF37" 
+                  radius={[0, 4, 4, 0]}
+                  name="Média"
+                >
+                  {roleRanking.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={navyGoldColors[index % navyGoldColors.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* 1.3. Scorecards por Métrica (Donuts) */}
+      {metricsData && metricsData.length > 0 && (
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Pontuação por Métrica</h3>
+            <ChartInfoTooltip
+              title="Pontuação por Métrica"
+              description="Cada donut mostra a pontuação geral (média de todos os setores) de uma métrica de avaliação. Use para identificar quais competências a empresa está desenvolvendo melhor e quais precisam de mais atenção."
+              usage="Analise as cores dos donuts: verde indica boa performance (7-10), amarelo indica média (5-6), e vermelho indica baixa performance (0-4)."
+            />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Média geral de cada métrica de avaliação</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {metricsData.map((metric: any, index: number) => (
+              <MetricDonut
+                key={metric.criteria || index}
+                name={metric.criteria || 'Métrica'}
+                score={metric.average || 0}
+                maxScore={10}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2. Medidor de Saúde */}
-        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-[#1E1E1E] dark:to-[#171717] p-6 rounded-xl shadow-lg border border-gray-200 dark:border-[#121212] flex flex-col items-center justify-center relative overflow-hidden">
-          <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 absolute top-6 left-6">Saúde da Empresa</h3>
+        <div className="bg-gradient-to-br from-white to-gray-50 dark:from-navy-800 dark:to-navy-900 p-6 rounded-xl shadow-lg border border-gray-200 dark:border-navy-700 flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="absolute top-6 left-6 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Saúde da Empresa</h3>
+            <ChartInfoTooltip
+              title="Saúde da Empresa"
+              description="Este indicador mostra a média geral de todas as avaliações do período selecionado. É um indicador consolidado da performance da empresa."
+              usage="Scores acima de 8 indicam excelente saúde, entre 6-8 indicam boa saúde, e abaixo de 6 indicam necessidade de atenção."
+            />
+          </div>
           <div className="relative mt-8">
             <ResponsiveContainer width={250} height={250}>
                <PieChart>
@@ -229,8 +321,15 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
         </div>
 
         {/* 3. Distribuição de Setores (Rosca) */}
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
-           <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Setores Ativos</h3>
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+           <div className="flex items-center gap-2 mb-4">
+             <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Setores Ativos</h3>
+             <ChartInfoTooltip
+               title="Distribuição de Setores"
+               description="Este gráfico mostra a distribuição de funcionários por setor. Use para visualizar a proporção de colaboradores em cada área da empresa."
+               usage="Passe o mouse sobre cada fatia para ver detalhes. A legenda mostra todos os setores."
+             />
+           </div>
            <div className="h-64">
              <ResponsiveContainer width="100%" height="100%">
                <PieChart>
@@ -254,8 +353,15 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
         </div>
 
         {/* 4. Distribuição de Cargos (Rosca) */}
-        <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212]">
-           <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Cargos Ativos</h3>
+        <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+           <div className="flex items-center gap-2 mb-4">
+             <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Cargos Ativos</h3>
+             <ChartInfoTooltip
+               title="Distribuição de Cargos"
+               description="Este gráfico mostra a distribuição de funcionários por cargo. Use para visualizar a proporção de colaboradores em cada função."
+               usage="Passe o mouse sobre cada fatia para ver detalhes. A legenda mostra todos os cargos."
+             />
+           </div>
            <div className="h-64">
              <ResponsiveContainer width="100%" height="100%">
                <PieChart>
@@ -282,7 +388,7 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
       {/* 5. Tabela Resumo e Destaque */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          {/* Tabela Resumo com Mapa de Calor */}
-         <div className="lg:col-span-2 bg-white dark:bg-[#1E1E1E] rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] overflow-hidden">
+         <div className="lg:col-span-2 bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                <h3 className="font-bold text-gray-800 dark:text-white">Resumo de Performance (Top 10)</h3>
                <div className="flex items-center gap-2">
@@ -300,7 +406,7 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
             </div>
             <div className="overflow-x-auto">
                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 font-medium">
+                  <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 font-medium">
                      <tr>
                         <th className="p-3 text-left">Rank</th>
                         <th className="p-3 text-left">Nome</th>
@@ -367,7 +473,7 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
                   </tbody>
                </table>
             </div>
-            <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] flex items-center justify-center gap-4 text-xs">
+            <div className="p-4 border-t border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-900 flex items-center justify-center gap-4 text-xs">
                <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-600 dark:text-gray-400">Legenda:</span>
                   <div className="flex items-center gap-1">
@@ -556,7 +662,7 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Performance DISC por Setor */}
             {discPerformanceBySector && discPerformanceBySector.length > 0 && (
-              <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg p-6 border border-gray-200 dark:border-[#121212]">
+              <div className="bg-white dark:bg-navy-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-navy-700">
                 <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Performance por Setor</h4>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {discPerformanceBySector.map((item: any) => (
@@ -597,7 +703,7 @@ export const CompanyOverview = ({ data, employees = [] }: { data: any; employees
             
             {/* Performance DISC por Cargo */}
             {discPerformanceByRole && discPerformanceByRole.length > 0 && (
-              <div className="bg-white dark:bg-[#1E1E1E] rounded-xl shadow-lg p-6 border border-gray-200 dark:border-[#121212]">
+              <div className="bg-white dark:bg-navy-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-navy-700">
                 <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Performance por Cargo</h4>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {discPerformanceByRole.map((item: any) => (

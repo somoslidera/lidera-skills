@@ -5,7 +5,7 @@
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  @apply bg-skills-light text-gray-800 dark:bg-lidera-dark dark:text-gray-100 transition-colors duration-300;
+  @apply bg-skills-light text-gray-800 dark:bg-navy-900 dark:text-gray-100 transition-colors duration-300;
 }
 
 /* Scrollbar */
@@ -31,8 +31,21 @@ body {
 
 /* Bordas/Fundos com Gradiente (para botões/cards ativos) */
 .bg-brand-gradient {
-  @apply bg-gradient-to-r from-skills-blue-primary to-skills-blue-secondary dark:from-lidera-gold/80 dark:to-lidera-gold-dim;
+  @apply bg-gradient-to-r from-skills-blue-primary to-skills-blue-secondary dark:from-gold-500/80 dark:to-gold-600;
   @apply text-white dark:text-black; /* Contraste no Dark Mode */
+}
+
+/* Gradientes Navy Blue + Dourado para dark mode */
+.bg-navy-gradient {
+  @apply bg-gradient-to-br from-navy-900 via-navy-800 to-navy-700;
+}
+
+.bg-gold-gradient {
+  @apply bg-gradient-to-r from-gold-500 via-gold-400 to-gold-300;
+}
+
+.border-gold {
+  @apply border-gold-500/30 dark:border-gold-500/50;
 }
 
 .animate-fadeIn {

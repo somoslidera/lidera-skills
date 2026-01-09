@@ -174,7 +174,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     <div className="space-y-6 pb-10">
       
       {/* --- BARRA DE FILTROS SUPERIOR --- */}
-      <div className="bg-white dark:bg-[#1E1E1E] p-4 rounded-xl shadow-sm border border-gray-200 dark:border-[#121212] flex flex-col gap-4 sticky top-0 z-10">
+      <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col gap-4 sticky top-0 z-10">
         
         {/* Linha 1: Controles Principais */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
@@ -185,7 +185,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
               <div className="relative">
                 <button
                   onClick={() => setShowSectorDropdown(!showSectorDropdown)}
-                  className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between"
+                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors flex items-center justify-between"
                 >
                   <span className="truncate">
                     {selectedSectors.length === 0 ? 'Todos Setores' : `${selectedSectors.length} setor(es)`}
@@ -193,7 +193,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   <span className="text-xs text-gray-400">▼</span>
                 </button>
                 {showSectorDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-full sm:w-48 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-full sm:w-48 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     <div className="p-2">
                       <button
                         onClick={() => {
@@ -241,7 +241,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                       setShowEmployeeDropdown(true);
                     }}
                     onFocus={() => setShowEmployeeDropdown(true)}
-                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-[#121212] border border-gray-200 dark:border-gray-700 rounded-lg outline-none w-full sm:w-64 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
+                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none w-full sm:w-64 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
                   />
                   {selectedEmployees.length > 0 && (
                     <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
@@ -250,7 +250,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   )}
                 </div>
                 {showEmployeeDropdown && filteredEmployees.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-full sm:w-64 bg-white dark:bg-[#1E1E1E] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-full sm:w-64 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     <div className="p-2">
                       {filteredEmployees.slice(0, 10).map((name: string) => (
                         <label key={name} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
@@ -392,7 +392,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         </div>
 
         {/* Linha 2: Intervalo Personalizado (se necessário) */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 dark:bg-[#121212] p-2 rounded-lg border border-gray-200 dark:border-gray-800 w-fit">
+        <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 dark:bg-navy-900 p-2 rounded-lg border border-gray-200 dark:border-navy-700 w-fit">
           <Calendar size={14} />
           <span className="text-xs font-bold uppercase tracking-wide">Personalizado:</span>
           <input 
@@ -415,7 +415,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       </div>
 
       {/* --- NAVEGAÇÃO POR ABAS --- */}
-      <div className="flex space-x-1 bg-gray-200 dark:bg-gray-800 p-1 rounded-lg w-fit">
+      <div className="flex space-x-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg w-fit">
         <button
           onClick={() => {
             setActiveTab('overview');
@@ -423,7 +423,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
           }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'overview' 
-              ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
+              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
           }`}
         >
@@ -436,7 +436,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
           }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'performance' 
-              ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
+              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
           }`}
         >
@@ -449,7 +449,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
           }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'individual' 
-              ? 'bg-white dark:bg-[#1E1E1E] text-blue-600 shadow-sm' 
+              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
           }`}
         >
@@ -460,12 +460,12 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       {/* --- CONTEÚDO DAS ABAS --- */}
       <div ref={dashboardContentRef}>
         {evaluations.length === 0 ? (
-          <div className="p-10 text-center text-gray-500 bg-white dark:bg-[#1E1E1E] rounded-xl border border-dashed border-gray-300">
+          <div className="p-10 text-center text-gray-500 bg-white dark:bg-navy-800 rounded-xl border border-dashed border-gray-300 dark:border-navy-700">
             Nenhuma avaliação encontrada. Utilize a aba "Histórico" para importar dados via CSV.
           </div>
         ) : (
           <>
-            {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} employees={employees} />}
+            {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} competenceData={analytics.competenceMetrics} employees={employees} />}
             {activeTab === 'performance' && <PerformanceAnalysis data={analytics.competenceMetrics} />}
             {activeTab === 'individual' && <IndividualAnalysis data={analytics.comparativeMetrics} />}
           </>

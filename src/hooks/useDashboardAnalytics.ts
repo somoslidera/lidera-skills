@@ -266,6 +266,25 @@ export const useDashboardAnalytics = (
       };
     });
 
+    // Calcular ranking por cargo (similar ao ranking por setor)
+    const roleScores: Record<string, { sum: number; count: number }> = {};
+    filteredData.forEach((item: any) => {
+      const role = item.realRole || 'Geral';
+      if (!roleScores[role]) {
+        roleScores[role] = { sum: 0, count: 0 };
+      }
+      roleScores[role].sum += item.score || 0;
+      roleScores[role].count += 1;
+    });
+    
+    const roleRanking = Object.entries(roleScores)
+      .map(([name, data]) => ({
+        name,
+        average: data.count > 0 ? data.sum / data.count : 0,
+        count: data.count
+      }))
+      .sort((a, b) => b.average - a.average);
+
     return {
         healthScore: avg,
         totalEvaluations: total,
@@ -279,7 +298,8 @@ export const useDashboardAnalytics = (
         highlightedByScore, // Top 5 por pontuação
         highlightedBySelection, // Top 5 por seleção (destaque do mês)
         discPerformanceBySector, // Performance DISC por setor
-        discPerformanceByRole // Performance DISC por cargo
+        discPerformanceByRole, // Performance DISC por cargo
+        roleRanking // Ranking de performance por cargo
     };
   }, [filteredData]);
 
