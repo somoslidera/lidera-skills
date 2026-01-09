@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
-import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square } from 'lucide-react';
+import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { useCompany } from '../../contexts/CompanyContext';
 import { toast } from '../../utils/toast';
@@ -34,6 +34,10 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   
   // Seleção em Massa
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // Paginação tradicional
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<any>({});
@@ -46,8 +50,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     collectionName === 'companies' ||
     collectionName === 'evaluation_criteria';
 
-  // Hook de paginação
-  const pagination = usePagination({ pageSize: 20, initialLoad: 20 });
+  // Hook de paginação (para carregar todos os dados)
+  const pagination = usePagination({ pageSize: 100, initialLoad: 100 });
   const observerTarget = useRef<HTMLDivElement>(null);
 
   // Função para buscar dados paginados
@@ -67,10 +71,11 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   // Reset e recarregar quando mudar empresa ou coleção
   useEffect(() => {
     pagination.reset();
+    setCurrentPage(1); // Reset para primeira página
     fetchPaginatedData();
   }, [collectionName, currentCompany?.id]);
 
-  // Observer para scroll infinito
+  // Carregar mais dados quando necessário (scroll infinito para carregar todos os dados em background)
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -233,10 +238,20 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.size === filteredData.length) {
-      setSelectedIds(new Set());
+    // Seleciona/deseleciona apenas os itens da página atual
+    const pageIds = new Set(paginatedData.map(d => d.id));
+    const allPageSelected = paginatedData.every(d => selectedIds.has(d.id));
+    
+    if (allPageSelected) {
+      // Desmarca todos da página atual
+      const newSet = new Set(selectedIds);
+      pageIds.forEach(id => newSet.delete(id));
+      setSelectedIds(newSet);
     } else {
-      setSelectedIds(new Set(filteredData.map(d => d.id)));
+      // Marca todos da página atual
+      const newSet = new Set(selectedIds);
+      pageIds.forEach(id => newSet.add(id));
+      setSelectedIds(newSet);
     }
   };
 
@@ -288,6 +303,23 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
     }
     return processed;
   }, [pagination.items, searchTerm, activeFilters, sortConfig]);
+
+  // Dados paginados para exibição
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  // Cálculo de páginas
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const startItem = filteredData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, filteredData.length);
+
+  // Reset para primeira página quando filtros mudarem
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeFilters, sortConfig]);
 
   const renderInput = (col: ColumnConfig) => {
     const value = currentItem[col.key] || '';
@@ -417,8 +449,8 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
               <thead className="bg-gray-50 dark:bg-[#121212] text-gray-500 dark:text-gray-400 uppercase text-xs">
                 <tr>
                   <th className="px-6 py-4 w-10">
-                    <button onClick={handleSelectAll} className="text-gray-400 hover:text-blue-500">
-                       {selectedIds.size > 0 && selectedIds.size === filteredData.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                    <button onClick={handleSelectAll} className="text-gray-400 hover:text-blue-500" title="Selecionar todos da página">
+                       {paginatedData.length > 0 && paginatedData.every(d => selectedIds.has(d.id)) ? <CheckSquare size={18} className="text-blue-600" /> : <Square size={18} />}
                     </button>
                   </th>
                   <th className="px-6 py-4 whitespace-nowrap w-24">ID</th>
@@ -428,13 +460,17 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                       className="px-6 py-4 whitespace-nowrap cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group select-none"
                       onClick={() => handleSort(col.key)}
                     >
-                      <div className="flex items-center gap-1">
-                        {col.label}
-                        <span className="text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{col.label}</span>
+                        <span className="text-gray-400 flex items-center">
                           {sortConfig?.key === col.key ? (
-                            sortConfig.direction === 'asc' ? <ArrowUp size={14} className="text-blue-500" /> : <ArrowDown size={14} className="text-blue-500" />
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp size={16} className="text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <ArrowDown size={16} className="text-blue-600 dark:text-blue-400" />
+                            )
                           ) : (
-                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                            <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-60 transition-opacity" />
                           )}
                         </span>
                       </div>
@@ -448,7 +484,7 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                   <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando dados...</td></tr>
                 ) : filteredData.length === 0 ? (
                   <tr><td colSpan={columns.length + 3} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
-                ) : filteredData.map(item => (
+                ) : paginatedData.map(item => (
                   <tr key={item.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                     
                     <td className="px-6 py-4">
@@ -506,17 +542,70 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
             </table>
           </div>
           
-          {/* Indicador de scroll infinito */}
-          <div ref={observerTarget} className="h-20 flex items-center justify-center">
-            {pagination.loading && (
-              <div className="flex items-center gap-2 text-gray-500">
-                <Loader2 className="animate-spin" size={20} />
-                <span className="text-sm">Carregando mais registros...</span>
+          {/* Paginação tradicional */}
+          {filteredData.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#121212] px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Mostrando <span className="font-semibold text-gray-900 dark:text-white">{startItem}</span> a <span className="font-semibold text-gray-900 dark:text-white">{endItem}</span> de <span className="font-semibold text-gray-900 dark:text-white">{filteredData.length}</span> registros
               </div>
-            )}
-            {!pagination.hasMore && pagination.items.length > 0 && (
-              <div className="text-sm text-gray-400 py-4">
-                Todos os registros foram carregados ({pagination.items.length} total)
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1E1E1E] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Página anterior"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`min-w-[36px] px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-[#1E1E1E] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1E1E1E] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Próxima página"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Indicador de carregamento em background (invisível) */}
+          <div ref={observerTarget} className="h-1">
+            {pagination.loading && pagination.hasMore && (
+              <div className="text-xs text-gray-400 text-center py-2">
+                <Loader2 className="animate-spin inline mr-1" size={12} />
+                Carregando mais dados...
               </div>
             )}
           </div>
