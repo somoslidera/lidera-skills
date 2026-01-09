@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
   Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star, ArrowUpDown, ArrowUp, ArrowDown
@@ -582,7 +581,6 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
 // --- Subcomponente: Tabela de Avaliações com Edição em Massa ---
 const EvaluationsTable = () => {
-  const navigate = useNavigate();
   const { currentCompany } = useCompany();
   const [data, setData] = useState<EvaluationData[]>([]);
   const [filteredData, setFilteredData] = useState<EvaluationData[]>([]);
@@ -1121,12 +1119,9 @@ const EvaluationsTable = () => {
                     </div>
                   </td>
                   <td className="p-4">
-                    <button
-                      onClick={() => navigate(`/evaluations/employee/${ev.employeeId || encodeURIComponent(ev.employeeName)}`)}
-                      className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
-                    >
+                    <span className="font-bold text-gray-800 dark:text-white">
                       {ev.employeeName}
-                    </button>
+                    </span>
                   </td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>

@@ -6,7 +6,6 @@ import { CompanySelector } from './components/layout/CompanySelector';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { EvaluationHistory } from './components/dashboard/EvaluationHistory';
 import { EvaluationsView } from './components/evaluations/EvaluationsView';
-import { EmployeeHistoryView } from './components/evaluations/EmployeeHistoryView';
 import { HelpView } from './components/help/HelpView';
 import DocumentationView from './components/documentation/DocumentationView';
 import { WelcomeView } from './components/welcome/WelcomeView';
@@ -221,7 +220,6 @@ function MainAppContent() {
             
             {/* Avaliações */}
             <Route path="/evaluations" element={<EvaluationsView />} />
-            <Route path="/evaluations/employee/:employeeId" element={<EmployeeHistoryView />} />
             
             {/* Histórico */}
             <Route path="/history" element={
@@ -550,7 +548,6 @@ function MainApp() {
           <Route path="/dashboard" element={<Navigate to="/dashboard/overview" replace />} />
           <Route path="/dashboard/:tab" element={<DashboardWrapper />} />
           <Route path="/evaluations" element={<EvaluationsView />} />
-          <Route path="/evaluations/employee/:employeeName" element={<EmployeeHistoryView />} />
           <Route path="/history" element={
             <div className="animate-fade-in-up">
               <div className="mb-6 flex justify-between items-end">
