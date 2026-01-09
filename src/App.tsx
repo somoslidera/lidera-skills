@@ -221,7 +221,7 @@ function MainAppContent() {
             
             {/* Avaliações */}
             <Route path="/evaluations" element={<EvaluationsView />} />
-            <Route path="/evaluations/employee/:employeeName" element={<EmployeeHistoryView />} />
+            <Route path="/evaluations/employee/:employeeId" element={<EmployeeHistoryView />} />
             
             {/* Histórico */}
             <Route path="/history" element={

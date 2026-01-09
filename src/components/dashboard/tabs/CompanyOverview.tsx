@@ -262,117 +262,16 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
         <Card title="Afastados" value={0} icon={AlertCircle} subtitle="Mock Data" className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20" />
       </div>
 
-      {/* 1.1. Ranking de Setores (Barras Laterais) */}
-      <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Setores</h3>
-            <ChartInfoTooltip
-              title="Ranking de Setores"
-              description="Este gráfico mostra a média de performance de cada setor da empresa, ordenada do maior para o menor desempenho. Use para identificar quais setores estão performando melhor e quais precisam de atenção."
-              usage="Analise as barras para comparar o desempenho entre setores. Setores com barras mais longas (mais próximas de 10) têm melhor performance média."
-            />
-          </div>
-          <button
-            onClick={() => toggleSection('rankings')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg transition-colors"
-          >
-            {expandedSections.rankings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-          </button>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por setor (ordenado do maior para o menor)</p>
-        {expandedSections.rankings && (
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sectorRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
-              <defs>
-                {sectorRanking.map((entry: any, index: number) => {
-                  const score = entry.average;
-                  let startColor, endColor;
-                  if (score >= 9) { startColor = '#D4AF37'; endColor = '#E5C158'; }
-                  else if (score >= 8) { startColor = '#EAB308'; endColor = '#F59E0B'; }
-                  else if (score >= 7) { startColor = '#F59E0B'; endColor = '#F97316'; }
-                  else if (score >= 6) { startColor = '#F97316'; endColor = '#FB923C'; }
-                  else if (score >= 5) { startColor = '#FB923C'; endColor = '#EF4444'; }
-                  else if (score >= 4) { startColor = '#EF4444'; endColor = '#F87171'; }
-                  else if (score >= 3) { startColor = '#F87171'; endColor = '#DC2626'; }
-                  else if (score >= 2) { startColor = '#DC2626'; endColor = '#B91C1C'; }
-                  else { startColor = '#B91C1C'; endColor = '#991B1B'; }
-                  
-                  return (
-                    <linearGradient key={`gradient-sector-${index}`} id={`gradient-sector-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor={startColor} />
-                      <stop offset="100%" stopColor={endColor} />
-                    </linearGradient>
-                  );
-                })}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
-              <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
-              <YAxis 
-                dataKey="name" 
-                type="category" 
-                width={110} 
-                tick={{fontSize: 11, fill: '#6B7280'}} 
-                interval={0}
-              />
-              <Tooltip 
-                content={(props: any) => {
-                  if (!props?.active || !props?.payload || props.payload.length === 0) return null;
-                  const entry = sectorRanking.find((r: { name: string; overallAverage?: number }) => r.name === props.label);
-                  return (
-                    <CustomTooltip
-                      {...props}
-                      formatter={(value: number) => [`${Number(value).toFixed(1)}`, 'Média']}
-                      labelFormatter={(label: string) => `Setor: ${label}`}
-                      showComparison={true}
-                      averageValue={entry?.overallAverage}
-                    />
-                  );
-                }}
-                cursor={{ fill: 'rgba(255,255,255,0.1)' }}
-              />
-              <Bar 
-                dataKey="average" 
-                fill="#3B82F6" 
-                radius={[0, 4, 4, 0]}
-                name="Média"
-                isAnimationActive={true}
-                animationDuration={800}
-                animationEasing="ease-out"
-              >
-                {sectorRanking.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={`url(#gradient-sector-${index})`} />
-                ))}
-                <LabelList 
-                  dataKey="average" 
-                  position="right" 
-                  style={{ fill: '#374151', fontSize: '11px', fontWeight: 'bold' }}
-                  formatter={(value: any) => `${Number(value).toFixed(1)}`}
-                />
-                <LabelList 
-                  dataKey="name" 
-                  position="insideLeft" 
-                  style={{ fill: '#fff', fontSize: '11px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
-                  offset={10}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        )}
-      </div>
-
-      {/* 1.2. Ranking de Cargos (Barras Laterais) */}
-      {roleRanking && roleRanking.length > 0 && (
+      {/* 1.1 e 1.2. Rankings lado a lado */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Ranking de Setores */}
         <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Cargos</h3>
               <ChartInfoTooltip
-                title="Ranking de Cargos"
-                description="Este gráfico mostra a média de performance de cada cargo da empresa, ordenada do maior para o menor desempenho. Use para identificar quais cargos estão performando melhor."
-                usage="Analise as barras para comparar o desempenho entre cargos. Cargos com barras mais longas têm melhor performance média. As cores indicam o nível hierárquico do cargo."
+                title="Ranking de Setores"
+                description="Este gráfico mostra a média de performance de cada setor da empresa, ordenada do maior para o menor desempenho. Use para identificar quais setores estão performando melhor e quais precisam de atenção."
+                usage="Analise as barras para comparar o desempenho entre setores. Setores com barras mais longas (mais próximas de 10) têm melhor performance média."
               />
             </div>
             <button
@@ -382,26 +281,27 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
               {expandedSections.rankings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </button>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por cargo (ordenado do maior para o menor)</p>
           {expandedSections.rankings && (
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={roleRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
+              <BarChart data={sectorRanking} layout="vertical" margin={{ left: 0, right: 20, top: 20, bottom: 20 }}>
                 <defs>
-                  {roleRanking.map((entry: any, index: number) => {
-                    const baseColor = getRoleColorByLevel(entry.level || 'Operacional');
-                    // Criar gradiente baseado na cor do nível
-                    let endColor = baseColor;
-                    if (baseColor === '#8B5CF6') endColor = '#A78BFA'; // Estratégico
-                    else if (baseColor === '#6366F1') endColor = '#818CF8'; // Tático
-                    else if (baseColor === '#3B82F6') endColor = '#60A5FA'; // Líder
-                    else if (baseColor === '#10B981') endColor = '#34D399'; // Operacional
-                    else if (baseColor === '#F59E0B') endColor = '#FBBF24'; // Colaborador
-                    else endColor = '#9CA3AF'; // Default
+                  {sectorRanking.map((entry: any, index: number) => {
+                    const score = entry.average;
+                    let startColor, endColor;
+                    if (score >= 9) { startColor = '#D4AF37'; endColor = '#E5C158'; }
+                    else if (score >= 8) { startColor = '#EAB308'; endColor = '#F59E0B'; }
+                    else if (score >= 7) { startColor = '#F59E0B'; endColor = '#F97316'; }
+                    else if (score >= 6) { startColor = '#F97316'; endColor = '#FB923C'; }
+                    else if (score >= 5) { startColor = '#FB923C'; endColor = '#EF4444'; }
+                    else if (score >= 4) { startColor = '#EF4444'; endColor = '#F87171'; }
+                    else if (score >= 3) { startColor = '#F87171'; endColor = '#DC2626'; }
+                    else if (score >= 2) { startColor = '#DC2626'; endColor = '#B91C1C'; }
+                    else { startColor = '#B91C1C'; endColor = '#991B1B'; }
                     
                     return (
-                      <linearGradient key={`gradient-role-${index}`} id={`gradient-role-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor={baseColor} />
+                      <linearGradient key={`gradient-sector-${index}`} id={`gradient-sector-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor={startColor} />
                         <stop offset="100%" stopColor={endColor} />
                       </linearGradient>
                     );
@@ -412,19 +312,19 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 <YAxis 
                   dataKey="name" 
                   type="category" 
-                  width={110} 
-                  tick={{fontSize: 11, fill: '#6B7280'}} 
-                  interval={0}
+                  width={0} 
+                  tick={false}
+                  axisLine={false}
                 />
                 <Tooltip 
                   content={(props: any) => {
-                    if (!props.active || !props.payload || props.payload.length === 0) return null;
-                    const entry = roleRanking.find((r: any) => r.name === props.label);
+                    if (!props?.active || !props?.payload || props.payload.length === 0) return null;
+                    const entry = sectorRanking.find((r: { name: string; overallAverage?: number }) => r.name === props.label);
                     return (
                       <CustomTooltip
                         {...props}
-                        formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
-                        labelFormatter={(label) => `Cargo: ${label}`}
+                        formatter={(value: number) => [`${Number(value).toFixed(1)}`, 'Média']}
+                        labelFormatter={(label: string) => `Setor: ${label}`}
                         showComparison={true}
                         averageValue={entry?.overallAverage}
                       />
@@ -434,21 +334,27 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 />
                 <Bar 
                   dataKey="average" 
-                  fill="#D4AF37" 
+                  fill="#3B82F6" 
                   radius={[0, 4, 4, 0]}
                   name="Média"
                   isAnimationActive={true}
                   animationDuration={800}
                   animationEasing="ease-out"
                 >
-                  {roleRanking.map((entry: any, index: number) => (
-                    <Cell key={`cell-${entry.name}`} fill={`url(#gradient-role-${index})`} />
+                  {sectorRanking.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={`url(#gradient-sector-${index})`} />
                   ))}
                   <LabelList 
                     dataKey="name" 
                     position="insideLeft" 
-                    style={{ fill: '#fff', fontSize: '11px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
-                    offset={10}
+                    style={{ fill: '#fff', fontSize: '12px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                    offset={15}
+                  />
+                  <LabelList 
+                    dataKey="average" 
+                    position="right" 
+                    style={{ fill: '#374151', fontSize: '11px', fontWeight: 'bold' }}
+                    formatter={(value: any) => `${Number(value).toFixed(1)}`}
                   />
                 </Bar>
               </BarChart>
@@ -456,7 +362,124 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
           </div>
           )}
         </div>
-      )}
+
+        {/* Ranking de Cargos */}
+        {roleRanking && roleRanking.length > 0 && (
+          <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ChartInfoTooltip
+                  title="Ranking de Cargos"
+                  description="Este gráfico mostra a média de performance de cada cargo da empresa, ordenada do maior para o menor desempenho. Use para identificar quais cargos estão performando melhor."
+                  usage="Analise as barras para comparar o desempenho entre cargos. Cargos com barras mais longas têm melhor performance média. As cores indicam o nível hierárquico do cargo."
+                />
+              </div>
+              <button
+                onClick={() => toggleSection('rankings')}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg transition-colors"
+              >
+                {expandedSections.rankings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
+            </div>
+            {expandedSections.rankings && (
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={roleRanking} layout="vertical" margin={{ left: 0, right: 20, top: 20, bottom: 20 }}>
+                  <defs>
+                    {roleRanking.map((entry: any, index: number) => {
+                      const baseColor = getRoleColorByLevel(entry.level || 'Operacional');
+                      // Criar gradiente baseado na cor do nível
+                      let endColor = baseColor;
+                      if (baseColor === '#8B5CF6') endColor = '#A78BFA'; // Estratégico
+                      else if (baseColor === '#6366F1') endColor = '#818CF8'; // Tático
+                      else if (baseColor === '#3B82F6') endColor = '#60A5FA'; // Líder
+                      else if (baseColor === '#10B981') endColor = '#34D399'; // Operacional
+                      else if (baseColor === '#F59E0B') endColor = '#FBBF24'; // Colaborador
+                      else endColor = '#9CA3AF'; // Default
+                      
+                      return (
+                        <linearGradient key={`gradient-role-${index}`} id={`gradient-role-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor={baseColor} />
+                          <stop offset="100%" stopColor={endColor} />
+                        </linearGradient>
+                      );
+                    })}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
+                  <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    width={0} 
+                    tick={false}
+                    axisLine={false}
+                  />
+                  <Tooltip 
+                    content={(props: any) => {
+                      if (!props.active || !props.payload || props.payload.length === 0) return null;
+                      const entry = roleRanking.find((r: any) => r.name === props.label);
+                      return (
+                        <CustomTooltip
+                          {...props}
+                          formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
+                          labelFormatter={(label) => `Cargo: ${label}`}
+                          showComparison={true}
+                          averageValue={entry?.overallAverage}
+                        />
+                      );
+                    }}
+                    cursor={{ fill: 'rgba(255,255,255,0.1)' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '10px' }}
+                    formatter={(value, entry: any) => {
+                      const level = entry.payload?.level || 'Operacional';
+                      const color = getRoleColorByLevel(level);
+                      return (
+                        <span style={{ color }}>
+                          {level}
+                        </span>
+                      );
+                    }}
+                    payload={Array.from(new Set(roleRanking.map((r: any) => r.level || 'Operacional'))).map((level: string) => ({
+                      value: level,
+                      type: 'square',
+                      color: getRoleColorByLevel(level),
+                      payload: { level }
+                    }))}
+                  />
+                  <Bar 
+                    dataKey="average" 
+                    fill="#D4AF37" 
+                    radius={[0, 4, 4, 0]}
+                    name="Média"
+                    isAnimationActive={true}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                  >
+                    {roleRanking.map((entry: any, index: number) => (
+                      <Cell key={`cell-${entry.name}`} fill={`url(#gradient-role-${index})`} />
+                    ))}
+                    <LabelList 
+                      dataKey="name" 
+                      position="insideLeft" 
+                      style={{ fill: '#fff', fontSize: '12px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                      offset={15}
+                    />
+                    <LabelList 
+                      dataKey="average" 
+                      position="right" 
+                      style={{ fill: '#374151', fontSize: '11px', fontWeight: 'bold' }}
+                      formatter={(value: any) => `${Number(value).toFixed(1)}`}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 1.3. Scorecards por Critério de Avaliação (Donuts) */}
       {metricsData && metricsData.length > 0 && (
@@ -479,7 +502,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Média geral de cada critério de avaliação (ordenado alfabeticamente)</p>
           {expandedSections.scorecards && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className={`grid gap-3 ${metricsData.length > 32 ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'}`}>
             {[...metricsData].sort((a: any, b: any) => {
               const nameA = (a.criteria || '').toLowerCase();
               const nameB = (b.criteria || '').toLowerCase();
@@ -493,33 +516,34 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
               else if (score >= 5) color = '#F59E0B'; // Laranja
               
               return (
-                <div key={metric.criteria || index} className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col items-center">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center line-clamp-2 min-h-[2.5rem]">
+                <div key={metric.criteria || index} className="bg-white dark:bg-navy-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col items-center">
+                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 text-center line-clamp-2 min-h-[2rem]">
                     {metric.criteria || 'Critério'}
                   </h4>
-                  <div className="relative w-32 h-32">
+                  <div className="relative w-24 h-24">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={[{ value: score }, { value: 10 - score }]}
                           cx="50%"
                           cy="50%"
-                          innerRadius={35}
-                          outerRadius={50}
+                          innerRadius={25}
+                          outerRadius={35}
                           startAngle={180}
                           endAngle={0}
                           dataKey="value"
+                          isAnimationActive={true}
+                          animationDuration={600}
+                          animationEasing="ease-out"
                         >
                           <Cell fill={color} />
                           <Cell fill="#e5e7eb" />
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold" style={{ color }}>
-                        {score.toFixed(1)}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">de 10</span>
+                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center">
+                      <span className={`text-lg font-bold ${getLuminance(color) > 128 ? 'text-gray-800' : 'text-white'}`}>{score.toFixed(1)}</span>
+                      <span className="block text-[10px] text-gray-400">de 10</span>
                     </div>
                   </div>
                 </div>
@@ -716,24 +740,18 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                          const colorInfo = getHeatmapColor(score);
                          // Verificar funcionarioMes: pode ser 'Sim', 'sim', 'SIM', true, ou boolean
                          const funcionarioMesValue = item.funcionarioMes || item.funcionario_mes || false;
-                         const isDestaque = funcionarioMesValue === 'Sim' || 
+                         const isDestaqueSelecao = funcionarioMesValue === 'Sim' || 
                                            funcionarioMesValue === 'sim' || 
                                            funcionarioMesValue === 'SIM' ||
                                            funcionarioMesValue === true ||
                                            funcionarioMesValue === 'true';
+                         // Verificar se está no top 5 por pontuação
+                         const isDestaquePontuacao = idx < 5;
                          
                          return (
                            <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <td className="p-3 text-gray-400 font-mono text-xs">#{idx + 1}</td>
-                              <td className="p-3 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                 {isDestaque && (
-                                   <div className="relative group">
-                                     <Star size={16} className="text-yellow-500 dark:text-yellow-400 fill-yellow-500 dark:fill-yellow-400" />
-                                     <span className="absolute left-6 top-0 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                                       Funcionário Destaque do Mês
-                                     </span>
-                                   </div>
-                                 )}
+                              <td className="p-3 font-medium text-gray-700 dark:text-gray-300">
                                  {item.realName}
                               </td>
                               <td className="p-3 text-gray-500">{item.realSector}</td>
@@ -752,6 +770,12 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                                     }}
                                  >
                                     {score.toFixed(1)}
+                                 </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                 <div className="flex items-center justify-center gap-1">
+                                    {isDestaqueSelecao && <span className="text-lg" title="Destaque por Seleção">⭐</span>}
+                                    {isDestaquePontuacao && <span className="text-lg" title="Destaque por Pontuação">🏆</span>}
                                  </div>
                               </td>
                            </tr>
@@ -845,6 +869,9 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                            </div>
                            <div className="text-right flex-shrink-0">
                               <p className="text-lg font-bold">{emp.score?.toFixed(1) || '0.0'}</p>
+                              {emp.highlightCount > 1 && (
+                                 <p className="text-xs text-yellow-200">({emp.highlightCount}x)</p>
+                              )}
                            </div>
                         </div>
                      ))

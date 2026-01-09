@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, Area, AreaChart, ReferenceLine, ReferenceArea, Brush
+  BarChart, Bar, Area, AreaChart, ReferenceLine, ReferenceArea, Brush, Cell, LabelList
 } from 'recharts';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
@@ -418,27 +418,27 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
              </div>
              <div className="p-4 border-t border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
                 <div className="flex items-center justify-center gap-2 mb-2">
-                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Formato</span>
+                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Legenda de Cores</span>
                 </div>
                 <div className="flex items-center justify-center">
-                   {/* Gradiente de 10 segmentos */}
+                   {/* Gradiente dourado->vermelho (melhor->pior) */}
                    <div className="flex h-8 w-full max-w-2xl">
-                      <div className="flex-1" style={{ backgroundColor: '#DC2626' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#EF4444' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#FB923C' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#F97316' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#F59E0B' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#EAB308' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#84CC16' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#4ADE80' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#22C55E' }}></div>
-                      <div className="flex-1" style={{ backgroundColor: '#166534' }}></div>
+                      <div className="flex-1" style={{ backgroundColor: '#D4AF37' }} title="9.0-10.0"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#EAB308' }} title="8.0-8.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#F59E0B' }} title="7.0-7.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#F97316' }} title="6.0-6.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#FB923C' }} title="5.0-5.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#EF4444' }} title="4.0-4.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#F87171' }} title="3.0-3.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#DC2626' }} title="2.0-2.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#B91C1C' }} title="1.0-1.9"></div>
+                      <div className="flex-1" style={{ backgroundColor: '#991B1B' }} title="0.0-0.9"></div>
                    </div>
                 </div>
                 <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-gray-500 dark:text-gray-400">
-                   <span>0</span>
+                   <span>10 (Melhor)</span>
                    <span>5</span>
-                   <span>10</span>
+                   <span>0 (Pior)</span>
                 </div>
              </div>
           </div>

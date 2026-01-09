@@ -1,42 +1,91 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, Award, User } from 'lucide-react';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine, ReferenceArea } from 'recharts';
+import { CustomTooltip } from '../ui/CustomTooltip';
 
 export const EmployeeHistoryView: React.FC = () => {
-  const { employeeName } = useParams<{ employeeName: string }>();
+  const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
   const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [allEvaluations, setAllEvaluations] = useState<any[]>([]); // Todas as avaliações para comparação
+  const [employee, setEmployee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadEmployeeHistory = async () => {
-      if (!currentCompany || !employeeName) return;
+      if (!currentCompany || !employeeId) return;
       
       try {
         setLoading(true);
+        
+        // Buscar dados do funcionário
+        try {
+          const empDoc = await getDoc(doc(db, 'employees', employeeId));
+          if (empDoc.exists()) {
+            setEmployee({ id: empDoc.id, ...empDoc.data() });
+          }
+        } catch (err) {
+          console.warn('Funcionário não encontrado por ID, tentando buscar por nome...');
+        }
+
+        // Buscar avaliações do funcionário
         let q;
         if (currentCompany.id === 'all') {
           q = query(
             collection(db, 'evaluations'),
-            where('employeeName', '==', decodeURIComponent(employeeName))
+            where('employeeId', '==', employeeId)
           );
         } else {
           q = query(
             collection(db, 'evaluations'),
             where('companyId', '==', currentCompany.id),
-            where('employeeName', '==', decodeURIComponent(employeeName))
+            where('employeeId', '==', employeeId)
           );
         }
         
         const snap = await getDocs(q);
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        data.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        setEvaluations(data);
+        let employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        
+        // Se não encontrou por ID, tenta por nome (fallback)
+        if (employeeEvals.length === 0) {
+          const decodedName = decodeURIComponent(employeeId);
+          if (currentCompany.id === 'all') {
+            q = query(
+              collection(db, 'evaluations'),
+              where('employeeName', '==', decodedName)
+            );
+          } else {
+            q = query(
+              collection(db, 'evaluations'),
+              where('companyId', '==', currentCompany.id),
+              where('employeeName', '==', decodedName)
+            );
+          }
+          const snap2 = await getDocs(q);
+          employeeEvals = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        }
+        
+        employeeEvals.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setEvaluations(employeeEvals);
+
+        // Buscar todas as avaliações da empresa para comparação
+        let allEvalsQuery;
+        if (currentCompany.id === 'all') {
+          allEvalsQuery = query(collection(db, 'evaluations'));
+        } else {
+          allEvalsQuery = query(
+            collection(db, 'evaluations'),
+            where('companyId', '==', currentCompany.id)
+          );
+        }
+        const allSnap = await getDocs(allEvalsQuery);
+        const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setAllEvaluations(allEvals);
       } catch (error) {
         console.error('Erro ao carregar histórico:', error);
       } finally {
@@ -45,16 +94,62 @@ export const EmployeeHistoryView: React.FC = () => {
     };
 
     loadEmployeeHistory();
-  }, [currentCompany, employeeName]);
+  }, [currentCompany, employeeId]);
+
+  // Calcular médias por setor e empresa por mês
+  const comparisonData = useMemo(() => {
+    if (!evaluations.length || !allEvaluations.length) return {};
+
+    const sector = evaluations[0]?.sector || employee?.sector || '';
+    const comparisons: Record<string, { sectorAvg: number; companyAvg: number }> = {};
+
+    // Agrupar avaliações por mês
+    const monthlyGroups: Record<string, any[]> = {};
+    allEvaluations.forEach((eval: any) => {
+      const monthKey = eval.date?.substring(0, 7) || ''; // YYYY-MM
+      if (!monthlyGroups[monthKey]) {
+        monthlyGroups[monthKey] = [];
+      }
+      monthlyGroups[monthKey].push(eval);
+    });
+
+    // Calcular médias por mês
+    Object.keys(monthlyGroups).forEach(monthKey => {
+      const monthEvals = monthlyGroups[monthKey];
+      
+      // Média do setor
+      const sectorEvals = monthEvals.filter((e: any) => (e.sector || '') === sector);
+      const sectorAvg = sectorEvals.length > 0
+        ? sectorEvals.reduce((sum: number, e: any) => sum + (typeof e.average === 'number' ? e.average : parseFloat(String(e.average)) || 0), 0) / sectorEvals.length
+        : 0;
+
+      // Média da empresa
+      const companyAvg = monthEvals.length > 0
+        ? monthEvals.reduce((sum: number, e: any) => sum + (typeof e.average === 'number' ? e.average : parseFloat(String(e.average)) || 0), 0) / monthEvals.length
+        : 0;
+
+      comparisons[monthKey] = { sectorAvg, companyAvg };
+    });
+
+    return comparisons;
+  }, [evaluations, allEvaluations, employee]);
 
   // Preparar dados para gráfico de evolução
   const chartData = useMemo(() => {
-    return evaluations.map((evaluation: any) => ({
-      date: new Date(evaluation.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
-      average: typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average)),
-      fullDate: evaluation.date
-    }));
-  }, [evaluations]);
+    return evaluations.map((evaluation: any) => {
+      const monthKey = evaluation.date?.substring(0, 7) || '';
+      const comparison = comparisonData[monthKey] || { sectorAvg: 0, companyAvg: 0 };
+      
+      return {
+        date: new Date(evaluation.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+        month: monthKey,
+        average: typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average)),
+        sectorAvg: comparison.sectorAvg,
+        companyAvg: comparison.companyAvg,
+        fullDate: evaluation.date
+      };
+    });
+  }, [evaluations, comparisonData]);
 
   // Obter todos os critérios únicos
   const allCriteria = useMemo(() => {
@@ -67,6 +162,32 @@ export const EmployeeHistoryView: React.FC = () => {
     return Array.from(criteriaSet).sort();
   }, [evaluations]);
 
+  // Calcular tempo de empresa
+  const tenureInfo = useMemo(() => {
+    if (!employee?.admissionDate) return null;
+    
+    const admission = new Date(employee.admissionDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - admission.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const years = Math.floor(diffDays / 365);
+    const months = Math.floor((diffDays % 365) / 30);
+    
+    return {
+      years,
+      months,
+      days: diffDays,
+      formatted: years > 0 ? `${years} ano${years > 1 ? 's' : ''} e ${months} mês${months > 1 ? 'es' : ''}` : `${months} mês${months > 1 ? 'es' : ''}`
+    };
+  }, [employee]);
+
+  // Formatar mês da avaliação
+  const formatMonth = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -75,9 +196,12 @@ export const EmployeeHistoryView: React.FC = () => {
     );
   }
 
-  const decodedName = employeeName ? decodeURIComponent(employeeName) : 'Colaborador';
+  const employeeName = employee?.name || evaluations[0]?.employeeName || 'Colaborador';
   const latestEval = evaluations[evaluations.length - 1];
   const firstEval = evaluations[0];
+  const overallAverage = evaluations.length > 0
+    ? evaluations.reduce((sum: number, e: any) => sum + (typeof e.average === 'number' ? e.average : parseFloat(String(e.average)) || 0), 0) / evaluations.length
+    : 0;
 
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
@@ -89,11 +213,31 @@ export const EmployeeHistoryView: React.FC = () => {
         >
           <ArrowLeft size={24} />
         </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{decodedName}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Histórico completo de avaliações
-          </p>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{employeeName}</h1>
+          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {employee?.sector && (
+              <span>Setor: {employee.sector}</span>
+            )}
+            {employee?.role && (
+              <span>Cargo: {employee.role}</span>
+            )}
+            {employee?.jobLevel && (
+              <span>Nível: {employee.jobLevel}</span>
+            )}
+            {employee?.discProfile && (
+              <span className="flex items-center gap-1">
+                <User size={14} />
+                Perfil DISC: <span className="font-semibold text-gray-700 dark:text-gray-300">{employee.discProfile}</span>
+              </span>
+            )}
+            {tenureInfo && (
+              <span className="flex items-center gap-1">
+                <Calendar size={14} />
+                Tempo de Empresa: <span className="font-semibold text-gray-700 dark:text-gray-300">{tenureInfo.formatted}</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -107,25 +251,25 @@ export const EmployeeHistoryView: React.FC = () => {
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Média Geral</p>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">
-              {evaluations.reduce((sum: number, e: any) => sum + (typeof e.average === 'number' ? e.average : parseFloat(String(e.average))), 0) / evaluations.length || 0}
+              {overallAverage.toFixed(2)}
             </p>
           </div>
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Primeira Avaliação</p>
             <p className="text-lg font-semibold text-gray-800 dark:text-white">
-              {firstEval ? new Date(firstEval.date).toLocaleDateString('pt-BR') : '-'}
+              {firstEval ? formatMonth(firstEval.date) : '-'}
             </p>
           </div>
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Última Avaliação</p>
             <p className="text-lg font-semibold text-gray-800 dark:text-white">
-              {latestEval ? new Date(latestEval.date).toLocaleDateString('pt-BR') : '-'}
+              {latestEval ? formatMonth(latestEval.date) : '-'}
             </p>
           </div>
         </div>
       )}
 
-      {/* Gráfico de Evolução da Média */}
+      {/* Gráfico de Evolução da Média com Comparações */}
       {chartData.length > 0 && (
         <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
           <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Evolução da Média Geral</h2>
@@ -137,19 +281,33 @@ export const EmployeeHistoryView: React.FC = () => {
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4}/>
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                   </linearGradient>
+                  <linearGradient id="gradientSector" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="gradientCompany" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="date" stroke="#6b7280" />
                 <YAxis domain={[0, 10]} stroke="#6b7280" />
                 <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1f2937', 
-                    border: 'none', 
-                    borderRadius: '8px',
-                    color: '#fff',
-                    padding: '12px',
-                    fontSize: '14px'
-                  }} 
+                  content={(props: any) => {
+                    if (!props?.active || !props?.payload || props.payload.length === 0) return null;
+                    return (
+                      <CustomTooltip
+                        {...props}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'average') return [`${Number(value).toFixed(2)}`, 'Funcionário'];
+                          if (name === 'sectorAvg') return [`${Number(value).toFixed(2)}`, 'Setor'];
+                          if (name === 'companyAvg') return [`${Number(value).toFixed(2)}`, 'Empresa'];
+                          return [`${Number(value).toFixed(2)}`, name];
+                        }}
+                      />
+                    );
+                  }}
                 />
                 <Legend />
                 {/* Zonas de referência */}
@@ -165,8 +323,36 @@ export const EmployeeHistoryView: React.FC = () => {
                   strokeWidth={2}
                   fill="url(#gradientAverage)"
                   fillOpacity={1}
-                  name="Média"
+                  name="Funcionário"
                   dot={{ fill: '#3B82F6', r: 4 }}
+                  isAnimationActive={true}
+                  animationDuration={1000}
+                  animationEasing="ease-out"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="sectorAvg" 
+                  stroke="#10B981" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  fill="url(#gradientSector)"
+                  fillOpacity={0.5}
+                  name="Média do Setor"
+                  dot={{ fill: '#10B981', r: 3 }}
+                  isAnimationActive={true}
+                  animationDuration={1000}
+                  animationEasing="ease-out"
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="companyAvg" 
+                  stroke="#F59E0B" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  fill="url(#gradientCompany)"
+                  fillOpacity={0.5}
+                  name="Média da Empresa"
+                  dot={{ fill: '#F59E0B', r: 3 }}
                   isAnimationActive={true}
                   animationDuration={1000}
                   animationEasing="ease-out"
@@ -177,7 +363,7 @@ export const EmployeeHistoryView: React.FC = () => {
         </div>
       )}
 
-      {/* Tabela Detalhada por Critério */}
+      {/* Tabela Detalhada por Critério com Comparações */}
       {evaluations.length > 0 && allCriteria.length > 0 && (
         <div className="bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-navy-700">
@@ -187,26 +373,35 @@ export const EmployeeHistoryView: React.FC = () => {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-navy-900">
                 <tr>
-                  <th className="p-3 text-left text-gray-500 dark:text-gray-400 font-medium">Data</th>
+                  <th className="p-3 text-left text-gray-500 dark:text-gray-400 font-medium">Mês</th>
                   {allCriteria.map(criteria => (
                     <th key={criteria} className="p-3 text-center text-gray-500 dark:text-gray-400 font-medium min-w-[100px]">
                       {criteria}
                     </th>
                   ))}
                   <th className="p-3 text-center text-gray-500 dark:text-gray-400 font-medium">Média</th>
+                  <th className="p-3 text-center text-gray-500 dark:text-gray-400 font-medium">vs Setor</th>
+                  <th className="p-3 text-center text-gray-500 dark:text-gray-400 font-medium">vs Empresa</th>
+                  <th className="p-3 text-center text-gray-500 dark:text-gray-400 font-medium">Evolução</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-navy-700">
                 {evaluations.map((evaluation: any, index: number) => {
-                  const avg = typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average));
+                  const avg = typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average)) || 0;
                   const prevEvaluation = evaluations[index - 1];
-                  const prevAvg = prevEvaluation ? (typeof prevEvaluation.average === 'number' ? prevEvaluation.average : parseFloat(String(prevEvaluation.average))) : null;
+                  const prevAvg = prevEvaluation ? (typeof prevEvaluation.average === 'number' ? prevEvaluation.average : parseFloat(String(prevEvaluation.average)) || 0) : null;
                   const diff = prevAvg !== null ? avg - prevAvg : 0;
+                  const diffPercent = prevAvg !== null && prevAvg > 0 ? ((diff / prevAvg) * 100) : 0;
+                  
+                  const monthKey = evaluation.date?.substring(0, 7) || '';
+                  const comparison = comparisonData[monthKey] || { sectorAvg: 0, companyAvg: 0 };
+                  const vsSector = avg - comparison.sectorAvg;
+                  const vsCompany = avg - comparison.companyAvg;
                   
                   return (
                     <tr key={evaluation.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
                       <td className="p-3 text-gray-700 dark:text-gray-300">
-                        {new Date(evaluation.date).toLocaleDateString('pt-BR')}
+                        {formatMonth(evaluation.date)}
                       </td>
                       {allCriteria.map(criteria => {
                         const score = evaluation.details?.[criteria] || 0;
@@ -223,25 +418,56 @@ export const EmployeeHistoryView: React.FC = () => {
                         );
                       })}
                       <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className={`font-bold text-lg ${
-                            avg >= 8 ? 'text-green-600 dark:text-green-400' :
-                            avg >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
-                            'text-red-600 dark:text-red-400'
-                          }`}>
-                            {avg.toFixed(1)}
-                          </span>
-                          {prevAvg !== null && (
-                            <span className={`flex items-center gap-1 text-xs ${
+                        <span className={`font-bold text-lg ${
+                          avg >= 8 ? 'text-green-600 dark:text-green-400' :
+                          avg >= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                          'text-red-600 dark:text-red-400'
+                        }`}>
+                          {avg.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`font-semibold ${
+                          vsSector > 0 ? 'text-green-600 dark:text-green-400' :
+                          vsSector < 0 ? 'text-red-600 dark:text-red-400' :
+                          'text-gray-400'
+                        }`}>
+                          {vsSector > 0 ? '+' : ''}{vsSector.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`font-semibold ${
+                          vsCompany > 0 ? 'text-green-600 dark:text-green-400' :
+                          vsCompany < 0 ? 'text-red-600 dark:text-red-400' :
+                          'text-gray-400'
+                        }`}>
+                          {vsCompany > 0 ? '+' : ''}{vsCompany.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        {prevAvg !== null ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`flex items-center gap-1 text-xs font-semibold ${
                               diff > 0 ? 'text-green-600 dark:text-green-400' :
                               diff < 0 ? 'text-red-600 dark:text-red-400' :
                               'text-gray-400'
                             }`}>
-                              {diff > 0 ? <TrendingUp size={14} /> : diff < 0 ? <TrendingDown size={14} /> : <Minus size={14} />}
-                              {diff !== 0 && Math.abs(diff).toFixed(1)}
+                              {diff > 0 ? <TrendingUp size={12} /> : diff < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
+                              {diff !== 0 && `${diff > 0 ? '+' : ''}${diff.toFixed(2)}`}
+                              {diff === 0 && '0.00'}
                             </span>
-                          )}
-                        </div>
+                            <span className={`text-[10px] ${
+                              diffPercent > 0 ? 'text-green-600 dark:text-green-400' :
+                              diffPercent < 0 ? 'text-red-600 dark:text-red-400' :
+                              'text-gray-400'
+                            }`}>
+                              {diffPercent !== 0 && `${diffPercent > 0 ? '+' : ''}${diffPercent.toFixed(1)}%`}
+                              {diffPercent === 0 && '0.0%'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
                       </td>
                     </tr>
                   );

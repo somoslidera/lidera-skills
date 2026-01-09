@@ -184,16 +184,54 @@ export const useDashboardAnalytics = (
     const topEmployee = sortedByScore[0];
     
     // Destaques por Seleção (funcionarioMes === 'Sim')
-    const highlightedBySelection = filteredData
+    // Agrupar por funcionário e contar quantas vezes foi destaque
+    const selectionMap = new Map<string, { employee: any; count: number }>();
+    filteredData
       .filter(item => {
         const value = item.funcionarioMes || item.funcionario_mes;
         return value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM';
       })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5); // Top 5 por seleção
+      .forEach(item => {
+        const key = item.realName || item.employeeName;
+        if (!selectionMap.has(key)) {
+          selectionMap.set(key, { employee: item, count: 0 });
+        }
+        selectionMap.get(key)!.count++;
+      });
+    
+    const highlightedBySelection = Array.from(selectionMap.values())
+      .sort((a, b) => b.employee.score - a.employee.score)
+      .slice(0, 5)
+      .map(({ employee, count }) => ({ ...employee, highlightCount: count }));
     
     // Destaques por Pontuação (top 5 por nota)
-    const highlightedByScore = sortedByScore.slice(0, 5);
+    // Agrupar por funcionário e contar quantas vezes foi top 5
+    const scoreMap = new Map<string, { employee: any; count: number }>();
+    sortedByScore.slice(0, 5).forEach(item => {
+      const key = item.realName || item.employeeName;
+      if (!scoreMap.has(key)) {
+        scoreMap.set(key, { employee: item, count: 0 });
+      }
+      scoreMap.get(key)!.count++;
+    });
+    
+    // Também contar todas as vezes que cada funcionário foi top 5 em qualquer período
+    filteredData.forEach(item => {
+      const sorted = [...filteredData].sort((a, b) => b.score - a.score);
+      const top5Names = sorted.slice(0, 5).map(i => i.realName || i.employeeName);
+      const key = item.realName || item.employeeName;
+      if (top5Names.includes(key)) {
+        if (!scoreMap.has(key)) {
+          scoreMap.set(key, { employee: item, count: 0 });
+        }
+        scoreMap.get(key)!.count++;
+      }
+    });
+    
+    const highlightedByScore = Array.from(scoreMap.values())
+      .sort((a, b) => b.employee.score - a.employee.score)
+      .slice(0, 5)
+      .map(({ employee, count }) => ({ ...employee, highlightCount: count }));
     
     const performanceList = sortedByScore.slice(0, 10).map(item => ({
       ...item,

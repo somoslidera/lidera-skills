@@ -1117,7 +1117,7 @@ const EvaluationsTable = () => {
                   </td>
                   <td className="p-4">
                     <button
-                      onClick={() => navigate(`/evaluations/employee/${encodeURIComponent(ev.employeeName)}`)}
+                      onClick={() => navigate(`/evaluations/employee/${ev.employeeId || encodeURIComponent(ev.employeeName)}`)}
                       className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
                     >
                       {ev.employeeName}
