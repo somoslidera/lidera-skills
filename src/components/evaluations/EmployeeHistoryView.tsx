@@ -133,23 +133,39 @@ export const EmployeeHistoryView: React.FC = () => {
           const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
           
           // Filtrar manualmente por múltiplos critérios
+          // employeeId na avaliação pode ser: código do funcionário (ex: "17e2e57e"), ID do documento, ou employeeCode
+          // employeeName na avaliação pode ser: nome completo do funcionário
+          // evaluationId também pode conter o código do funcionário
           employeeEvals = allEvals.filter((evaluation: any) => {
-            const evEmployeeId = evaluation.employeeId || '';
+            const evEmployeeId = (evaluation.employeeId || '').toString().toLowerCase().trim();
             const evEmployeeName = (evaluation.employeeName || '').toLowerCase().trim();
-            const evEmployeeCode = evaluation.employeeCode || '';
+            const evEmployeeCode = (evaluation.employeeCode || '').toString().toLowerCase().trim();
+            const evEvaluationId = (evaluation.evaluationId || '').toString().toLowerCase().trim();
             
-            const searchId = employeeId.toLowerCase();
+            const searchId = employeeId.toLowerCase().trim();
             const searchNameLower = searchName.toLowerCase().trim();
-            const searchCode = employeeCode ? employeeCode.toLowerCase() : '';
-            const searchFoundId = foundEmployee?.id ? foundEmployee.id.toLowerCase() : '';
+            const searchCode = employeeCode ? employeeCode.toString().toLowerCase().trim() : '';
+            const searchFoundId = foundEmployee?.id ? foundEmployee.id.toLowerCase().trim() : '';
+            const searchFoundCode = foundEmployee?.employeeCode ? foundEmployee.employeeCode.toString().toLowerCase().trim() : '';
             
-            return evEmployeeId.toLowerCase() === searchId ||
-                   evEmployeeId.toLowerCase() === searchFoundId ||
-                   evEmployeeId.toLowerCase() === searchCode ||
+            // Múltiplas comparações possíveis
+            // 1. employeeId da avaliação pode ser o código do funcionário (ex: "17e2e57e")
+            // 2. employeeId da avaliação pode ser o ID do documento do funcionário
+            // 3. employeeId da avaliação pode ser o employeeCode
+            // 4. evaluationId pode ser o código do funcionário
+            // 5. employeeName deve corresponder ao nome do funcionário
+            // 6. employeeCode da avaliação deve corresponder ao employeeCode do funcionário
+            return evEmployeeId === searchId ||
+                   evEmployeeId === searchFoundId ||
+                   evEmployeeId === searchCode ||
+                   evEmployeeId === searchFoundCode ||
+                   evEvaluationId === searchId ||
+                   evEvaluationId === searchFoundId ||
+                   evEvaluationId === searchCode ||
+                   evEvaluationId === searchFoundCode ||
                    evEmployeeName === searchNameLower ||
                    evEmployeeName === searchId ||
-                   (evEmployeeCode && evEmployeeCode.toLowerCase() === searchCode) ||
-                   (evEmployeeCode && evEmployeeCode.toLowerCase() === searchId);
+                   (evEmployeeCode && (evEmployeeCode === searchCode || evEmployeeCode === searchId || evEmployeeCode === searchFoundCode));
           });
           
           console.log(`✅ Encontradas ${employeeEvals.length} avaliações para o funcionário`);

@@ -187,7 +187,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
               <div className="relative">
                 <button
                   onClick={() => setShowSectorDropdown(!showSectorDropdown)}
-                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none cursor-pointer w-full sm:w-48 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors flex items-center justify-between"
+                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none cursor-pointer w-full sm:w-56 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors flex items-center justify-between"
                 >
                   <span className="truncate">
                     {selectedSectors.length === 0 ? 'Todos Setores' : `${selectedSectors.length} setor(es)`}
@@ -243,7 +243,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                       setShowEmployeeDropdown(true);
                     }}
                     onFocus={() => setShowEmployeeDropdown(true)}
-                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none w-full sm:w-64 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
+                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none w-full sm:w-72 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
                   />
                   {selectedEmployees.length > 0 && (
                     <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
@@ -252,7 +252,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   )}
                 </div>
                 {showEmployeeDropdown && filteredEmployees.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-full sm:w-64 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-full sm:w-72 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     <div className="p-2">
                       {filteredEmployees.slice(0, 10).map((name: string) => (
                         <label key={name} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
@@ -417,7 +417,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       </div>
 
       {/* --- NAVEGAÇÃO POR ABAS --- */}
-      <div className="flex flex-wrap gap-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg">
+      <div className="flex flex-wrap gap-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg sticky top-20 z-10">
         <button
           onClick={() => {
             setActiveTab('overview');

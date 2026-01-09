@@ -190,7 +190,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
         .map(ev => ev.date || ev.month)
     )).sort();
 
-    // Calcular pontuação acumulada por funcionário
+    // Calcular SOMA acumulada por funcionário (não média)
     const cumulativeScores: Record<string, (number | undefined)[]> = {};
     top10.forEach(emp => {
       cumulativeScores[emp.name] = [];
@@ -198,18 +198,23 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
 
     dates.forEach((date, dateIdx) => {
       top10.forEach((emp) => {
+        // Buscar todas as avaliações até esta data (inclusive)
         const evs = evaluations.filter((e: any) => {
           const evDate = e.date || e.month;
           return evDate <= date && 
                  ((e.employeeId || e.employeeName) === emp.employeeId);
+        }).sort((a: any, b: any) => {
+          const dateA = (a.date || a.month || '').toString();
+          const dateB = (b.date || b.month || '').toString();
+          return dateA.localeCompare(dateB);
         });
 
         if (evs.length > 0) {
-          const scores = evs.map((e: any) => {
+          // SOMA acumulada: somar todas as notas até esta data
+          const cumulative = evs.reduce((sum: number, e: any) => {
             const score = typeof e.average === 'number' ? e.average : parseFloat((e.notaFinal || '0').replace(',', '.'));
-            return isNaN(score) ? 0 : score;
-          });
-          const cumulative = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
+            return sum + (isNaN(score) ? 0 : score);
+          }, 0);
           cumulativeScores[emp.name][dateIdx] = cumulative;
         } else {
           // Se não tem avaliação ainda, usar o valor anterior ou undefined
@@ -390,7 +395,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 {rankingType === 'geral' && <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Setor</th>}
                 {rankingType === 'geral' && <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cargo</th>}
                 {rankingType === 'geral' && <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Nível</th>}
-                <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Média Acumulada</th>
+                <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Pontuação Acumulada</th>
                 <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Avaliações</th>
                 <th className="px-4 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Tendência</th>
               </tr>
@@ -439,8 +444,11 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.level}</td>}
                     <td className="px-4 py-4">
                       <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                        {emp.averageScore.toFixed(2)}
+                        {emp.totalScore.toFixed(2)}
                       </span>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Média: {emp.averageScore.toFixed(2)}
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.evaluationCount}</td>
                     <td className="px-4 py-4">
