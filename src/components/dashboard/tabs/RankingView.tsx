@@ -182,12 +182,22 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
   const chartData = useMemo(() => {
     const top10 = processedRankings.rankings.slice(0, 10);
     
-    // Obter todas as datas únicas ordenadas
+    // Obter todas as datas únicas ordenadas de TODAS as avaliações dos top10
     const allDates = Array.from(new Set(
       evaluations
         .filter(ev => {
-          const emp = employeeMap.get(ev.employeeId) || employeeMap.get(ev.employeeName?.toLowerCase().trim());
-          return top10.some(r => r.employeeId === (ev.employeeId || ev.employeeName));
+          // Verificar se esta avaliação pertence a algum dos top10
+          const evEmployeeId = (ev.employeeId || '').toString().toLowerCase().trim();
+          const evEmployeeName = (ev.employeeName || '').toString().toLowerCase().trim();
+          
+          return top10.some(emp => {
+            const empEmployeeId = (emp.employeeId || '').toString().toLowerCase().trim();
+            const empName = (emp.name || '').toString().toLowerCase().trim();
+            return evEmployeeId === empEmployeeId ||
+                   evEmployeeName === empName ||
+                   evEmployeeId === empName ||
+                   evEmployeeName === empEmployeeId;
+          });
         })
         .map(ev => ev.date || ev.month)
         .filter(Boolean)
@@ -201,22 +211,27 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
       const dataPoint: any = { date: currentDate };
       
       top10.forEach((emp) => {
-        // Buscar TODAS as avaliações deste funcionário até esta data (inclusive)
-        // Ordenar por data primeiro
+        // Buscar TODAS as avaliações deste funcionário
+        // Identificar funcionário por employeeId ou employeeName (comparação case-insensitive)
         const allEmpEvals = evaluations.filter((e: any) => {
-          // Verificar se é do mesmo funcionário
-          const isSameEmployee = (e.employeeId || e.employeeName) === emp.employeeId ||
-                                 (e.employeeName?.toLowerCase().trim() === emp.name.toLowerCase().trim());
-          return isSameEmployee;
+          const evEmployeeId = (e.employeeId || '').toString().toLowerCase().trim();
+          const evEmployeeName = (e.employeeName || '').toLowerCase().trim();
+          const empEmployeeId = (emp.employeeId || '').toString().toLowerCase().trim();
+          const empName = (emp.name || '').toLowerCase().trim();
+          
+          return evEmployeeId === empEmployeeId ||
+                 evEmployeeName === empName ||
+                 evEmployeeId === empName ||
+                 evEmployeeName === empEmployeeId;
         }).sort((a: any, b: any) => {
           const dateA = (a.date || a.month || '').toString();
           const dateB = (b.date || b.month || '').toString();
           return dateA.localeCompare(dateB);
         });
 
-        // Filtrar avaliações até a data atual (inclusive)
+        // Filtrar avaliações até a data atual (inclusive) e somar
         const empEvals = allEmpEvals.filter((e: any) => {
-          const evDate = e.date || e.month;
+          const evDate = (e.date || e.month || '').toString();
           if (!evDate) return false;
           // Comparar datas como strings (formato YYYY-MM-DD ou YYYY-MM)
           return evDate <= currentDate;
@@ -231,9 +246,9 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
           dataPoint[emp.name] = cumulativeSum;
         } else {
           // Se não tem avaliação ainda nesta data, usar o valor anterior ou null
-          if (dateIdx > 0) {
+          if (dateIdx > 0 && cumulativeData.length > 0) {
             const previousValue = cumulativeData[dateIdx - 1]?.[emp.name];
-            dataPoint[emp.name] = previousValue !== undefined ? previousValue : null;
+            dataPoint[emp.name] = previousValue !== undefined && previousValue !== null ? previousValue : null;
           } else {
             dataPoint[emp.name] = null;
           }
