@@ -15,29 +15,56 @@ const getLuminance = (hex: string): number => {
 };
 
 // Função para gerar cor de gradiente baseada na escala (0-10)
-// Gradiente: Vermelho → Laranja → Amarelo → Dourado (pior->melhor)
-const getHeatmapColor = (score: number): { bg: string; text: string } => {
+// Gradiente: Vermelho (ruim) → Transparente (intermediário) → Azul (bom)
+// Notas intermediárias são transparentes para enfatizar os extremos
+const getHeatmapColor = (score: number): { bg: string; text: string; opacity: number } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
   let bgColor: string;
-  // Mapeia para gradiente dourado->vermelho (melhor->pior)
-  if (normalizedScore >= 9) bgColor = '#D4AF37'; // Dourado (9-10) - melhor
-  else if (normalizedScore >= 8) bgColor = '#EAB308'; // Amarelo dourado (8-9)
-  else if (normalizedScore >= 7) bgColor = '#F59E0B'; // Amarelo-laranja (7-8)
-  else if (normalizedScore >= 6) bgColor = '#F97316'; // Laranja (6-7)
-  else if (normalizedScore >= 5) bgColor = '#FB923C'; // Laranja claro (5-6)
-  else if (normalizedScore >= 4) bgColor = '#EF4444'; // Vermelho-laranja (4-5)
-  else if (normalizedScore >= 3) bgColor = '#F87171'; // Vermelho claro (3-4)
-  else if (normalizedScore >= 2) bgColor = '#DC2626'; // Vermelho (2-3)
-  else if (normalizedScore >= 1) bgColor = '#B91C1C'; // Vermelho escuro (1-2)
-  else bgColor = '#991B1B'; // Vermelho muito escuro (0-1) - pior
+  let opacity: number = 1;
+  let textColor: string = '#FFFFFF';
   
-  // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
-  const luminance = getLuminance(bgColor);
-  const textColor = luminance > 128 ? '#1F2937' : '#FFFFFF'; // Escuro se claro, branco se escuro
+  // Ruim (0-5): Vermelho com intensidade crescente
+  if (normalizedScore <= 2) {
+    bgColor = '#DC2626'; // Vermelho (0-2) - muito ruim
+    opacity = 0.9;
+    textColor = '#FFFFFF';
+  } else if (normalizedScore <= 3.5) {
+    bgColor = '#EF4444'; // Vermelho claro (2-3.5)
+    opacity = 0.7;
+    textColor = '#FFFFFF';
+  } else if (normalizedScore <= 5) {
+    bgColor = '#F87171'; // Vermelho mais claro (3.5-5)
+    opacity = 0.5;
+    textColor = '#1F2937';
+  }
+  // Intermediário (5-8): Transparente (sem destaque)
+  else if (normalizedScore <= 6.5) {
+    bgColor = '#9CA3AF'; // Cinza neutro (5-6.5)
+    opacity = 0.2;
+    textColor = '#6B7280';
+  } else if (normalizedScore <= 8) {
+    bgColor = '#9CA3AF'; // Cinza neutro (6.5-8)
+    opacity = 0.1;
+    textColor = '#6B7280';
+  }
+  // Bom (8-10): Azul com intensidade crescente
+  else if (normalizedScore <= 9) {
+    bgColor = '#3B82F6'; // Azul (8-9)
+    opacity = 0.6;
+    textColor = '#FFFFFF';
+  } else {
+    bgColor = '#2563EB'; // Azul escuro (9-10) - muito bom
+    opacity = 0.9;
+    textColor = '#FFFFFF';
+  }
   
-  return { bg: bgColor, text: textColor };
+  // Converter para rgba para aplicar opacidade
+  const rgb = bgColor.match(/\w\w/g)?.map(x => parseInt(x, 16)) || [156, 163, 175];
+  const rgbaColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`;
+  
+  return { bg: rgbaColor, text: textColor, opacity };
 };
 
 export const PerformanceAnalysis = ({ data }: { data: any }) => {
@@ -260,7 +287,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                   <ChartInfoTooltip
                     title="Heatmap de Competências"
                     description="Este heatmap mostra a média de cada competência (métrica) em cada setor. Use para identificar quais competências estão bem desenvolvidas em cada área e onde há oportunidades de melhoria."
-                    usage="Cada célula mostra a média da competência no setor. Cores verdes indicam boa performance, amarelas indicam média, e vermelhas indicam baixa. Passe o mouse sobre uma célula para destacar a linha e coluna correspondentes."
+                    usage="Cada célula mostra a média da competência no setor. Azul indica boa performance (8-10), vermelho indica baixa (0-5), e células transparentes indicam performance intermediária (5-8) que não é destaque. Passe o mouse sobre uma célula para destacar a linha e coluna correspondentes."
                   />
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Cruzamento de médias: Competência vs Setor</p>
@@ -380,7 +407,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                   return (
                                     <td key={s} className="p-0">
                                       <div 
-                                        className={`flex items-center justify-center w-full h-full font-bold text-[11px] min-h-[40px] transition-all ${
+                                        className={`flex items-center justify-center w-full h-full font-bold text-[11px] min-h-[40px] transition-all border border-gray-200 dark:border-gray-700 ${
                                           isCellHighlighted ? 'ring-4 ring-blue-500 dark:ring-gold-500 scale-105 z-20 relative' :
                                           isColumnHighlighted ? 'ring-2 ring-blue-400 dark:ring-gold-400/50' : ''
                                         }`}
@@ -399,7 +426,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                                })}
                                <td className="p-0">
                                  <div 
-                                   className={`flex items-center justify-center w-full h-full font-bold text-xs min-h-[40px] bg-gray-50 dark:bg-navy-900 ${
+                                   className={`flex items-center justify-center w-full h-full font-bold text-xs min-h-[40px] bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-gray-700 ${
                                      isRowHighlighted ? 'ring-2 ring-blue-400 dark:ring-gold-400/50' : ''
                                    }`}
                                    style={{ 
@@ -421,24 +448,33 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Legenda de Cores</span>
                 </div>
                 <div className="flex items-center justify-center">
-                   {/* Gradiente dourado->vermelho (melhor->pior) */}
-                   <div className="flex h-8 w-full max-w-2xl">
-                      <div className="flex-1" style={{ backgroundColor: '#D4AF37' }} title="9.0-10.0"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#EAB308' }} title="8.0-8.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#F59E0B' }} title="7.0-7.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#F97316' }} title="6.0-6.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#FB923C' }} title="5.0-5.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#EF4444' }} title="4.0-4.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#F87171' }} title="3.0-3.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#DC2626' }} title="2.0-2.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#B91C1C' }} title="1.0-1.9"></div>
-                      <div className="flex-1" style={{ backgroundColor: '#991B1B' }} title="0.0-0.9"></div>
+                   {/* Gradiente: Vermelho (ruim) → Transparente (intermediário) → Azul (bom) */}
+                   <div className="flex h-8 w-full max-w-2xl border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                      {/* Ruim (0-5): Vermelho */}
+                      <div className="flex-[2]" style={{ backgroundColor: 'rgba(220, 38, 38, 0.9)' }} title="0-2: Muito Ruim (Vermelho)"></div>
+                      <div className="flex-[2]" style={{ backgroundColor: 'rgba(239, 68, 68, 0.7)' }} title="2-3.5: Ruim (Vermelho)"></div>
+                      <div className="flex-[2]" style={{ backgroundColor: 'rgba(248, 113, 113, 0.5)' }} title="3.5-5: Ruim (Vermelho Claro)"></div>
+                      {/* Intermediário (5-8): Transparente */}
+                      <div className="flex-[3]" style={{ backgroundColor: 'rgba(156, 163, 175, 0.2)', borderLeft: '1px dashed #9CA3AF', borderRight: '1px dashed #9CA3AF' }} title="5-6.5: Intermediário (Neutro)"></div>
+                      <div className="flex-[3]" style={{ backgroundColor: 'rgba(156, 163, 175, 0.1)' }} title="6.5-8: Intermediário (Neutro)"></div>
+                      {/* Bom (8-10): Azul */}
+                      <div className="flex-[2]" style={{ backgroundColor: 'rgba(59, 130, 246, 0.6)' }} title="8-9: Bom (Azul)"></div>
+                      <div className="flex-[2]" style={{ backgroundColor: 'rgba(37, 99, 235, 0.9)' }} title="9-10: Muito Bom (Azul Escuro)"></div>
                    </div>
                 </div>
-                <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-gray-500 dark:text-gray-400">
-                   <span>10 (Melhor)</span>
-                   <span>5</span>
-                   <span>0 (Pior)</span>
+                <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-gray-600 dark:text-gray-400">
+                   <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border border-gray-400 dark:border-gray-600" style={{ backgroundColor: 'rgba(220, 38, 38, 0.7)' }}></div>
+                      <span className="font-medium">Ruim (0-5)</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border border-gray-400 dark:border-gray-600 bg-gray-200 dark:bg-gray-700" style={{ backgroundColor: 'rgba(156, 163, 175, 0.3)' }}></div>
+                      <span className="font-medium">Intermediário (5-8)</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded border border-gray-400 dark:border-gray-600" style={{ backgroundColor: 'rgba(37, 99, 235, 0.7)' }}></div>
+                      <span className="font-medium">Bom (8-10)</span>
+                   </div>
                 </div>
              </div>
           </div>
