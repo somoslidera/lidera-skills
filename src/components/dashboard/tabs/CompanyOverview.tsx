@@ -6,7 +6,7 @@ import {
 import { Card } from '../../ui/Card';
 import { MetricDonut } from '../../ui/MetricDonut';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
-import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter } from 'lucide-react';
+import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
 const COLOR_OTHER = '#9CA3AF'; // Cor cinza para "Outros"
@@ -130,6 +130,55 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
       return nivel === selectedLevel;
     });
   }, [performanceList, selectedLevel]);
+  
+  const [performanceTableSort, setPerformanceTableSort] = useState<{field: string | null, direction: 'asc' | 'desc'}>({field: null, direction: 'asc'});
+  
+  const handlePerformanceTableSort = (field: string) => {
+    setPerformanceTableSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+  
+  const sortedPerformanceList = useMemo(() => {
+    if (!performanceTableSort.field) return filteredPerformanceList.slice(0, 10);
+    
+    const sorted = [...filteredPerformanceList].slice(0, 10);
+    sorted.sort((a: any, b: any) => {
+      let aVal: any, bVal: any;
+      
+      switch (performanceTableSort.field) {
+        case 'name':
+          aVal = (a.realName || '').toLowerCase();
+          bVal = (b.realName || '').toLowerCase();
+          break;
+        case 'sector':
+          aVal = (a.realSector || '').toLowerCase();
+          bVal = (b.realSector || '').toLowerCase();
+          break;
+        case 'role':
+          aVal = (a.realRole || '').toLowerCase();
+          bVal = (b.realRole || '').toLowerCase();
+          break;
+        case 'type':
+          aVal = (a.realType || a.type || '').toLowerCase();
+          bVal = (b.realType || b.type || '').toLowerCase();
+          break;
+        case 'score':
+          aVal = a.score || 0;
+          bVal = b.score || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aVal < bVal) return performanceTableSort.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return performanceTableSort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  }, [filteredPerformanceList, performanceTableSort]);
   
   // Obter níveis únicos disponíveis
   const availableLevels = useMemo<string[]>(() => {

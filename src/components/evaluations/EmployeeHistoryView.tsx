@@ -34,8 +34,8 @@ export const EmployeeHistoryView: React.FC = () => {
         }
         
         const snap = await getDocs(q);
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        data.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
         setEvaluations(data);
       } catch (error) {
         console.error('Erro ao carregar histórico:', error);
@@ -49,37 +49,23 @@ export const EmployeeHistoryView: React.FC = () => {
 
   // Preparar dados para gráfico de evolução
   const chartData = useMemo(() => {
-    return evaluations.map((eval: any) => ({
-      date: new Date(eval.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
-      average: typeof eval.average === 'number' ? eval.average : parseFloat(String(eval.average)),
-      fullDate: eval.date
+    return evaluations.map((evaluation: any) => ({
+      date: new Date(evaluation.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+      average: typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average)),
+      fullDate: evaluation.date
     }));
   }, [evaluations]);
 
   // Obter todos os critérios únicos
   const allCriteria = useMemo(() => {
     const criteriaSet = new Set<string>();
-    evaluations.forEach((eval: any) => {
-      if (eval.details) {
-        Object.keys(eval.details).forEach(key => criteriaSet.add(key));
+    evaluations.forEach((evaluation: any) => {
+      if (evaluation.details) {
+        Object.keys(evaluation.details).forEach(key => criteriaSet.add(key));
       }
     });
     return Array.from(criteriaSet).sort();
   }, [evaluations]);
-
-  // Preparar dados de evolução por critério
-  const criteriaEvolution = useMemo(() => {
-    const evolution: Record<string, { date: string; score: number }[]> = {};
-    
-    allCriteria.forEach(criteria => {
-      evolution[criteria] = evaluations.map((eval: any) => ({
-        date: new Date(eval.date).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
-        score: eval.details?.[criteria] || 0
-      }));
-    });
-    
-    return evolution;
-  }, [evaluations, allCriteria]);
 
   if (loading) {
     return (
@@ -192,19 +178,19 @@ export const EmployeeHistoryView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-navy-700">
-                {evaluations.map((eval: any) => {
-                  const avg = typeof eval.average === 'number' ? eval.average : parseFloat(String(eval.average));
-                  const prevEval = evaluations[evaluations.indexOf(eval) - 1];
-                  const prevAvg = prevEval ? (typeof prevEval.average === 'number' ? prevEval.average : parseFloat(String(prevEval.average))) : null;
+                {evaluations.map((evaluation: any, index: number) => {
+                  const avg = typeof evaluation.average === 'number' ? evaluation.average : parseFloat(String(evaluation.average));
+                  const prevEvaluation = evaluations[index - 1];
+                  const prevAvg = prevEvaluation ? (typeof prevEvaluation.average === 'number' ? prevEvaluation.average : parseFloat(String(prevEvaluation.average))) : null;
                   const diff = prevAvg !== null ? avg - prevAvg : 0;
                   
                   return (
-                    <tr key={eval.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
+                    <tr key={evaluation.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
                       <td className="p-3 text-gray-700 dark:text-gray-300">
-                        {new Date(eval.date).toLocaleDateString('pt-BR')}
+                        {new Date(evaluation.date).toLocaleDateString('pt-BR')}
                       </td>
                       {allCriteria.map(criteria => {
-                        const score = eval.details?.[criteria] || 0;
+                        const score = evaluation.details?.[criteria] || 0;
                         return (
                           <td key={criteria} className="p-3 text-center">
                             <span className={`font-semibold ${

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
   Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star, ArrowUpDown, ArrowUp, ArrowDown
@@ -696,6 +697,58 @@ const EvaluationsTable = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+  
+  // Ordenação da tabela
+  const handleTableSort = (field: string) => {
+    setTableSort(prev => ({
+      field,
+      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+  
+  const sortedTableData = useMemo(() => {
+    if (!tableSort.field) return paginatedData;
+    
+    const sorted = [...paginatedData];
+    sorted.sort((a, b) => {
+      let aVal: any, bVal: any;
+      
+      switch (tableSort.field) {
+        case 'date':
+          aVal = new Date(a.date).getTime();
+          bVal = new Date(b.date).getTime();
+          break;
+        case 'employeeName':
+          aVal = a.employeeName.toLowerCase();
+          bVal = b.employeeName.toLowerCase();
+          break;
+        case 'role':
+          aVal = a.role.toLowerCase();
+          bVal = b.role.toLowerCase();
+          break;
+        case 'sector':
+          aVal = a.sector.toLowerCase();
+          bVal = b.sector.toLowerCase();
+          break;
+        case 'type':
+          aVal = a.type.toLowerCase();
+          bVal = b.type.toLowerCase();
+          break;
+        case 'average':
+          aVal = typeof a.average === 'number' ? a.average : parseFloat(String(a.average));
+          bVal = typeof b.average === 'number' ? b.average : parseFloat(String(b.average));
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aVal < bVal) return tableSort.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return tableSort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  }, [paginatedData, tableSort]);
 
   // Handlers de Seleção
   const handleSelectAll = () => {
