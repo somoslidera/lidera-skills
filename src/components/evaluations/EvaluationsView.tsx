@@ -619,8 +619,11 @@ const EvaluationsTable = () => {
   const [editHighlightReason, setEditHighlightReason] = useState('');
 
   // Carrega dados
-  const loadData = async () => {
-    if (!currentCompany) return;
+  const loadData = React.useCallback(async () => {
+    if (!currentCompany) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       let q;
@@ -636,15 +639,17 @@ const EvaluationsTable = () => {
       setData(raw);
       setFilteredData(raw);
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao carregar avaliações:', err);
+      setData([]);
+      setFilteredData([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentCompany]);
 
   useEffect(() => {
     loadData();
-  }, [currentCompany]);
+  }, [loadData]);
 
   useEffect(() => {
     let res = [...data];
