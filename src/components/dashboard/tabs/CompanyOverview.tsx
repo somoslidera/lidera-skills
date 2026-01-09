@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Card } from '../../ui/Card';
 import { MetricDonut } from '../../ui/MetricDonut';
+import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter } from 'lucide-react';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];

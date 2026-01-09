@@ -38,6 +38,7 @@ interface Criteria {
 interface EvaluationData {
   id: string;
   employeeName: string;
+  employeeId?: string;
   role: string;
   sector: string;
   type: string;
@@ -964,7 +965,7 @@ const EvaluationsTable = () => {
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <p className="text-sm text-gray-700 dark:text-gray-300">
             <strong>Total de avaliações:</strong> {data.length} | 
-            <strong className="ml-4">Funcionários únicos avaliados:</strong> {new Set(data.map(d => d.employeeId || d.employeeName)).size}
+            <strong className="ml-4">Funcionários únicos avaliados:</strong> {new Set(data.map((d: EvaluationData) => d.employeeId || d.employeeName)).size}
           </p>
           {Object.keys(evaluationsByMonth).length > 0 && (
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
