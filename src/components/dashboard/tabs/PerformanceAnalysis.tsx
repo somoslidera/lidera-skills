@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar
+  BarChart, Bar, Area, AreaChart, ReferenceLine, ReferenceArea, Brush
 } from 'recharts';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
 
 // Função para calcular luminosidade de uma cor (0-255)

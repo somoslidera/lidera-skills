@@ -6,6 +6,7 @@ import {
 import { Card } from '../../ui/Card';
 import { MetricDonut } from '../../ui/MetricDonut';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
+import { CustomTooltip } from '../../ui/CustomTooltip';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
@@ -309,15 +310,14 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 interval={0}
               />
               <Tooltip 
-                content={(props: any) => {
+                content={(props: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) => {
                   if (!props.active || !props.payload || props.payload.length === 0) return null;
-                  const value = props.payload[0].value;
-                  const entry = sectorRanking.find((r: any) => r.name === props.label);
+                  const entry = sectorRanking.find((r: { name: string; overallAverage?: number }) => r.name === props.label);
                   return (
                     <CustomTooltip
                       {...props}
-                      formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
-                      labelFormatter={(label) => `Setor: ${label}`}
+                      formatter={(value: number) => [`${Number(value).toFixed(1)}`, 'Média']}
+                      labelFormatter={(label: string) => `Setor: ${label}`}
                       showComparison={true}
                       averageValue={entry?.overallAverage}
                     />
