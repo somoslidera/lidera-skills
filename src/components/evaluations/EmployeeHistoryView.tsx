@@ -18,7 +18,10 @@ export const EmployeeHistoryView: React.FC = () => {
 
   useEffect(() => {
     const loadEmployeeHistory = async () => {
-      if (!currentCompany || !employeeId) return;
+      if (!currentCompany || !employeeId) {
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
@@ -28,67 +31,91 @@ export const EmployeeHistoryView: React.FC = () => {
           const empDoc = await getDoc(doc(db, 'employees', employeeId));
           if (empDoc.exists()) {
             setEmployee({ id: empDoc.id, ...empDoc.data() });
+          } else {
+            // Se não encontrou por ID, tenta buscar na collection de employees pelo nome ou código
+            console.warn('Funcionário não encontrado por ID:', employeeId);
           }
         } catch (err) {
-          console.warn('Funcionário não encontrado por ID, tentando buscar por nome...');
+          console.warn('Erro ao buscar funcionário:', err);
         }
 
         // Buscar avaliações do funcionário
-        let q;
-        if (currentCompany.id === 'all') {
-          q = query(
-            collection(db, 'evaluations'),
-            where('employeeId', '==', employeeId)
-          );
-        } else {
-          q = query(
-            collection(db, 'evaluations'),
-            where('companyId', '==', currentCompany.id),
-            where('employeeId', '==', employeeId)
-          );
-        }
+        let employeeEvals: any[] = [];
         
-        const snap = await getDocs(q);
-        let employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        try {
+          let q;
+          if (currentCompany.id === 'all') {
+            q = query(
+              collection(db, 'evaluations'),
+              where('employeeId', '==', employeeId)
+            );
+          } else {
+            q = query(
+              collection(db, 'evaluations'),
+              where('companyId', '==', currentCompany.id),
+              where('employeeId', '==', employeeId)
+            );
+          }
+          
+          const snap = await getDocs(q);
+          employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        } catch (err) {
+          console.warn('Erro ao buscar avaliações por employeeId:', err);
+        }
         
         // Se não encontrou por ID, tenta por nome (fallback)
         if (employeeEvals.length === 0) {
-          const decodedName = decodeURIComponent(employeeId);
-          let fallbackQuery;
-          if (currentCompany.id === 'all') {
-            fallbackQuery = query(
-              collection(db, 'evaluations'),
-              where('employeeName', '==', decodedName)
-            );
-          } else {
-            fallbackQuery = query(
-              collection(db, 'evaluations'),
-              where('companyId', '==', currentCompany.id),
-              where('employeeName', '==', decodedName)
-            );
+          try {
+            const decodedName = decodeURIComponent(employeeId);
+            let fallbackQuery;
+            if (currentCompany.id === 'all') {
+              fallbackQuery = query(
+                collection(db, 'evaluations'),
+                where('employeeName', '==', decodedName)
+              );
+            } else {
+              fallbackQuery = query(
+                collection(db, 'evaluations'),
+                where('companyId', '==', currentCompany.id),
+                where('employeeName', '==', decodedName)
+              );
+            }
+            const snap2 = await getDocs(fallbackQuery);
+            employeeEvals = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+          } catch (err) {
+            console.warn('Erro ao buscar avaliações por nome:', err);
           }
-          const snap2 = await getDocs(fallbackQuery);
-          employeeEvals = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         }
         
-        employeeEvals.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        employeeEvals.sort((a: any, b: any) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateA - dateB;
+        });
         setEvaluations(employeeEvals);
 
         // Buscar todas as avaliações da empresa para comparação
-        let allEvalsQuery;
-        if (currentCompany.id === 'all') {
-          allEvalsQuery = query(collection(db, 'evaluations'));
-        } else {
-          allEvalsQuery = query(
-            collection(db, 'evaluations'),
-            where('companyId', '==', currentCompany.id)
-          );
+        try {
+          let allEvalsQuery;
+          if (currentCompany.id === 'all') {
+            allEvalsQuery = query(collection(db, 'evaluations'));
+          } else {
+            allEvalsQuery = query(
+              collection(db, 'evaluations'),
+              where('companyId', '==', currentCompany.id)
+            );
+          }
+          const allSnap = await getDocs(allEvalsQuery);
+          const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+          setAllEvaluations(allEvals);
+        } catch (err) {
+          console.warn('Erro ao buscar todas as avaliações:', err);
+          setAllEvaluations([]);
         }
-        const allSnap = await getDocs(allEvalsQuery);
-        const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setAllEvaluations(allEvals);
       } catch (error) {
         console.error('Erro ao carregar histórico:', error);
+        setEvaluations([]);
+        setAllEvaluations([]);
       } finally {
         setLoading(false);
       }
