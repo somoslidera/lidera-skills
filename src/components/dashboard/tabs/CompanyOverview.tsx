@@ -207,13 +207,20 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
       sectorScores[sector].count += 1;
     });
     
-    return Object.entries(sectorScores)
+    const rankings = Object.entries(sectorScores)
       .map(([name, data]) => ({
         name,
         average: data.count > 0 ? data.sum / data.count : 0,
         count: data.count
       }))
       .sort((a, b) => b.average - a.average);
+    
+    // Calcular média geral para comparação
+    const overallAverage = rankings.length > 0 
+      ? rankings.reduce((sum, r) => sum + r.average, 0) / rankings.length 
+      : 0;
+    
+    return rankings.map(r => ({ ...r, overallAverage: overallAverage }));
   }, [performanceList]);
   
   // Cores para gráficos (Navy Blue + Dourado em dark mode)
