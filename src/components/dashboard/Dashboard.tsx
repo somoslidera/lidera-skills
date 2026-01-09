@@ -11,6 +11,8 @@ import { usePerformanceGoals } from '../../hooks/usePerformanceGoals';
 import { CompanyOverview } from './tabs/CompanyOverview';
 import { PerformanceAnalysis } from './tabs/PerformanceAnalysis';
 import { IndividualAnalysis } from './tabs/IndividualAnalysis';
+import { RankingView } from './tabs/RankingView';
+import { BehavioralProfile } from './tabs/BehavioralProfile';
 
 interface DashboardProps {
   evaluations: any[];
@@ -48,13 +50,13 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   }, []);
   
   // Estado da Aba Ativa (usa initialTab da URL se disponível)
-  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'individual'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'individual' | 'ranking' | 'behavioral'>(
     (initialTab as any) || 'overview'
   );
   
   // Atualizar tab quando initialTab mudar (navegação via URL)
   useEffect(() => {
-    if (initialTab && ['overview', 'performance', 'individual'].includes(initialTab)) {
+    if (initialTab && ['overview', 'performance', 'individual', 'ranking', 'behavioral'].includes(initialTab)) {
       setActiveTab(initialTab as any);
     }
   }, [initialTab]);
@@ -415,7 +417,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       </div>
 
       {/* --- NAVEGAÇÃO POR ABAS --- */}
-      <div className="flex space-x-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg w-fit">
+      <div className="flex flex-wrap gap-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg">
         <button
           onClick={() => {
             setActiveTab('overview');
@@ -455,6 +457,32 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         >
           Comparativo Individual
         </button>
+        <button
+          onClick={() => {
+            setActiveTab('ranking');
+            navigate('/dashboard/ranking');
+          }}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'ranking' 
+              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+          }`}
+        >
+          Ranking
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('behavioral');
+            navigate('/dashboard/behavioral');
+          }}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            activeTab === 'behavioral' 
+              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+          }`}
+        >
+          Perfil Comportamental
+        </button>
       </div>
 
       {/* --- CONTEÚDO DAS ABAS --- */}
@@ -468,6 +496,18 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
             {activeTab === 'overview' && <CompanyOverview data={analytics.generalMetrics} competenceData={analytics.competenceMetrics} employees={employees} />}
             {activeTab === 'performance' && <PerformanceAnalysis data={analytics.competenceMetrics} />}
             {activeTab === 'individual' && <IndividualAnalysis data={analytics.comparativeMetrics} />}
+            {activeTab === 'ranking' && (
+              <RankingView 
+                evaluations={evaluations} 
+                employees={employees} 
+                filters={{
+                  dateStart,
+                  dateEnd,
+                  selectedStatuses
+                }}
+              />
+            )}
+            {activeTab === 'behavioral' && <BehavioralProfile />}
           </>
         )}
       </div>
