@@ -432,8 +432,8 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   />
                   <Legend 
                     wrapperStyle={{ paddingTop: '10px' }}
-                    formatter={(value, entry: any) => {
-                      const level = entry.payload?.level || 'Operacional';
+                    formatter={(value) => {
+                      const level = String(value);
                       const color = getRoleColorByLevel(level);
                       return (
                         <span style={{ color }}>
@@ -441,11 +441,11 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                         </span>
                       );
                     }}
-                    payload={Array.from(new Set(roleRanking.map((r: any) => r.level || 'Operacional'))).map((level: string) => ({
-                      value: level,
-                      type: 'square',
-                      color: getRoleColorByLevel(level),
-                      payload: { level }
+                    payload={Array.from(new Set(roleRanking.map((r: any) => r.level || 'Operacional'))).map((level) => ({
+                      value: String(level),
+                      type: 'square' as const,
+                      color: getRoleColorByLevel(String(level)),
+                      payload: { level: String(level), strokeDasharray: '' }
                     }))}
                   />
                   <Bar 

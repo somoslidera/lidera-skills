@@ -54,19 +54,20 @@ export const EmployeeHistoryView: React.FC = () => {
         // Se não encontrou por ID, tenta por nome (fallback)
         if (employeeEvals.length === 0) {
           const decodedName = decodeURIComponent(employeeId);
+          let fallbackQuery;
           if (currentCompany.id === 'all') {
-            q = query(
+            fallbackQuery = query(
               collection(db, 'evaluations'),
               where('employeeName', '==', decodedName)
             );
           } else {
-            q = query(
+            fallbackQuery = query(
               collection(db, 'evaluations'),
               where('companyId', '==', currentCompany.id),
               where('employeeName', '==', decodedName)
             );
           }
-          const snap2 = await getDocs(q);
+          const snap2 = await getDocs(fallbackQuery);
           employeeEvals = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         }
         
@@ -105,12 +106,12 @@ export const EmployeeHistoryView: React.FC = () => {
 
     // Agrupar avaliações por mês
     const monthlyGroups: Record<string, any[]> = {};
-    allEvaluations.forEach((eval: any) => {
-      const monthKey = eval.date?.substring(0, 7) || ''; // YYYY-MM
+    allEvaluations.forEach((evaluation: any) => {
+      const monthKey = evaluation.date?.substring(0, 7) || ''; // YYYY-MM
       if (!monthlyGroups[monthKey]) {
         monthlyGroups[monthKey] = [];
       }
-      monthlyGroups[monthKey].push(eval);
+      monthlyGroups[monthKey].push(evaluation);
     });
 
     // Calcular médias por mês
