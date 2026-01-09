@@ -138,7 +138,21 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
         </div>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={evolutionData}>
+            <AreaChart data={evolutionData}>
+              <defs>
+                <linearGradient id="gradientEstrategico" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="gradientTatico" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="gradientOperacional" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
               <XAxis dataKey="date" stroke="#9ca3af" tick={{fontSize: 12}} />
               <YAxis domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
@@ -150,12 +164,22 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
               />
               <Legend />
               
-              <Line type="monotone" dataKey="Estratégico" stroke="#8B5CF6" strokeWidth={3} dot={{r: 4}} name="Estratégico" />
-              <Line type="monotone" dataKey="Tático" stroke="#3B82F6" strokeWidth={3} dot={{r: 4}} name="Tático" />
-              <Line type="monotone" dataKey="Operacional" stroke="#10B981" strokeWidth={3} dot={{r: 4}} name="Operacional" />
-              <Line type="monotone" dataKey="Média Geral" stroke="#6366F1" strokeWidth={2} strokeDasharray="5 5" name="Média Geral" />
-              <Line type="monotone" dataKey="Meta" stroke="#EF4444" strokeWidth={1} dot={false} name="Meta 9,0" />
-            </LineChart>
+              {/* Zonas de referência */}
+              <ReferenceArea y1={9} y2={10} fill="#10B981" fillOpacity={0.1} stroke="none" />
+              <ReferenceArea y1={7} y2={9} fill="#EAB308" fillOpacity={0.1} stroke="none" />
+              <ReferenceArea y1={0} y2={7} fill="#EF4444" fillOpacity={0.1} stroke="none" />
+              
+              {/* Linhas de referência */}
+              <ReferenceLine y={9} stroke="#D4AF37" strokeWidth={2} strokeDasharray="3 3" label={{ value: "Meta", position: "right", fill: "#D4AF37", fontSize: 12 }} />
+              <ReferenceLine y={7} stroke="#F59E0B" strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.5} />
+              
+              <Area type="monotone" dataKey="Estratégico" stroke="#8B5CF6" strokeWidth={3} fill="url(#gradientEstrategico)" fillOpacity={1} name="Estratégico" isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" dot={{r: 4}} />
+              <Area type="monotone" dataKey="Tático" stroke="#3B82F6" strokeWidth={3} fill="url(#gradientTatico)" fillOpacity={1} name="Tático" isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" dot={{r: 4}} />
+              <Area type="monotone" dataKey="Operacional" stroke="#10B981" strokeWidth={3} fill="url(#gradientOperacional)" fillOpacity={1} name="Operacional" isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" dot={{r: 4}} />
+              <Line type="monotone" dataKey="Média Geral" stroke="#6366F1" strokeWidth={2} strokeDasharray="5 5" name="Média Geral" isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" dot={false} />
+              <Line type="monotone" dataKey="Meta" stroke="#EF4444" strokeWidth={1} dot={false} name="Meta 9,0" isAnimationActive={true} animationDuration={1000} animationEasing="ease-out" />
+              <Brush dataKey="date" height={30} stroke="#9ca3af" fill="#1f2937" />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -468,7 +492,7 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                       <Tooltip 
                         cursor={{fill: 'rgba(59, 130, 246, 0.1)'}} 
                         contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px'}}
-                        formatter={(value: any, name: string, props: any) => {
+                        formatter={(value: number, name: string) => {
                           if (name === 'Gap') {
                             return [`${value.toFixed(1)} pontos de oportunidade`, 'Gap'];
                           }
@@ -491,6 +515,9 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                         barSize={32}
                         stroke="#DC2626"
                         strokeWidth={1}
+                        isAnimationActive={true}
+                        animationDuration={800}
+                        animationEasing="ease-out"
                       />
                       {/* Barra de Performance Atual */}
                       <Bar 
@@ -502,6 +529,9 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                         barSize={32}
                         stroke="#2563EB"
                         strokeWidth={1}
+                        isAnimationActive={true}
+                        animationDuration={800}
+                        animationEasing="ease-out"
                       />
                    </BarChart>
                 </ResponsiveContainer>

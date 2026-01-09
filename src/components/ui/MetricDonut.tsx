@@ -48,6 +48,9 @@ export const MetricDonut: React.FC<MetricDonutProps> = ({
               startAngle={180}
               endAngle={0}
               dataKey="value"
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
             >
               <Cell fill={color} />
               <Cell fill="#e5e7eb" />

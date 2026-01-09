@@ -46,7 +46,8 @@ const getHeatmapColor = (score: number): { bg: string; text: string } => {
 };
 
 // Função para gerar cor de fundo com opacidade (estilo Looker Studio)
-const getHeatmapBgColor = (score: number): string => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getHeatmapBgColor = (score: number): string => {
   const color = getHeatmapColor(score);
   // Converte hex para rgba com opacidade baseada na nota
   const opacity = Math.min(0.3 + (score / 10) * 0.4, 0.7); // Opacidade entre 0.3 e 0.7
@@ -215,6 +216,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
   }, [performanceList]);
   
   // Cores para gráficos (Navy Blue + Dourado em dark mode)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navyGoldColors = ['#0A1128', '#162447', '#1F3A5F', '#274472', '#D4AF37', '#E5C158', '#F3E5AB', '#B8941F'];
   
   // Função para obter cor do cargo por nível
@@ -275,6 +277,28 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={sectorRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
+              <defs>
+                {sectorRanking.map((entry: any, index: number) => {
+                  const score = entry.average;
+                  let startColor, endColor;
+                  if (score >= 9) { startColor = '#D4AF37'; endColor = '#E5C158'; }
+                  else if (score >= 8) { startColor = '#EAB308'; endColor = '#F59E0B'; }
+                  else if (score >= 7) { startColor = '#F59E0B'; endColor = '#F97316'; }
+                  else if (score >= 6) { startColor = '#F97316'; endColor = '#FB923C'; }
+                  else if (score >= 5) { startColor = '#FB923C'; endColor = '#EF4444'; }
+                  else if (score >= 4) { startColor = '#EF4444'; endColor = '#F87171'; }
+                  else if (score >= 3) { startColor = '#F87171'; endColor = '#DC2626'; }
+                  else if (score >= 2) { startColor = '#DC2626'; endColor = '#B91C1C'; }
+                  else { startColor = '#B91C1C'; endColor = '#991B1B'; }
+                  
+                  return (
+                    <linearGradient key={`gradient-sector-${index}`} id={`gradient-sector-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={startColor} />
+                      <stop offset="100%" stopColor={endColor} />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
               <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
               <YAxis 
@@ -285,19 +309,40 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 interval={0}
               />
               <Tooltip 
-                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px'}}
-                formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
-                labelFormatter={(label) => `Setor: ${label}`}
+                content={(props: any) => {
+                  if (!props.active || !props.payload || props.payload.length === 0) return null;
+                  const value = props.payload[0].value;
+                  const entry = sectorRanking.find((r: any) => r.name === props.label);
+                  return (
+                    <CustomTooltip
+                      {...props}
+                      formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
+                      labelFormatter={(label) => `Setor: ${label}`}
+                      showComparison={true}
+                      averageValue={entry?.overallAverage}
+                    />
+                  );
+                }}
+                cursor={{ fill: 'rgba(255,255,255,0.1)' }}
               />
               <Bar 
                 dataKey="average" 
                 fill="#3B82F6" 
                 radius={[0, 4, 4, 0]}
                 name="Média"
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
               >
                 {sectorRanking.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={getGoldRedGradient(entry.average)} />
+                  <Cell key={`cell-${index}`} fill={`url(#gradient-sector-${index})`} />
                 ))}
+                <LabelList 
+                  dataKey="average" 
+                  position="right" 
+                  style={{ fill: '#374151', fontSize: '11px', fontWeight: 'bold' }}
+                  formatter={(value: any) => `${Number(value).toFixed(1)}`}
+                />
                 <LabelList 
                   dataKey="name" 
                   position="insideLeft" 
@@ -335,6 +380,26 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={roleRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
+                <defs>
+                  {roleRanking.map((entry: any, index: number) => {
+                    const baseColor = getRoleColorByLevel(entry.level || 'Operacional');
+                    // Criar gradiente baseado na cor do nível
+                    let endColor = baseColor;
+                    if (baseColor === '#8B5CF6') endColor = '#A78BFA'; // Estratégico
+                    else if (baseColor === '#6366F1') endColor = '#818CF8'; // Tático
+                    else if (baseColor === '#3B82F6') endColor = '#60A5FA'; // Líder
+                    else if (baseColor === '#10B981') endColor = '#34D399'; // Operacional
+                    else if (baseColor === '#F59E0B') endColor = '#FBBF24'; // Colaborador
+                    else endColor = '#9CA3AF'; // Default
+                    
+                    return (
+                      <linearGradient key={`gradient-role-${index}`} id={`gradient-role-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor={baseColor} />
+                        <stop offset="100%" stopColor={endColor} />
+                      </linearGradient>
+                    );
+                  })}
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
                 <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
                 <YAxis 
@@ -345,9 +410,19 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   interval={0}
                 />
                 <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px', fontSize: '14px'}}
-                  formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
-                  labelFormatter={(label) => `Cargo: ${label}`}
+                  content={(props: any) => {
+                    if (!props.active || !props.payload || props.payload.length === 0) return null;
+                    const entry = roleRanking.find((r: any) => r.name === props.label);
+                    return (
+                      <CustomTooltip
+                        {...props}
+                        formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
+                        labelFormatter={(label) => `Cargo: ${label}`}
+                        showComparison={true}
+                        averageValue={entry?.overallAverage}
+                      />
+                    );
+                  }}
                   cursor={{ fill: 'rgba(255,255,255,0.1)' }}
                 />
                 <Bar 
@@ -355,9 +430,12 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   fill="#D4AF37" 
                   radius={[0, 4, 4, 0]}
                   name="Média"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationEasing="ease-out"
                 >
-                  {roleRanking.map((entry: any) => (
-                    <Cell key={`cell-${entry.name}`} fill={getRoleColorByLevel(entry.level || 'Operacional')} />
+                  {roleRanking.map((entry: any, index: number) => (
+                    <Cell key={`cell-${entry.name}`} fill={`url(#gradient-role-${index})`} />
                   ))}
                   <LabelList 
                     dataKey="name" 
@@ -472,6 +550,9 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                     innerRadius={80} outerRadius={100}
                     startAngle={180} endAngle={0}
                     dataKey="value"
+                    isAnimationActive={true}
+                    animationDuration={1000}
+                    animationEasing="ease-out"
                  >
                     <Cell fill={healthScore >= 8 ? '#10B981' : healthScore >= 6 ? 'url(#goldGradient)' : '#EF4444'} />
                     <Cell fill="#e5e7eb" />
@@ -532,12 +613,15 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
              <ResponsiveContainer width="100%" height="100%">
                <PieChart>
                  <Pie 
-                   data={roleDistribution} 
-                   cx="50%" cy="50%" 
-                   innerRadius={60} 
-                   outerRadius={80} 
-                   paddingAngle={5} 
-                   dataKey="value"
+                  data={roleDistribution} 
+                  cx="50%" cy="50%" 
+                  innerRadius={60} 
+                  outerRadius={80} 
+                  paddingAngle={5} 
+                  dataKey="value"
+                  isAnimationActive={true}
+                  animationDuration={800}
+                  animationEasing="ease-out"
                  >
                    {roleDistribution.map((entry: any, index: number) => (
                      <Cell key={`cell-${index}`} fill={getSliceColor(entry, index + 2)} />

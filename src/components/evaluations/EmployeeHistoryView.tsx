@@ -131,7 +131,13 @@ export const EmployeeHistoryView: React.FC = () => {
           <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Evolução da Média Geral</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="gradientAverage" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="date" stroke="#6b7280" />
                 <YAxis domain={[0, 10]} stroke="#6b7280" />
@@ -140,19 +146,32 @@ export const EmployeeHistoryView: React.FC = () => {
                     backgroundColor: '#1f2937', 
                     border: 'none', 
                     borderRadius: '8px',
-                    color: '#fff'
+                    color: '#fff',
+                    padding: '12px',
+                    fontSize: '14px'
                   }} 
                 />
                 <Legend />
-                <Line 
+                {/* Zonas de referência */}
+                <ReferenceArea y1={9} y2={10} fill="#10B981" fillOpacity={0.1} stroke="none" />
+                <ReferenceArea y1={7} y2={9} fill="#EAB308" fillOpacity={0.1} stroke="none" />
+                <ReferenceArea y1={0} y2={7} fill="#EF4444" fillOpacity={0.1} stroke="none" />
+                {/* Linha de meta */}
+                <ReferenceLine y={9} stroke="#D4AF37" strokeWidth={2} strokeDasharray="3 3" strokeOpacity={0.6} />
+                <Area 
                   type="monotone" 
                   dataKey="average" 
                   stroke="#3B82F6" 
                   strokeWidth={2}
+                  fill="url(#gradientAverage)"
+                  fillOpacity={1}
                   name="Média"
                   dot={{ fill: '#3B82F6', r: 4 }}
+                  isAnimationActive={true}
+                  animationDuration={1000}
+                  animationEasing="ease-out"
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
