@@ -98,12 +98,19 @@ export const BehavioralProfile = () => {
       try {
         setLoading(true);
         
-        // Buscar funcionários existentes da empresa Lidera
-        const employeesQuery = query(
-          collection(db, 'employees'),
-          where('companyId', '==', currentCompany.id === 'all' ? 'lidera' : currentCompany.id)
-        );
-        const employeesSnap = await getDocs(employeesQuery);
+        // Buscar funcionários existentes
+        let employeesSnap;
+        if (currentCompany.id === 'all') {
+          // Se for "all", buscar todos os funcionários
+          employeesSnap = await getDocs(collection(db, 'employees'));
+        } else {
+          // Buscar por companyId
+          const employeesQuery = query(
+            collection(db, 'employees'),
+            where('companyId', '==', currentCompany.id)
+          );
+          employeesSnap = await getDocs(employeesQuery);
+        }
         
         const existingEmployees: EmployeeProfile[] = [];
         employeesSnap.forEach((doc) => {
