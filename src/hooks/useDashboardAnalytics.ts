@@ -267,11 +267,11 @@ export const useDashboardAnalytics = (
     });
 
     // Calcular ranking por cargo (similar ao ranking por setor)
-    const roleScores: Record<string, { sum: number; count: number }> = {};
+    const roleScores: Record<string, { sum: number; count: number; level?: string }> = {};
     filteredData.forEach((item: any) => {
       const role = item.realRole || 'Geral';
       if (!roleScores[role]) {
-        roleScores[role] = { sum: 0, count: 0 };
+        roleScores[role] = { sum: 0, count: 0, level: item.realType || item.type || 'Operacional' };
       }
       roleScores[role].sum += item.score || 0;
       roleScores[role].count += 1;
@@ -281,7 +281,8 @@ export const useDashboardAnalytics = (
       .map(([name, data]) => ({
         name,
         average: data.count > 0 ? data.sum / data.count : 0,
-        count: data.count
+        count: data.count,
+        level: data.level || 'Operacional'
       }))
       .sort((a, b) => b.average - a.average);
 

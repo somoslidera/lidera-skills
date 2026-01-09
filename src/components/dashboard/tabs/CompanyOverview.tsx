@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList
 } from 'recharts';
 import { Card } from '../../ui/Card';
 import { MetricDonut } from '../../ui/MetricDonut';
@@ -19,24 +19,24 @@ const getLuminance = (hex: string): number => {
   return (0.299 * r + 0.587 * g + 0.114 * b);
 };
 
-// Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
-// Gradiente: Vermelho → Laranja → Amarelo → Verde
+// Função para gerar cor de gradiente baseada na escala (0-10)
+// Gradiente: Vermelho → Laranja → Amarelo → Dourado (pior->melhor)
 const getHeatmapColor = (score: number): { bg: string; text: string } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
   let bgColor: string;
-  // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
-  if (normalizedScore >= 9) bgColor = '#166534'; // Verde escuro (9-10)
-  else if (normalizedScore >= 8) bgColor = '#22C55E'; // Verde médio (8-9)
-  else if (normalizedScore >= 7) bgColor = '#4ADE80'; // Verde claro (7-8)
-  else if (normalizedScore >= 6) bgColor = '#84CC16'; // Verde-amarelo (6-7)
-  else if (normalizedScore >= 5) bgColor = '#EAB308'; // Amarelo (5-6)
-  else if (normalizedScore >= 4) bgColor = '#F59E0B'; // Laranja claro (4-5)
-  else if (normalizedScore >= 3) bgColor = '#F97316'; // Laranja (3-4)
-  else if (normalizedScore >= 2) bgColor = '#FB923C'; // Laranja claro (2-3)
-  else if (normalizedScore >= 1) bgColor = '#EF4444'; // Vermelho-laranja (1-2)
-  else bgColor = '#DC2626'; // Vermelho escuro (0-1)
+  // Mapeia para gradiente dourado->vermelho (melhor->pior)
+  if (normalizedScore >= 9) bgColor = '#D4AF37'; // Dourado (9-10) - melhor
+  else if (normalizedScore >= 8) bgColor = '#EAB308'; // Amarelo dourado (8-9)
+  else if (normalizedScore >= 7) bgColor = '#F59E0B'; // Amarelo-laranja (7-8)
+  else if (normalizedScore >= 6) bgColor = '#F97316'; // Laranja (6-7)
+  else if (normalizedScore >= 5) bgColor = '#FB923C'; // Laranja claro (5-6)
+  else if (normalizedScore >= 4) bgColor = '#EF4444'; // Vermelho-laranja (4-5)
+  else if (normalizedScore >= 3) bgColor = '#F87171'; // Vermelho claro (3-4)
+  else if (normalizedScore >= 2) bgColor = '#DC2626'; // Vermelho (2-3)
+  else if (normalizedScore >= 1) bgColor = '#B91C1C'; // Vermelho escuro (1-2)
+  else bgColor = '#991B1B'; // Vermelho muito escuro (0-1) - pior
   
   // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
   const luminance = getLuminance(bgColor);
@@ -100,6 +100,20 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
   }, [employees]);
   
   const [selectedLevel, setSelectedLevel] = useState<string>('Todos');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    scorecards: true,
+    rankings: true,
+    health: true,
+    distributions: true,
+    performance: true,
+    highlights: true,
+    employees: true,
+    disc: true
+  });
+  
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // Cor do Health Score (com gradiente dourado)
   const healthColor = healthScore >= 8 
@@ -153,6 +167,28 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
   
   // Cores para gráficos (Navy Blue + Dourado em dark mode)
   const navyGoldColors = ['#0A1128', '#162447', '#1F3A5F', '#274472', '#D4AF37', '#E5C158', '#F3E5AB', '#B8941F'];
+  
+  // Função para obter cor do cargo por nível
+  const getRoleColorByLevel = (level: string): string => {
+    switch (level) {
+      case 'Estratégico': return '#8B5CF6'; // Roxo
+      case 'Tático': return '#6366F1'; // Índigo
+      case 'Líder': return '#3B82F6'; // Azul
+      case 'Operacional': return '#10B981'; // Verde
+      case 'Colaborador': return '#F59E0B'; // Laranja
+      default: return '#6B7280'; // Cinza
+    }
+  };
+  
+  // Função para gradiente dourado->vermelho baseado na nota
+  const getGoldRedGradient = (score: number): string => {
+    if (score >= 9) return '#D4AF37'; // Dourado
+    if (score >= 8) return '#EAB308'; // Amarelo
+    if (score >= 7) return '#F59E0B'; // Laranja claro
+    if (score >= 6) return '#F97316'; // Laranja
+    if (score >= 5) return '#EF4444'; // Vermelho claro
+    return '#DC2626'; // Vermelho escuro
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -178,20 +214,21 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
           />
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por setor (ordenado do maior para o menor)</p>
+        {expandedSections.rankings && (
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sectorRanking} layout="vertical" margin={{ left: 100, right: 20, top: 20, bottom: 20 }}>
+            <BarChart data={sectorRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
               <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
               <YAxis 
                 dataKey="name" 
                 type="category" 
-                width={90} 
+                width={110} 
                 tick={{fontSize: 11, fill: '#6B7280'}} 
                 interval={0}
               />
               <Tooltip 
-                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px'}}
                 formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
                 labelFormatter={(label) => `Setor: ${label}`}
               />
@@ -202,8 +239,14 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                 name="Média"
               >
                 {sectorRanking.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={`cell-${index}`} fill={getGoldRedGradient(entry.average)} />
                 ))}
+                <LabelList 
+                  dataKey="name" 
+                  position="insideLeft" 
+                  style={{ fill: '#fff', fontSize: '11px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                  offset={10}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -213,31 +256,40 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
       {/* 1.2. Ranking de Cargos (Barras Laterais) */}
       {roleRanking && roleRanking.length > 0 && (
         <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
-          <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Cargos</h3>
-            <ChartInfoTooltip
-              title="Ranking de Cargos"
-              description="Este gráfico mostra a média de performance de cada cargo da empresa, ordenada do maior para o menor desempenho. Use para identificar quais cargos estão performando melhor."
-              usage="Analise as barras para comparar o desempenho entre cargos. Cargos com barras mais longas têm melhor performance média."
-            />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Ranking de Cargos</h3>
+              <ChartInfoTooltip
+                title="Ranking de Cargos"
+                description="Este gráfico mostra a média de performance de cada cargo da empresa, ordenada do maior para o menor desempenho. Use para identificar quais cargos estão performando melhor."
+                usage="Analise as barras para comparar o desempenho entre cargos. Cargos com barras mais longas têm melhor performance média. As cores indicam o nível hierárquico do cargo."
+              />
+            </div>
+            <button
+              onClick={() => toggleSection('rankings')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg transition-colors"
+            >
+              {expandedSections.rankings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Média de performance por cargo (ordenado do maior para o menor)</p>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={roleRanking} layout="vertical" margin={{ left: 100, right: 20, top: 20, bottom: 20 }}>
+              <BarChart data={roleRanking} layout="vertical" margin={{ left: 120, right: 20, top: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} stroke="#9ca3af" />
                 <XAxis type="number" domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
                 <YAxis 
                   dataKey="name" 
                   type="category" 
-                  width={90} 
+                  width={110} 
                   tick={{fontSize: 11, fill: '#6B7280'}} 
                   interval={0}
                 />
                 <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
+                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px', fontSize: '14px'}}
                   formatter={(value: any) => [`${Number(value).toFixed(1)}`, 'Média']}
                   labelFormatter={(label) => `Cargo: ${label}`}
+                  cursor={{ fill: 'rgba(255,255,255,0.1)' }}
                 />
                 <Bar 
                   dataKey="average" 
@@ -245,38 +297,92 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   radius={[0, 4, 4, 0]}
                   name="Média"
                 >
-                  {roleRanking.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={navyGoldColors[index % navyGoldColors.length]} />
+                  {roleRanking.map((entry: any) => (
+                    <Cell key={`cell-${entry.name}`} fill={getRoleColorByLevel(entry.level || 'Operacional')} />
                   ))}
+                  <LabelList 
+                    dataKey="name" 
+                    position="insideLeft" 
+                    style={{ fill: '#fff', fontSize: '11px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                    offset={10}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+        )}
         </div>
       )}
 
-      {/* 1.3. Scorecards por Métrica (Donuts) */}
+      {/* 1.3. Scorecards por Critério de Avaliação (Donuts) */}
       {metricsData && metricsData.length > 0 && (
         <div className="bg-white dark:bg-navy-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
-          <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Pontuação por Métrica</h3>
-            <ChartInfoTooltip
-              title="Pontuação por Métrica"
-              description="Cada donut mostra a pontuação geral (média de todos os setores) de uma métrica de avaliação. Use para identificar quais competências a empresa está desenvolvendo melhor e quais precisam de mais atenção."
-              usage="Analise as cores dos donuts: verde indica boa performance (7-10), amarelo indica média (5-6), e vermelho indica baixa performance (0-4)."
-            />
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Média geral de cada métrica de avaliação</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {metricsData.map((metric: any, index: number) => (
-              <MetricDonut
-                key={metric.criteria || index}
-                name={metric.criteria || 'Métrica'}
-                score={metric.average || 0}
-                maxScore={10}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200">Pontuação por Critério de Avaliação</h3>
+              <ChartInfoTooltip
+                title="Pontuação por Critério de Avaliação"
+                description="Cada donut mostra a pontuação geral (média de todos os setores) de um critério de avaliação. Use para identificar quais competências a empresa está desenvolvendo melhor e quais precisam de mais atenção."
+                usage="Analise as cores dos donuts: dourado indica excelente performance (9-10), amarelo indica boa (7-8), laranja indica média (5-6), e vermelho indica baixa performance (0-4)."
               />
-            ))}
+            </div>
+            <button
+              onClick={() => toggleSection('scorecards')}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg transition-colors"
+            >
+              {expandedSections.scorecards ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
           </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Média geral de cada critério de avaliação (ordenado alfabeticamente)</p>
+          {expandedSections.scorecards && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[...metricsData].sort((a: any, b: any) => {
+              const nameA = (a.criteria || '').toLowerCase();
+              const nameB = (b.criteria || '').toLowerCase();
+              return nameA.localeCompare(nameB);
+            }).map((metric: any, index: number) => {
+              const score = metric.average || 0;
+              // Cores dourado->vermelho (pior->melhor)
+              let color = '#DC2626'; // Vermelho (pior)
+              if (score >= 9) color = '#D4AF37'; // Dourado (melhor)
+              else if (score >= 7) color = '#EAB308'; // Amarelo
+              else if (score >= 5) color = '#F59E0B'; // Laranja
+              
+              return (
+                <div key={metric.criteria || index} className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col items-center">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center line-clamp-2 min-h-[2.5rem]">
+                    {metric.criteria || 'Critério'}
+                  </h4>
+                  <div className="relative w-32 h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[{ value: score }, { value: 10 - score }]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={35}
+                          outerRadius={50}
+                          startAngle={180}
+                          endAngle={0}
+                          dataKey="value"
+                        >
+                          <Cell fill={color} />
+                          <Cell fill="#e5e7eb" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-2xl font-bold" style={{ color }}>
+                        {score.toFixed(1)}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">de 10</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          )}
         </div>
       )}
 
@@ -346,7 +452,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                      <Cell key={`cell-${index}`} fill={getSliceColor(entry, index)} />
                    ))}
                  </Pie>
-                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
+                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', padding: '12px', fontSize: '14px' }} />
                  <Legend />
                </PieChart>
              </ResponsiveContainer>
@@ -378,7 +484,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                      <Cell key={`cell-${index}`} fill={getSliceColor(entry, index + 2)} />
                    ))}
                  </Pie>
-                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff' }} />
+                 <Tooltip contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#fff', padding: '12px', fontSize: '14px' }} />
                  <Legend />
                </PieChart>
              </ResponsiveContainer>
@@ -390,14 +496,14 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
          {/* Tabela Resumo com Mapa de Calor */}
          <div className="lg:col-span-2 bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+            <div className="p-4 border-b border-gray-100 dark:border-navy-700 flex justify-between items-center">
                <h3 className="font-bold text-gray-800 dark:text-white">Resumo de Performance (Top 10)</h3>
                <div className="flex items-center gap-2">
                   <Filter size={16} className="text-gray-400" />
                   <select
                      value={selectedLevel}
                      onChange={(e) => setSelectedLevel(e.target.value)}
-                     className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#121212] text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+                     className="px-3 py-1.5 text-sm border border-gray-200 dark:border-navy-700 rounded-lg bg-white dark:bg-navy-900 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
                   >
                      {availableLevels.map((level: string) => (
                         <option key={level} value={level}>{level}</option>
@@ -410,17 +516,52 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 font-medium">
                      <tr>
                         <th className="p-3 text-left">Rank</th>
-                        <th className="p-3 text-left">Nome</th>
-                        <th className="p-3 text-left">Setor</th>
-                        <th className="p-3 text-left">Cargo</th>
-                        <th className="p-3 text-left">Nível</th>
-                        <th className="p-3 text-center">Nota</th>
+                        <th className="p-3 text-left">
+                          <button onClick={() => handlePerformanceTableSort('name')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                            Nome
+                            {performanceTableSort.field === 'name' ? (
+                              performanceTableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                            ) : <ArrowUpDown size={14} className="opacity-30" />}
+                          </button>
+                        </th>
+                        <th className="p-3 text-left">
+                          <button onClick={() => handlePerformanceTableSort('sector')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                            Setor
+                            {performanceTableSort.field === 'sector' ? (
+                              performanceTableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                            ) : <ArrowUpDown size={14} className="opacity-30" />}
+                          </button>
+                        </th>
+                        <th className="p-3 text-left">
+                          <button onClick={() => handlePerformanceTableSort('role')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                            Cargo
+                            {performanceTableSort.field === 'role' ? (
+                              performanceTableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                            ) : <ArrowUpDown size={14} className="opacity-30" />}
+                          </button>
+                        </th>
+                        <th className="p-3 text-left">
+                          <button onClick={() => handlePerformanceTableSort('type')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                            Nível
+                            {performanceTableSort.field === 'type' ? (
+                              performanceTableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                            ) : <ArrowUpDown size={14} className="opacity-30" />}
+                          </button>
+                        </th>
+                        <th className="p-3 text-center">
+                          <button onClick={() => handlePerformanceTableSort('score')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors mx-auto">
+                            Nota
+                            {performanceTableSort.field === 'score' ? (
+                              performanceTableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                            ) : <ArrowUpDown size={14} className="opacity-30" />}
+                          </button>
+                        </th>
                         <th className="p-3 text-center">Destaque</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                     {filteredPerformanceList.length > 0 ? (
-                       filteredPerformanceList.slice(0, 10).map((item: any, idx: number) => {
+                     {sortedPerformanceList.length > 0 ? (
+                       sortedPerformanceList.map((item: any, idx: number) => {
                          const score = item.score || 0;
                          const colorInfo = getHeatmapColor(score);
                          // Verificar funcionarioMes: pode ser 'Sim', 'sim', 'SIM', true, ou boolean

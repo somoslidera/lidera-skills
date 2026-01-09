@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
-  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star
+  Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, Star, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { collection, addDoc, getDocs, query, where, writeBatch, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
@@ -581,6 +581,7 @@ const EvaluationForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
 // --- Subcomponente: Tabela de Avaliações com Edição em Massa ---
 const EvaluationsTable = () => {
+  const navigate = useNavigate();
   const { currentCompany } = useCompany();
   const [data, setData] = useState<EvaluationData[]>([]);
   const [filteredData, setFilteredData] = useState<EvaluationData[]>([]);
@@ -599,6 +600,9 @@ const EvaluationsTable = () => {
   // Estado para modal de resumo
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<EvaluationData | null>(null);
+  
+  // Estado para ordenação da tabela
+  const [tableSort, setTableSort] = useState<{field: string | null, direction: 'asc' | 'desc'}>({field: null, direction: 'asc'});
 
   // Estados para seleção em massa
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -849,21 +853,21 @@ const EvaluationsTable = () => {
   return (
     <div className="space-y-4">
       {/* Barra de Ferramentas / Ações em Massa */}
-      <div className="bg-white dark:bg-navy-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col md:flex-row gap-4 justify-between items-end">
-        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-          <div className="relative group w-full md:w-64">
+      <div className="bg-white dark:bg-navy-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-4">
+          <div className="relative group">
             <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
             <input 
               placeholder="Buscar por nome..."
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 text-sm"
               value={filterName}
               onChange={e => setFilterName(e.target.value)}
             />
           </div>
-          <div className="relative w-full sm:w-48">
+          <div className="relative">
             <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
               value={filterSector}
               onChange={e => setFilterSector(e.target.value)}
             >
@@ -871,10 +875,30 @@ const EvaluationsTable = () => {
               {sectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div className="relative w-full sm:w-32">
+          <div className="relative">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
+              value={filterRole}
+              onChange={e => setFilterRole(e.target.value)}
+            >
+              <option value="">Todos Cargos</option>
+              {roles.map((r: string) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="relative">
+            <select 
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
+              value={filterLevel}
+              onChange={e => setFilterLevel(e.target.value)}
+            >
+              <option value="">Todos Níveis</option>
+              {levels.map((l: string) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="relative">
             <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
               value={filterMonth}
               onChange={e => setFilterMonth(e.target.value)}
             >
@@ -885,9 +909,11 @@ const EvaluationsTable = () => {
               })}
             </select>
           </div>
-          <div className="relative w-full sm:w-24">
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="relative">
             <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
               value={filterYear}
               onChange={e => setFilterYear(e.target.value)}
             >
@@ -895,30 +921,9 @@ const EvaluationsTable = () => {
               {uniqueYears.map((y: string) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
-          {/* Novos Filtros */}
-          <div className="relative w-full sm:w-40">
+          <div className="relative">
             <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
-              value={filterRole}
-              onChange={e => setFilterRole(e.target.value)}
-            >
-              <option value="">Todos Cargos</option>
-              {roles.map((r: string) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div className="relative w-full sm:w-40">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
-              value={filterLevel}
-              onChange={e => setFilterLevel(e.target.value)}
-            >
-              <option value="">Todos Níveis</option>
-              {levels.map((l: string) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-          <div className="relative w-full sm:w-40">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
               value={filterScoreRange}
               onChange={e => setFilterScoreRange(e.target.value)}
             >
@@ -929,9 +934,9 @@ const EvaluationsTable = () => {
               <option value="9-10">9-10 (Excelente)</option>
             </select>
           </div>
-          <div className="relative w-full sm:w-40">
+          <div className="relative">
             <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors"
+              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
               value={sortOrder}
               onChange={e => setSortOrder(e.target.value as 'recent' | 'oldest')}
             >
@@ -939,39 +944,41 @@ const EvaluationsTable = () => {
               <option value="oldest">Mais Antigo</option>
             </select>
           </div>
-        </div>
-        
-        <div className="flex gap-2">
-          {selectedIds.length > 0 && (
-            <button
-              onClick={() => setIsBulkEditOpen(true)}
-              className="flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold px-4 py-2 rounded-lg transition-colors shadow-sm animate-fadeIn"
+          <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => setIsBulkEditOpen(true)}
+                className="flex items-center gap-2 text-white bg-blue-600 hover:bg-blue-700 font-bold px-4 py-2 rounded-lg transition-colors shadow-sm text-sm"
+              >
+                <Edit size={18} /> Editar ({selectedIds.length})
+              </button>
+            )}
+            <button 
+              onClick={handleExportCSV} 
+              disabled={filteredData.length === 0}
+              className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
-              <Edit size={18} /> Editar Nível ({selectedIds.length})
+              <Download size={18} /> Exportar
             </button>
-          )}
-          <button 
-            onClick={handleExportCSV} 
-            disabled={filteredData.length === 0}
-            className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
-          >
-            <Download size={18} /> Exportar CSV
-          </button>
+          </div>
         </div>
       </div>
 
       {/* Informação sobre avaliações vs funcionários avaliados */}
       {data.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            <strong>Total de avaliações:</strong> {data.length} | 
-            <strong className="ml-4">Funcionários únicos avaliados:</strong> {new Set(data.map((d: EvaluationData) => d.employeeId || d.employeeName)).size}
-          </p>
-          {Object.keys(evaluationsByMonth).length > 0 && (
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-              Exemplo: Em {Object.keys(evaluationsByMonth)[0]}, {evaluationsByMonth[Object.keys(evaluationsByMonth)[0]].size} funcionário(s) foram avaliados.
-            </p>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Total de Avaliações</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.length}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Todas as avaliações realizadas ao longo do tempo</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Funcionários Únicos Avaliados</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{new Set(data.map((d: EvaluationData) => d.employeeId || d.employeeName)).size}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Colaboradores que receberam pelo menos uma avaliação</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -986,21 +993,63 @@ const EvaluationsTable = () => {
                     {selectedIds.length > 0 && selectedIds.length === filteredData.length ? <CheckSquare size={20} /> : <Square size={20} />}
                   </button>
                 </th>
-                <th className="p-4">Data</th>
-                <th className="p-4">Colaborador</th>
-                <th className="p-4">Cargo</th>
-                <th className="p-4">Setor</th>
-                <th className="p-4">Nível</th>
-                <th className="p-4 text-right">Nota Média</th>
+                <th className="p-4">
+                  <button onClick={() => handleTableSort('date')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                    Data
+                    {tableSort.field === 'date' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
+                <th className="p-4">
+                  <button onClick={() => handleTableSort('employeeName')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                    Colaborador
+                    {tableSort.field === 'employeeName' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
+                <th className="p-4">
+                  <button onClick={() => handleTableSort('role')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                    Cargo
+                    {tableSort.field === 'role' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
+                <th className="p-4">
+                  <button onClick={() => handleTableSort('sector')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                    Setor
+                    {tableSort.field === 'sector' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
+                <th className="p-4">
+                  <button onClick={() => handleTableSort('type')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors">
+                    Nível
+                    {tableSort.field === 'type' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
+                <th className="p-4 text-right">
+                  <button onClick={() => handleTableSort('average')} className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-gold-400 transition-colors ml-auto">
+                    Nota Média
+                    {tableSort.field === 'average' ? (
+                      tableSort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                    ) : <ArrowUpDown size={14} className="opacity-30" />}
+                  </button>
+                </th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {isLoading ? (
                 <tr><td colSpan={8} className="p-8 text-center text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Carregando histórico...</td></tr>
-              ) : paginatedData.length === 0 ? (
+              ) : sortedTableData.length === 0 ? (
                 <tr><td colSpan={8} className="p-8 text-center text-gray-500">Nenhum registro encontrado.</td></tr>
-              ) : paginatedData.map((ev) => (
+              ) : sortedTableData.map((ev) => (
                 <tr key={ev.id} className={`hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(ev.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                   <td className="p-4">
                     <button onClick={() => handleSelectOne(ev.id)} className="text-gray-400 hover:text-blue-500">
@@ -1013,7 +1062,14 @@ const EvaluationsTable = () => {
                         {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', month: 'short', year: 'numeric'})}
                     </div>
                   </td>
-                  <td className="p-4 font-bold text-gray-800 dark:text-white">{ev.employeeName}</td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => navigate(`/evaluations/employee/${encodeURIComponent(ev.employeeName)}`)}
+                      className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
+                    >
+                      {ev.employeeName}
+                    </button>
+                  </td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                   <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
                   <td className="p-4">

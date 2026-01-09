@@ -14,24 +14,24 @@ const getLuminance = (hex: string): number => {
   return (0.299 * r + 0.587 * g + 0.114 * b);
 };
 
-// Função para gerar cor de gradiente baseada na escala de 10 cores (0-10)
-// Gradiente: Vermelho → Laranja → Amarelo → Verde
+// Função para gerar cor de gradiente baseada na escala (0-10)
+// Gradiente: Vermelho → Laranja → Amarelo → Dourado (pior->melhor)
 const getHeatmapColor = (score: number): { bg: string; text: string } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
   let bgColor: string;
-  // Mapeia para 10 segmentos de cores (0-1, 1-2, ..., 9-10)
-  if (normalizedScore >= 9) bgColor = '#166534'; // Verde escuro (9-10)
-  else if (normalizedScore >= 8) bgColor = '#22C55E'; // Verde médio (8-9)
-  else if (normalizedScore >= 7) bgColor = '#4ADE80'; // Verde claro (7-8)
-  else if (normalizedScore >= 6) bgColor = '#84CC16'; // Verde-amarelo (6-7)
-  else if (normalizedScore >= 5) bgColor = '#EAB308'; // Amarelo (5-6)
-  else if (normalizedScore >= 4) bgColor = '#F59E0B'; // Laranja claro (4-5)
-  else if (normalizedScore >= 3) bgColor = '#F97316'; // Laranja (3-4)
-  else if (normalizedScore >= 2) bgColor = '#FB923C'; // Laranja claro (2-3)
-  else if (normalizedScore >= 1) bgColor = '#EF4444'; // Vermelho-laranja (1-2)
-  else bgColor = '#DC2626'; // Vermelho escuro (0-1)
+  // Mapeia para gradiente dourado->vermelho (melhor->pior)
+  if (normalizedScore >= 9) bgColor = '#D4AF37'; // Dourado (9-10) - melhor
+  else if (normalizedScore >= 8) bgColor = '#EAB308'; // Amarelo dourado (8-9)
+  else if (normalizedScore >= 7) bgColor = '#F59E0B'; // Amarelo-laranja (7-8)
+  else if (normalizedScore >= 6) bgColor = '#F97316'; // Laranja (6-7)
+  else if (normalizedScore >= 5) bgColor = '#FB923C'; // Laranja claro (5-6)
+  else if (normalizedScore >= 4) bgColor = '#EF4444'; // Vermelho-laranja (4-5)
+  else if (normalizedScore >= 3) bgColor = '#F87171'; // Vermelho claro (3-4)
+  else if (normalizedScore >= 2) bgColor = '#DC2626'; // Vermelho (2-3)
+  else if (normalizedScore >= 1) bgColor = '#B91C1C'; // Vermelho escuro (1-2)
+  else bgColor = '#991B1B'; // Vermelho muito escuro (0-1) - pior
   
   // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
   const luminance = getLuminance(bgColor);
@@ -143,8 +143,10 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
               <XAxis dataKey="date" stroke="#9ca3af" tick={{fontSize: 12}} />
               <YAxis domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
               <Tooltip 
-                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
-                itemStyle={{color: '#fff'}}
+                contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px', fontSize: '14px'}}
+                itemStyle={{color: '#fff', fontSize: '14px'}}
+                labelStyle={{color: '#fff', fontSize: '14px', fontWeight: 'bold'}}
+                cursor={{ stroke: '#fff', strokeWidth: 1, strokeDasharray: '3 3' }}
               />
               <Legend />
               
@@ -181,8 +183,10 @@ export const PerformanceAnalysis = ({ data }: { data: any }) => {
                 <XAxis dataKey="date" stroke="#9ca3af" tick={{fontSize: 12}} />
                 <YAxis domain={[0, 10]} stroke="#9ca3af" tick={{fontSize: 12}} />
                 <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff'}}
-                  itemStyle={{color: '#fff'}}
+                  contentStyle={{borderRadius: '8px', border: 'none', backgroundColor: '#1f2937', color: '#fff', padding: '12px', fontSize: '14px'}}
+                  itemStyle={{color: '#fff', fontSize: '14px'}}
+                  labelStyle={{color: '#fff', fontSize: '14px', fontWeight: 'bold'}}
+                  cursor={{ stroke: '#fff', strokeWidth: 1, strokeDasharray: '3 3' }}
                 />
                 <Legend 
                   onClick={(e: any) => {
