@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, Award, User } from 'lucide-react';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, User } from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
+import { fetchCollection } from '../../services/firebase';
 import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine, ReferenceArea } from 'recharts';
 import { CustomTooltip } from '../ui/CustomTooltip';
 
@@ -12,7 +13,7 @@ export const EmployeeHistoryView: React.FC = () => {
   const navigate = useNavigate();
   const { currentCompany } = useCompany();
   const [evaluations, setEvaluations] = useState<any[]>([]);
-  const [allEvaluations, setAllEvaluations] = useState<any[]>([]); // Todas as avaliações para comparação
+  const [allEvaluations, setAllEvaluations] = useState<any[]>([]);
   const [employee, setEmployee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,187 +27,58 @@ export const EmployeeHistoryView: React.FC = () => {
       try {
         setLoading(true);
         
-        // Buscar dados do funcionário
-        let foundEmployee: any = null;
-        let employeeCode: string | null = null;
-        const decodedName = decodeURIComponent(employeeId);
+        // Buscar todas as avaliações e funcionários
+        const [allEvals, allEmployees] = await Promise.all([
+          fetchCollection('evaluations', currentCompany.id === 'all' ? null : currentCompany.id),
+          fetchCollection('employees')
+        ]);
         
-        try {
-          // Estratégia 1: Tentar buscar por ID do documento
-          try {
-            const empDoc = await getDoc(doc(db, 'employees', employeeId));
-            if (empDoc.exists()) {
-              foundEmployee = { id: empDoc.id, ...empDoc.data() };
-              employeeCode = foundEmployee.employeeCode || null;
-              setEmployee(foundEmployee);
-              console.log('✅ Funcionário encontrado por ID do documento:', { id: empDoc.id, name: foundEmployee.name, employeeCode });
-            }
-          } catch (err) {
-            // ID inválido, continuar para próxima estratégia
-            console.log('ℹ️ ID do documento não encontrado, tentando outras estratégias...');
-          }
-          
-          // Estratégia 2: Buscar por employeeCode
-          if (!foundEmployee) {
-            try {
-              const codeQuery = query(
-                collection(db, 'employees'),
-                where('employeeCode', '==', employeeId)
-              );
-              const codeSnap = await getDocs(codeQuery);
-              if (!codeSnap.empty) {
-                foundEmployee = { id: codeSnap.docs[0].id, ...codeSnap.docs[0].data() };
-                employeeCode = foundEmployee.employeeCode || null;
-                setEmployee(foundEmployee);
-                console.log('✅ Funcionário encontrado por employeeCode:', { id: foundEmployee.id, name: foundEmployee.name, employeeCode });
-              }
-            } catch (err) {
-              console.log('ℹ️ Busca por employeeCode não retornou resultados');
-            }
-          }
-          
-          // Estratégia 3: Tentar por nome
-          if (!foundEmployee) {
-            try {
-              const nameQuery = query(
-                collection(db, 'employees'),
-                where('name', '==', decodedName)
-              );
-              const nameSnap = await getDocs(nameQuery);
-              if (!nameSnap.empty) {
-                foundEmployee = { id: nameSnap.docs[0].id, ...nameSnap.docs[0].data() };
-                employeeCode = foundEmployee.employeeCode || null;
-                setEmployee(foundEmployee);
-                console.log('✅ Funcionário encontrado por nome:', { id: foundEmployee.id, name: foundEmployee.name, employeeCode });
-              }
-            } catch (err) {
-              console.log('ℹ️ Busca por nome não retornou resultados');
-            }
-          }
-          
-          // Se ainda não encontrou, criar um objeto básico com o nome
-          if (!foundEmployee) {
-            foundEmployee = {
-              id: employeeId,
-              name: decodedName,
-              employeeCode: null
-            };
-            setEmployee(foundEmployee);
-            console.log('⚠️ Funcionário não encontrado no cadastro, usando dados da URL:', { name: decodedName });
-          }
-        } catch (err) {
-          console.warn('⚠️ Erro ao buscar funcionário:', err);
-          // Criar objeto básico mesmo em caso de erro
-          foundEmployee = {
-            id: employeeId,
-            name: decodedName,
-            employeeCode: null
-          };
+        setAllEvaluations(allEvals);
+        
+        // Buscar funcionário por employeeId, employeeCode ou nome
+        const decodedId = decodeURIComponent(employeeId);
+        const foundEmployee: any = allEmployees.find((emp: any) => 
+          emp.id === decodedId ||
+          emp.employeeCode === decodedId ||
+          emp.name?.toLowerCase().trim() === decodedId.toLowerCase().trim()
+        );
+        
+        if (foundEmployee) {
           setEmployee(foundEmployee);
         }
-
-        // Buscar avaliações do funcionário
-        // Simplificar: buscar todas e filtrar manualmente (mais confiável)
-        let employeeEvals: any[] = [];
-        const searchName = foundEmployee?.name || decodedName;
         
-        console.log('🔍 Buscando avaliações para:', { 
-          employeeId, 
-          employeeCode,
-          employeeName: searchName,
-          foundEmployeeId: foundEmployee?.id,
-          currentCompany: currentCompany.id 
+        // Buscar avaliações do funcionário
+        // O employeeId na URL pode ser: ID do documento, employeeCode, ou nome
+        const searchId = decodedId.toLowerCase().trim();
+        const searchCode = foundEmployee?.employeeCode ? String(foundEmployee.employeeCode).toLowerCase().trim() : '';
+        const searchName = foundEmployee?.name ? String(foundEmployee.name).toLowerCase().trim() : searchId;
+        const searchFoundId = foundEmployee?.id ? String(foundEmployee.id).toLowerCase().trim() : '';
+        
+        const employeeEvals = allEvals.filter((ev: any) => {
+          const evEmployeeId = (ev.employeeId || '').toString().toLowerCase().trim();
+          const evEmployeeName = (ev.employeeName || '').toLowerCase().trim();
+          const evEvaluationId = (ev.evaluationId || '').toString().toLowerCase().trim();
+          const evEmployeeCode = (ev.employeeCode || '').toString().toLowerCase().trim();
+          
+          return evEmployeeId === searchId ||
+                 evEmployeeId === searchFoundId ||
+                 evEmployeeId === searchCode ||
+                 evEvaluationId === searchId ||
+                 evEvaluationId === searchFoundId ||
+                 evEvaluationId === searchCode ||
+                 evEmployeeName === searchName ||
+                 evEmployeeCode === searchCode ||
+                 evEmployeeCode === searchId;
         });
         
-        try {
-          // Buscar todas as avaliações da empresa
-          let allEvalsQuery;
-          if (currentCompany.id === 'all') {
-            allEvalsQuery = query(collection(db, 'evaluations'));
-          } else {
-            allEvalsQuery = query(
-              collection(db, 'evaluations'),
-              where('companyId', '==', currentCompany.id)
-            );
-          }
-          const allSnap = await getDocs(allEvalsQuery);
-          const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-          
-          // Filtrar manualmente por múltiplos critérios
-          // employeeId na avaliação pode ser: código do funcionário (ex: "17e2e57e"), ID do documento, ou employeeCode
-          // employeeName na avaliação pode ser: nome completo do funcionário
-          // evaluationId também pode conter o código do funcionário
-          employeeEvals = allEvals.filter((evaluation: any) => {
-            const evEmployeeId = (evaluation.employeeId || '').toString().toLowerCase().trim();
-            const evEmployeeName = (evaluation.employeeName || '').toLowerCase().trim();
-            const evEmployeeCode = (evaluation.employeeCode || '').toString().toLowerCase().trim();
-            const evEvaluationId = (evaluation.evaluationId || '').toString().toLowerCase().trim();
-            
-            const searchId = employeeId.toLowerCase().trim();
-            const searchNameLower = searchName.toLowerCase().trim();
-            const searchCode = employeeCode ? employeeCode.toString().toLowerCase().trim() : '';
-            const searchFoundId = foundEmployee?.id ? foundEmployee.id.toLowerCase().trim() : '';
-            const searchFoundCode = foundEmployee?.employeeCode ? foundEmployee.employeeCode.toString().toLowerCase().trim() : '';
-            
-            // Múltiplas comparações possíveis
-            // 1. employeeId da avaliação pode ser o código do funcionário (ex: "17e2e57e")
-            // 2. employeeId da avaliação pode ser o ID do documento do funcionário
-            // 3. employeeId da avaliação pode ser o employeeCode
-            // 4. evaluationId pode ser o código do funcionário
-            // 5. employeeName deve corresponder ao nome do funcionário
-            // 6. employeeCode da avaliação deve corresponder ao employeeCode do funcionário
-            return evEmployeeId === searchId ||
-                   evEmployeeId === searchFoundId ||
-                   evEmployeeId === searchCode ||
-                   evEmployeeId === searchFoundCode ||
-                   evEvaluationId === searchId ||
-                   evEvaluationId === searchFoundId ||
-                   evEvaluationId === searchCode ||
-                   evEvaluationId === searchFoundCode ||
-                   evEmployeeName === searchNameLower ||
-                   evEmployeeName === searchId ||
-                   (evEmployeeCode && (evEmployeeCode === searchCode || evEmployeeCode === searchId || evEmployeeCode === searchFoundCode));
-          });
-          
-          console.log(`✅ Encontradas ${employeeEvals.length} avaliações para o funcionário`);
-          if (employeeEvals.length > 0) {
-            console.log('📋 Primeira avaliação:', {
-              id: employeeEvals[0].id,
-              employeeId: employeeEvals[0].employeeId,
-              employeeName: employeeEvals[0].employeeName,
-              employeeCode: employeeEvals[0].employeeCode,
-              date: employeeEvals[0].date
-            });
-          }
-        } catch (err) {
-          console.error('❌ Erro ao buscar avaliações:', err);
-        }
-        
+        // Ordenar por data
         employeeEvals.sort((a: any, b: any) => {
           const dateA = a.date ? new Date(a.date).getTime() : 0;
           const dateB = b.date ? new Date(b.date).getTime() : 0;
           return dateA - dateB;
         });
+        
         setEvaluations(employeeEvals);
-
-        // Buscar todas as avaliações da empresa para comparação
-        try {
-          let allEvalsQuery;
-          if (currentCompany.id === 'all') {
-            allEvalsQuery = query(collection(db, 'evaluations'));
-          } else {
-            allEvalsQuery = query(
-              collection(db, 'evaluations'),
-              where('companyId', '==', currentCompany.id)
-            );
-          }
-          const allSnap = await getDocs(allEvalsQuery);
-          const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-          setAllEvaluations(allEvals);
-        } catch (err) {
-          console.warn('Erro ao buscar todas as avaliações:', err);
-          setAllEvaluations([]);
-        }
       } catch (error) {
         console.error('Erro ao carregar histórico:', error);
         setEvaluations([]);
@@ -229,7 +101,7 @@ export const EmployeeHistoryView: React.FC = () => {
     // Agrupar avaliações por mês
     const monthlyGroups: Record<string, any[]> = {};
     allEvaluations.forEach((evaluation: any) => {
-      const monthKey = evaluation.date?.substring(0, 7) || ''; // YYYY-MM
+      const monthKey = evaluation.date?.substring(0, 7) || '';
       if (!monthlyGroups[monthKey]) {
         monthlyGroups[monthKey] = [];
       }
@@ -339,15 +211,9 @@ export const EmployeeHistoryView: React.FC = () => {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{employeeName}</h1>
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {employee?.sector && (
-              <span>Setor: {employee.sector}</span>
-            )}
-            {employee?.role && (
-              <span>Cargo: {employee.role}</span>
-            )}
-            {employee?.jobLevel && (
-              <span>Nível: {employee.jobLevel}</span>
-            )}
+            {employee?.sector && <span>Setor: {employee.sector}</span>}
+            {employee?.role && <span>Cargo: {employee.role}</span>}
+            {employee?.jobLevel && <span>Nível: {employee.jobLevel}</span>}
             {employee?.discProfile && (
               <span className="flex items-center gap-1">
                 <User size={14} />
@@ -373,21 +239,15 @@ export const EmployeeHistoryView: React.FC = () => {
           </div>
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Média Geral</p>
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">
-              {overallAverage.toFixed(2)}
-            </p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{overallAverage.toFixed(2)}</p>
           </div>
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Primeira Avaliação</p>
-            <p className="text-lg font-semibold text-gray-800 dark:text-white">
-              {firstEval ? formatMonth(firstEval.date) : '-'}
-            </p>
+            <p className="text-lg font-semibold text-gray-800 dark:text-white">{firstEval ? formatMonth(firstEval.date) : '-'}</p>
           </div>
           <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Última Avaliação</p>
-            <p className="text-lg font-semibold text-gray-800 dark:text-white">
-              {latestEval ? formatMonth(latestEval.date) : '-'}
-            </p>
+            <p className="text-lg font-semibold text-gray-800 dark:text-white">{latestEval ? formatMonth(latestEval.date) : '-'}</p>
           </div>
         </div>
       )}
@@ -433,11 +293,9 @@ export const EmployeeHistoryView: React.FC = () => {
                   }}
                 />
                 <Legend />
-                {/* Zonas de referência */}
                 <ReferenceArea y1={9} y2={10} fill="#10B981" fillOpacity={0.1} stroke="none" />
                 <ReferenceArea y1={7} y2={9} fill="#EAB308" fillOpacity={0.1} stroke="none" />
                 <ReferenceArea y1={0} y2={7} fill="#EF4444" fillOpacity={0.1} stroke="none" />
-                {/* Linha de meta */}
                 <ReferenceLine y={9} stroke="#D4AF37" strokeWidth={2} strokeDasharray="3 3" strokeOpacity={0.6} />
                 <Area 
                   type="monotone" 
@@ -445,12 +303,10 @@ export const EmployeeHistoryView: React.FC = () => {
                   stroke="#3B82F6" 
                   strokeWidth={2}
                   fill="url(#gradientAverage)"
-                  fillOpacity={1}
                   name="Funcionário"
                   dot={{ fill: '#3B82F6', r: 4 }}
                   isAnimationActive={true}
                   animationDuration={1000}
-                  animationEasing="ease-out"
                 />
                 <Area 
                   type="monotone" 
@@ -459,12 +315,10 @@ export const EmployeeHistoryView: React.FC = () => {
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="url(#gradientSector)"
-                  fillOpacity={0.5}
                   name="Média do Setor"
                   dot={{ fill: '#10B981', r: 3 }}
                   isAnimationActive={true}
                   animationDuration={1000}
-                  animationEasing="ease-out"
                 />
                 <Area 
                   type="monotone" 
@@ -473,12 +327,10 @@ export const EmployeeHistoryView: React.FC = () => {
                   strokeWidth={2}
                   strokeDasharray="5 5"
                   fill="url(#gradientCompany)"
-                  fillOpacity={0.5}
                   name="Média da Empresa"
                   dot={{ fill: '#F59E0B', r: 3 }}
                   isAnimationActive={true}
                   animationDuration={1000}
-                  animationEasing="ease-out"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -523,9 +375,7 @@ export const EmployeeHistoryView: React.FC = () => {
                   
                   return (
                     <tr key={evaluation.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
-                      <td className="p-3 text-gray-700 dark:text-gray-300">
-                        {formatMonth(evaluation.date)}
-                      </td>
+                      <td className="p-3 text-gray-700 dark:text-gray-300">{formatMonth(evaluation.date)}</td>
                       {allCriteria.map(criteria => {
                         const score = evaluation.details?.[criteria] || 0;
                         return (

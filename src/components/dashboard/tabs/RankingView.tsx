@@ -178,59 +178,72 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     };
   }, [evaluations, employees, filters, rankingType, selectedFilter, employeeMap]);
 
-  // Preparar dados para gráfico de linhas (evolução temporal CUMULATIVA)
+  // Preparar dados para gráfico de linhas (evolução temporal CUMULATIVA - SOMA)
   const chartData = useMemo(() => {
     const top10 = processedRankings.rankings.slice(0, 10);
-    const dates = Array.from(new Set(
+    
+    // Obter todas as datas únicas ordenadas
+    const allDates = Array.from(new Set(
       evaluations
         .filter(ev => {
           const emp = employeeMap.get(ev.employeeId) || employeeMap.get(ev.employeeName?.toLowerCase().trim());
           return top10.some(r => r.employeeId === (ev.employeeId || ev.employeeName));
         })
         .map(ev => ev.date || ev.month)
+        .filter(Boolean)
     )).sort();
 
-    // Calcular SOMA acumulada por funcionário (não média)
-    const cumulativeScores: Record<string, (number | undefined)[]> = {};
-    top10.forEach(emp => {
-      cumulativeScores[emp.name] = [];
-    });
-
-    dates.forEach((date, dateIdx) => {
+    // Calcular SOMA acumulada por funcionário
+    // Para cada funcionário, calcular a soma acumulada em cada data
+    const cumulativeData: Array<Record<string, any>> = [];
+    
+    allDates.forEach((currentDate, dateIdx) => {
+      const dataPoint: any = { date: currentDate };
+      
       top10.forEach((emp) => {
-        // Buscar todas as avaliações até esta data (inclusive)
-        const evs = evaluations.filter((e: any) => {
-          const evDate = e.date || e.month;
-          return evDate <= date && 
-                 ((e.employeeId || e.employeeName) === emp.employeeId);
+        // Buscar TODAS as avaliações deste funcionário até esta data (inclusive)
+        // Ordenar por data primeiro
+        const allEmpEvals = evaluations.filter((e: any) => {
+          // Verificar se é do mesmo funcionário
+          const isSameEmployee = (e.employeeId || e.employeeName) === emp.employeeId ||
+                                 (e.employeeName?.toLowerCase().trim() === emp.name.toLowerCase().trim());
+          return isSameEmployee;
         }).sort((a: any, b: any) => {
           const dateA = (a.date || a.month || '').toString();
           const dateB = (b.date || b.month || '').toString();
           return dateA.localeCompare(dateB);
         });
 
-        if (evs.length > 0) {
-          // SOMA acumulada: somar todas as notas até esta data
-          const cumulative = evs.reduce((sum: number, e: any) => {
+        // Filtrar avaliações até a data atual (inclusive)
+        const empEvals = allEmpEvals.filter((e: any) => {
+          const evDate = e.date || e.month;
+          if (!evDate) return false;
+          // Comparar datas como strings (formato YYYY-MM-DD ou YYYY-MM)
+          return evDate <= currentDate;
+        });
+
+        if (empEvals.length > 0) {
+          // SOMA ACUMULADA: somar TODAS as notas médias até esta data
+          const cumulativeSum = empEvals.reduce((sum: number, e: any) => {
             const score = typeof e.average === 'number' ? e.average : parseFloat((e.notaFinal || '0').replace(',', '.'));
             return sum + (isNaN(score) ? 0 : score);
           }, 0);
-          cumulativeScores[emp.name][dateIdx] = cumulative;
+          dataPoint[emp.name] = cumulativeSum;
         } else {
-          // Se não tem avaliação ainda, usar o valor anterior ou undefined
-          cumulativeScores[emp.name][dateIdx] = dateIdx > 0 ? cumulativeScores[emp.name][dateIdx - 1] : undefined;
+          // Se não tem avaliação ainda nesta data, usar o valor anterior ou null
+          if (dateIdx > 0) {
+            const previousValue = cumulativeData[dateIdx - 1]?.[emp.name];
+            dataPoint[emp.name] = previousValue !== undefined ? previousValue : null;
+          } else {
+            dataPoint[emp.name] = null;
+          }
         }
       });
+      
+      cumulativeData.push(dataPoint);
     });
 
-    return dates.map((date, dateIdx) => {
-      const dataPoint: any = { date: date };
-      top10.forEach((emp) => {
-        const value = cumulativeScores[emp.name][dateIdx];
-        dataPoint[emp.name] = value !== undefined ? value : null;
-      });
-      return dataPoint;
-    });
+    return cumulativeData;
   }, [processedRankings.rankings, evaluations, employeeMap]);
 
   const colors = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
@@ -363,7 +376,11 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                   return `${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
                 }}
               />
-              <YAxis stroke="#666" domain={[0, 10]} />
+              <YAxis 
+                stroke="#666" 
+                domain={['auto', 'auto']}
+                label={{ value: 'Pontuação Acumulada', angle: -90, position: 'insideLeft' }}
+              />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               {processedRankings.rankings.slice(0, 10).map((emp, idx) => (
@@ -443,10 +460,10 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.role}</td>}
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.level}</td>}
                     <td className="px-4 py-4">
-                      <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      <span className="text-lg font-bold text-blue-600 dark:text-blue-400" title="Pontuação acumulada (soma de todas as notas)">
                         {emp.totalScore.toFixed(2)}
                       </span>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1" title="Média histórica">
                         Média: {emp.averageScore.toFixed(2)}
                       </div>
                     </td>

@@ -453,28 +453,46 @@ export const BehavioralProfile = () => {
             </div>
           </div>
 
-          {/* Gráfico Radar - Perfil Médio */}
-          <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212]">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
-              Perfil DISC Médio
-            </h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <RadarChart data={[radarData]}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="dimension" />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                <Radar
-                  name="Perfil Médio"
-                  dataKey="value"
-                  stroke={DISC_COLORS.D}
-                  fill={DISC_COLORS.D}
-                  fillOpacity={0.6}
-                />
-                <Tooltip />
-                <Legend />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Gráfico Radar - Perfil Médio (apenas se houver dados válidos) */}
+          {discAverages.D > 0 || discAverages.I > 0 || discAverages.S > 0 || discAverages.C > 0 ? (
+            <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212]">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                Perfil DISC Médio do Grupo
+              </h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <RadarChart data={[radarData]}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="dimension" />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                  <Radar
+                    name="Perfil Médio"
+                    dataKey="value"
+                    stroke={DISC_COLORS.D}
+                    fill={DISC_COLORS.D}
+                    fillOpacity={0.6}
+                  />
+                  <Tooltip 
+                    content={(props: any) => {
+                      if (!props?.active || !props?.payload) return null;
+                      const data = props.payload[0]?.payload;
+                      return (
+                        <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                          <p className="font-semibold text-gray-900 dark:text-white">{data?.dimension}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Valor: <span className="font-bold">{data?.value?.toFixed(1)}</span>
+                          </p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend />
+                </RadarChart>
+              </ResponsiveContainer>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                Mostra a média dos perfis DISC de todos os funcionários filtrados
+              </p>
+            </div>
+          ) : null}
 
           {/* Tabela de Funcionários */}
           <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-[#121212] overflow-x-auto">
