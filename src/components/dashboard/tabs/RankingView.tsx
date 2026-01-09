@@ -178,7 +178,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     };
   }, [evaluations, employees, filters, rankingType, selectedFilter, employeeMap]);
 
-  // Preparar dados para gráfico de linhas (evolução temporal)
+  // Preparar dados para gráfico de linhas (evolução temporal CUMULATIVA)
   const chartData = useMemo(() => {
     const top10 = processedRankings.rankings.slice(0, 10);
     const dates = Array.from(new Set(
@@ -190,19 +190,39 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
         .map(ev => ev.date || ev.month)
     )).sort();
 
-    return dates.map(date => {
-      const dataPoint: any = { date: date };
-      top10.forEach((emp, idx) => {
-        const ev = evaluations.find((e: any) => 
-          (e.date || e.month) === date && 
-          (e.employeeId || e.employeeName) === emp.employeeId
-        );
-        if (ev) {
-          const score = typeof ev.average === 'number' ? ev.average : parseFloat((ev.notaFinal || '0').replace(',', '.'));
-          dataPoint[emp.name] = isNaN(score) ? null : score;
+    // Calcular pontuação acumulada por funcionário
+    const cumulativeScores: Record<string, (number | undefined)[]> = {};
+    top10.forEach(emp => {
+      cumulativeScores[emp.name] = [];
+    });
+
+    dates.forEach((date, dateIdx) => {
+      top10.forEach((emp) => {
+        const evs = evaluations.filter((e: any) => {
+          const evDate = e.date || e.month;
+          return evDate <= date && 
+                 ((e.employeeId || e.employeeName) === emp.employeeId);
+        });
+
+        if (evs.length > 0) {
+          const scores = evs.map((e: any) => {
+            const score = typeof e.average === 'number' ? e.average : parseFloat((e.notaFinal || '0').replace(',', '.'));
+            return isNaN(score) ? 0 : score;
+          });
+          const cumulative = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
+          cumulativeScores[emp.name][dateIdx] = cumulative;
         } else {
-          dataPoint[emp.name] = null;
+          // Se não tem avaliação ainda, usar o valor anterior ou undefined
+          cumulativeScores[emp.name][dateIdx] = dateIdx > 0 ? cumulativeScores[emp.name][dateIdx - 1] : undefined;
         }
+      });
+    });
+
+    return dates.map((date, dateIdx) => {
+      const dataPoint: any = { date: date };
+      top10.forEach((emp) => {
+        const value = cumulativeScores[emp.name][dateIdx];
+        dataPoint[emp.name] = value !== undefined ? value : null;
       });
       return dataPoint;
     });
@@ -348,8 +368,8 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                   dataKey={emp.name}
                   stroke={colors[idx % colors.length]}
                   strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
+                  dot={false}
+                  activeDot={{ r: 4 }}
                   connectNulls
                 />
               ))}

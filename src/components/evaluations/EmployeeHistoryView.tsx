@@ -29,34 +29,45 @@ export const EmployeeHistoryView: React.FC = () => {
         // Buscar dados do funcionário
         let foundEmployee: any = null;
         let employeeCode: string | null = null;
+        const decodedName = decodeURIComponent(employeeId);
         
         try {
-          // Tentar buscar por ID do documento
-          const empDoc = await getDoc(doc(db, 'employees', employeeId));
-          if (empDoc.exists()) {
-            foundEmployee = { id: empDoc.id, ...empDoc.data() };
-            employeeCode = foundEmployee.employeeCode || null;
-            setEmployee(foundEmployee);
-            console.log('✅ Funcionário encontrado por ID:', { id: empDoc.id, name: foundEmployee.name, employeeCode });
-          } else {
-            // Se não encontrou por ID, pode ser que employeeId seja o employeeCode ou nome
-            // Buscar na collection de employees
-            console.warn('⚠️ Funcionário não encontrado por ID do documento, tentando buscar por employeeCode ou nome...');
-            
-            // Buscar por employeeCode
-            const codeQuery = query(
-              collection(db, 'employees'),
-              where('employeeCode', '==', employeeId)
-            );
-            const codeSnap = await getDocs(codeQuery);
-            if (!codeSnap.empty) {
-              foundEmployee = { id: codeSnap.docs[0].id, ...codeSnap.docs[0].data() };
+          // Estratégia 1: Tentar buscar por ID do documento
+          try {
+            const empDoc = await getDoc(doc(db, 'employees', employeeId));
+            if (empDoc.exists()) {
+              foundEmployee = { id: empDoc.id, ...empDoc.data() };
               employeeCode = foundEmployee.employeeCode || null;
               setEmployee(foundEmployee);
-              console.log('✅ Funcionário encontrado por employeeCode:', { id: foundEmployee.id, name: foundEmployee.name, employeeCode });
-            } else {
-              // Tentar por nome
-              const decodedName = decodeURIComponent(employeeId);
+              console.log('✅ Funcionário encontrado por ID do documento:', { id: empDoc.id, name: foundEmployee.name, employeeCode });
+            }
+          } catch (err) {
+            // ID inválido, continuar para próxima estratégia
+            console.log('ℹ️ ID do documento não encontrado, tentando outras estratégias...');
+          }
+          
+          // Estratégia 2: Buscar por employeeCode
+          if (!foundEmployee) {
+            try {
+              const codeQuery = query(
+                collection(db, 'employees'),
+                where('employeeCode', '==', employeeId)
+              );
+              const codeSnap = await getDocs(codeQuery);
+              if (!codeSnap.empty) {
+                foundEmployee = { id: codeSnap.docs[0].id, ...codeSnap.docs[0].data() };
+                employeeCode = foundEmployee.employeeCode || null;
+                setEmployee(foundEmployee);
+                console.log('✅ Funcionário encontrado por employeeCode:', { id: foundEmployee.id, name: foundEmployee.name, employeeCode });
+              }
+            } catch (err) {
+              console.log('ℹ️ Busca por employeeCode não retornou resultados');
+            }
+          }
+          
+          // Estratégia 3: Tentar por nome
+          if (!foundEmployee) {
+            try {
               const nameQuery = query(
                 collection(db, 'employees'),
                 where('name', '==', decodedName)
@@ -68,168 +79,91 @@ export const EmployeeHistoryView: React.FC = () => {
                 setEmployee(foundEmployee);
                 console.log('✅ Funcionário encontrado por nome:', { id: foundEmployee.id, name: foundEmployee.name, employeeCode });
               }
+            } catch (err) {
+              console.log('ℹ️ Busca por nome não retornou resultados');
             }
+          }
+          
+          // Se ainda não encontrou, criar um objeto básico com o nome
+          if (!foundEmployee) {
+            foundEmployee = {
+              id: employeeId,
+              name: decodedName,
+              employeeCode: null
+            };
+            setEmployee(foundEmployee);
+            console.log('⚠️ Funcionário não encontrado no cadastro, usando dados da URL:', { name: decodedName });
           }
         } catch (err) {
           console.warn('⚠️ Erro ao buscar funcionário:', err);
+          // Criar objeto básico mesmo em caso de erro
+          foundEmployee = {
+            id: employeeId,
+            name: decodedName,
+            employeeCode: null
+          };
+          setEmployee(foundEmployee);
         }
 
         // Buscar avaliações do funcionário
-        // O employeeId na URL pode ser:
-        // 1. ID do documento do Firestore (ex: "abc123")
-        // 2. employeeCode (ex: "001")
-        // 3. Nome codificado (fallback)
+        // Simplificar: buscar todas e filtrar manualmente (mais confiável)
         let employeeEvals: any[] = [];
+        const searchName = foundEmployee?.name || decodedName;
         
         console.log('🔍 Buscando avaliações para:', { 
           employeeId, 
           employeeCode,
-          employeeName: foundEmployee?.name,
+          employeeName: searchName,
+          foundEmployeeId: foundEmployee?.id,
           currentCompany: currentCompany.id 
         });
         
-        // Estratégia 1: Buscar por employeeId (pode ser ID do documento ou employeeCode)
         try {
-          let q;
+          // Buscar todas as avaliações da empresa
+          let allEvalsQuery;
           if (currentCompany.id === 'all') {
-            q = query(
-              collection(db, 'evaluations'),
-              where('employeeId', '==', employeeId)
-            );
+            allEvalsQuery = query(collection(db, 'evaluations'));
           } else {
-            q = query(
+            allEvalsQuery = query(
               collection(db, 'evaluations'),
-              where('companyId', '==', currentCompany.id),
-              where('employeeId', '==', employeeId)
+              where('companyId', '==', currentCompany.id)
             );
           }
+          const allSnap = await getDocs(allEvalsQuery);
+          const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
           
-          const snap = await getDocs(q);
-          employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-          console.log(`✅ Estratégia 1: ${employeeEvals.length} avaliações por employeeId=${employeeId}`);
-        } catch (err) {
-          console.warn('⚠️ Erro ao buscar avaliações por employeeId:', err);
-        }
-        
-        // Estratégia 2: Se encontrou funcionário e tem employeeCode, buscar por employeeCode
-        if (employeeEvals.length === 0 && employeeCode) {
-          try {
-            let q;
-            if (currentCompany.id === 'all') {
-              q = query(
-                collection(db, 'evaluations'),
-                where('employeeId', '==', employeeCode)
-              );
-            } else {
-              q = query(
-                collection(db, 'evaluations'),
-                where('companyId', '==', currentCompany.id),
-                where('employeeId', '==', employeeCode)
-              );
-            }
+          // Filtrar manualmente por múltiplos critérios
+          employeeEvals = allEvals.filter((evaluation: any) => {
+            const evEmployeeId = evaluation.employeeId || '';
+            const evEmployeeName = (evaluation.employeeName || '').toLowerCase().trim();
+            const evEmployeeCode = evaluation.employeeCode || '';
             
-            const snap = await getDocs(q);
-            employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            console.log(`✅ Estratégia 2: ${employeeEvals.length} avaliações por employeeCode=${employeeCode}`);
-          } catch (err) {
-            console.warn('⚠️ Erro ao buscar avaliações por employeeCode:', err);
-          }
-        }
-        
-        // Estratégia 3: Se encontrou funcionário, buscar por ID do documento do funcionário
-        if (employeeEvals.length === 0 && foundEmployee?.id) {
-          try {
-            let q;
-            if (currentCompany.id === 'all') {
-              q = query(
-                collection(db, 'evaluations'),
-                where('employeeId', '==', foundEmployee.id)
-              );
-            } else {
-              q = query(
-                collection(db, 'evaluations'),
-                where('companyId', '==', currentCompany.id),
-                where('employeeId', '==', foundEmployee.id)
-              );
-            }
+            const searchId = employeeId.toLowerCase();
+            const searchNameLower = searchName.toLowerCase().trim();
+            const searchCode = employeeCode ? employeeCode.toLowerCase() : '';
+            const searchFoundId = foundEmployee?.id ? foundEmployee.id.toLowerCase() : '';
             
-            const snap = await getDocs(q);
-            employeeEvals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            console.log(`✅ Estratégia 3: ${employeeEvals.length} avaliações por ID do documento=${foundEmployee.id}`);
-          } catch (err) {
-            console.warn('⚠️ Erro ao buscar avaliações por ID do documento:', err);
-          }
-        }
-        
-        // Estratégia 4: Tentar por nome (fallback)
-        if (employeeEvals.length === 0) {
-          try {
-            const decodedName = decodeURIComponent(employeeId);
-            const searchName = foundEmployee?.name || decodedName;
-            console.log('🔍 Estratégia 4: Tentando buscar por nome:', searchName);
-            
-            let fallbackQuery;
-            if (currentCompany.id === 'all') {
-              fallbackQuery = query(
-                collection(db, 'evaluations'),
-                where('employeeName', '==', searchName)
-              );
-            } else {
-              fallbackQuery = query(
-                collection(db, 'evaluations'),
-                where('companyId', '==', currentCompany.id),
-                where('employeeName', '==', searchName)
-              );
-            }
-            const snap2 = await getDocs(fallbackQuery);
-            employeeEvals = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            console.log(`✅ Estratégia 4: ${employeeEvals.length} avaliações por employeeName=${searchName}`);
-          } catch (err) {
-            console.warn('⚠️ Erro ao buscar avaliações por nome:', err);
-          }
-        }
-        
-        // Estratégia 5: Último recurso - buscar todas e filtrar manualmente
-        if (employeeEvals.length === 0) {
-          try {
-            console.log('🔍 Estratégia 5: Busca manual (todas as avaliações)...');
-            let allEvalsQuery;
-            if (currentCompany.id === 'all') {
-              allEvalsQuery = query(collection(db, 'evaluations'));
-            } else {
-              allEvalsQuery = query(
-                collection(db, 'evaluations'),
-                where('companyId', '==', currentCompany.id)
-              );
-            }
-            const allSnap = await getDocs(allEvalsQuery);
-            const allEvals = allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            
-            // Filtrar manualmente: pode ser employeeId, employeeCode, ou nome
-            const decodedName = decodeURIComponent(employeeId);
-            const searchName = foundEmployee?.name || decodedName;
-            
-            employeeEvals = allEvals.filter((evaluation: any) => {
-              return evaluation.employeeId === employeeId || 
-                     evaluation.employeeId === employeeCode ||
-                     evaluation.employeeId === foundEmployee?.id ||
-                     evaluation.employeeId === decodedName ||
-                     evaluation.employeeName === searchName ||
-                     evaluation.employeeName === decodedName ||
-                     evaluation.employeeName === employeeId ||
-                     (evaluation.employeeCode && (evaluation.employeeCode === employeeId || evaluation.employeeCode === employeeCode));
+            return evEmployeeId.toLowerCase() === searchId ||
+                   evEmployeeId.toLowerCase() === searchFoundId ||
+                   evEmployeeId.toLowerCase() === searchCode ||
+                   evEmployeeName === searchNameLower ||
+                   evEmployeeName === searchId ||
+                   (evEmployeeCode && evEmployeeCode.toLowerCase() === searchCode) ||
+                   (evEmployeeCode && evEmployeeCode.toLowerCase() === searchId);
+          });
+          
+          console.log(`✅ Encontradas ${employeeEvals.length} avaliações para o funcionário`);
+          if (employeeEvals.length > 0) {
+            console.log('📋 Primeira avaliação:', {
+              id: employeeEvals[0].id,
+              employeeId: employeeEvals[0].employeeId,
+              employeeName: employeeEvals[0].employeeName,
+              employeeCode: employeeEvals[0].employeeCode,
+              date: employeeEvals[0].date
             });
-            console.log(`✅ Estratégia 5: ${employeeEvals.length} avaliações na busca manual`);
-            if (employeeEvals.length > 0) {
-              console.log('📋 Primeira avaliação encontrada:', {
-                employeeId: employeeEvals[0].employeeId,
-                employeeName: employeeEvals[0].employeeName,
-                employeeCode: employeeEvals[0].employeeCode
-              });
-            }
-          } catch (err) {
-            console.warn('⚠️ Erro na busca manual:', err);
           }
+        } catch (err) {
+          console.error('❌ Erro ao buscar avaliações:', err);
         }
         
         employeeEvals.sort((a: any, b: any) => {
