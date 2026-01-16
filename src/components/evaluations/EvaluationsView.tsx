@@ -11,6 +11,7 @@ import Papa from 'papaparse';
 import { Modal } from '../ui/Modal';
 import { toast } from '../../utils/toast';
 import { useAuditLogger } from '../../utils/auditLogger';
+import { formatShortName } from '../../utils/nameFormatter';
 
 // --- Interfaces para Tipagem ---
 interface Employee {

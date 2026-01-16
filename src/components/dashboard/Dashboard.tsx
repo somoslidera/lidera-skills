@@ -247,8 +247,6 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         setShowEmployeeDropdown(false);
         setShowStatusDropdown(false);
         setShowPeriodDropdown(false);
-        setShowDateStartPicker(false);
-        setShowDateEndPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
