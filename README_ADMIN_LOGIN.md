@@ -41,10 +41,14 @@ Para criar o usuário admin com as credenciais solicitadas (admin/admin123), voc
 1. Certifique-se de ter as variáveis de ambiente configuradas ou modifique o script com suas credenciais
 2. Execute:
    ```bash
+   # Usando TypeScript (recomendado)
+   npx tsx scripts/create-admin-user.ts
+   
+   # Ou usando Node.js diretamente (se compilado)
    node scripts/create-admin-user.js
    ```
 
-**Nota**: O script requer que o Firebase esteja configurado corretamente e pode precisar de ajustes dependendo do seu ambiente.
+**Nota**: O script requer que o Firebase esteja configurado corretamente e pode precisar de ajustes dependendo do seu ambiente. O script TypeScript (`create-admin-user.ts`) é a versão mais atual.
 
 ## 📝 Credenciais de Acesso
 
@@ -86,4 +90,5 @@ O formulário de email/senha é o método principal, com o Google como alternati
 - `src/services/firebase.ts` - Adicionada função `loginEmailPassword`
 - `src/contexts/AuthContext.tsx` - Adicionado método `signInWithEmail`
 - `src/App.tsx` - Interface de login atualizada com formulário de email/senha
-- `scripts/create-admin-user.js` - Script utilitário para criar usuário admin
+- `scripts/create-admin-user.ts` - Script utilitário TypeScript para criar usuário admin
+- `scripts/create-admin-user.js` - Script utilitário JavaScript (legado)
