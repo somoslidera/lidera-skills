@@ -1,13 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList
 } from 'recharts';
 import { Card } from '../../ui/Card';
-import { MetricDonut } from '../../ui/MetricDonut';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
 import { CustomTooltip } from '../../ui/CustomTooltip';
 import { Users, Briefcase, Award, TrendingUp, AlertCircle, CheckCircle, Star, Filter, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { useCompany } from '../../../contexts/CompanyContext';
+import { getInitials, formatShortName } from '../../../utils/nameFormatter';
 
 const COLORS = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
 const COLOR_OTHER = '#9CA3AF'; // Cor cinza para "Outros"
@@ -21,23 +23,18 @@ const getLuminance = (hex: string): number => {
 };
 
 // Função para gerar cor de gradiente baseada na escala (0-10)
-// Gradiente: Vermelho → Laranja → Amarelo → Dourado (pior->melhor)
+// Gradiente: Vermelho → Laranja → Amarelo → Verde (pior->melhor)
+// Cores correspondem exatamente à legenda
 const getHeatmapColor = (score: number): { bg: string; text: string } => {
   // Normaliza o score para 0-10
   const normalizedScore = Math.max(0, Math.min(10, score));
   
   let bgColor: string;
-  // Mapeia para gradiente dourado->vermelho (melhor->pior)
-  if (normalizedScore >= 9) bgColor = '#D4AF37'; // Dourado (9-10) - melhor
-  else if (normalizedScore >= 8) bgColor = '#EAB308'; // Amarelo dourado (8-9)
-  else if (normalizedScore >= 7) bgColor = '#F59E0B'; // Amarelo-laranja (7-8)
-  else if (normalizedScore >= 6) bgColor = '#F97316'; // Laranja (6-7)
-  else if (normalizedScore >= 5) bgColor = '#FB923C'; // Laranja claro (5-6)
-  else if (normalizedScore >= 4) bgColor = '#EF4444'; // Vermelho-laranja (4-5)
-  else if (normalizedScore >= 3) bgColor = '#F87171'; // Vermelho claro (3-4)
-  else if (normalizedScore >= 2) bgColor = '#DC2626'; // Vermelho (2-3)
-  else if (normalizedScore >= 1) bgColor = '#B91C1C'; // Vermelho escuro (1-2)
-  else bgColor = '#991B1B'; // Vermelho muito escuro (0-1) - pior
+  // Mapeia para gradiente verde->vermelho (melhor->pior) - igual à legenda
+  if (normalizedScore >= 9) bgColor = '#34D399'; // Verde (9-10) - melhor
+  else if (normalizedScore >= 7) bgColor = '#FCD34D'; // Amarelo (7-8)
+  else if (normalizedScore >= 5) bgColor = '#F59E0B'; // Laranja (5-6)
+  else bgColor = '#DC2626'; // Vermelho (0-4)
   
   // Determina cor do texto baseado na luminosidade (escura para cores claras, clara para cores escuras)
   const luminance = getLuminance(bgColor);
@@ -56,6 +53,19 @@ const getHeatmapColor = (score: number): { bg: string; text: string } => {
 };
 
 export const CompanyOverview = ({ data, competenceData, employees = [] }: { data: any; competenceData?: any; employees?: any[] }) => {
+  const { currentCompany } = useCompany();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Detectar tema atual
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
   const { 
     healthScore, 
     activeSectorsCount, 
@@ -63,8 +73,8 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
     activeRolesCount, 
     sectorDistribution, 
     roleDistribution, 
-    topEmployee, 
     totalEvaluations,
+    uniqueEmployeesEvaluated,
     performanceList,
     highlightedByScore,
     highlightedBySelection,
@@ -72,6 +82,12 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
     discPerformanceByRole,
     roleRanking
   } = data;
+
+  // Helper para encontrar employeeId pelo nome
+  const getEmployeeId = (employeeName: string): string | null => {
+    const employee = employees.find((emp: any) => emp.name === employeeName);
+    return employee?.id || null;
+  };
   
   // Dados das métricas para os scorecards
   const metricsData = competenceData?.matrixData || [];
@@ -112,6 +128,8 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
     employees: true,
     disc: true
   });
+  const [showAllRanking, setShowAllRanking] = useState(false);
+  const ITEMS_PER_PAGE = 10;
   
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -143,44 +161,56 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
   };
   
   const sortedPerformanceList = useMemo(() => {
-    if (!performanceTableSort.field) return filteredPerformanceList.slice(0, 10);
+    let sorted = [...filteredPerformanceList];
     
-    const sorted = [...filteredPerformanceList].slice(0, 10);
-    sorted.sort((a: any, b: any) => {
-      let aVal: any, bVal: any;
-      
-      switch (performanceTableSort.field) {
-        case 'name':
-          aVal = (a.realName || '').toLowerCase();
-          bVal = (b.realName || '').toLowerCase();
-          break;
-        case 'sector':
-          aVal = (a.realSector || '').toLowerCase();
-          bVal = (b.realSector || '').toLowerCase();
-          break;
-        case 'role':
-          aVal = (a.realRole || '').toLowerCase();
-          bVal = (b.realRole || '').toLowerCase();
-          break;
-        case 'type':
-          aVal = (a.realType || a.type || '').toLowerCase();
-          bVal = (b.realType || b.type || '').toLowerCase();
-          break;
-        case 'score':
-          aVal = a.score || 0;
-          bVal = b.score || 0;
-          break;
-        default:
-          return 0;
-      }
-      
-      if (aVal < bVal) return performanceTableSort.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return performanceTableSort.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
+    // Se tiver ordenação, aplicar
+    if (performanceTableSort.field) {
+      sorted.sort((a: any, b: any) => {
+        let aVal: any, bVal: any;
+        
+        switch (performanceTableSort.field) {
+          case 'name':
+            aVal = (a.realName || '').toLowerCase();
+            bVal = (b.realName || '').toLowerCase();
+            break;
+          case 'sector':
+            aVal = (a.realSector || '').toLowerCase();
+            bVal = (b.realSector || '').toLowerCase();
+            break;
+          case 'role':
+            aVal = (a.realRole || '').toLowerCase();
+            bVal = (b.realRole || '').toLowerCase();
+            break;
+          case 'type':
+            aVal = (a.realType || a.type || '').toLowerCase();
+            bVal = (b.realType || b.type || '').toLowerCase();
+            break;
+          case 'score':
+            aVal = a.score || 0;
+            bVal = b.score || 0;
+            break;
+          default:
+            return 0;
+        }
+        
+        if (aVal < bVal) return performanceTableSort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return performanceTableSort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
     
     return sorted;
   }, [filteredPerformanceList, performanceTableSort]);
+  
+  // Lista paginada para exibição
+  const displayedPerformanceList = useMemo(() => {
+    if (showAllRanking) {
+      return sortedPerformanceList;
+    }
+    return sortedPerformanceList.slice(0, ITEMS_PER_PAGE);
+  }, [sortedPerformanceList, showAllRanking]);
+  
+  const hasMoreItems = sortedPerformanceList.length > ITEMS_PER_PAGE;
   
   // Obter níveis únicos disponíveis
   const availableLevels = useMemo<string[]>(() => {
@@ -227,27 +257,18 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navyGoldColors = ['#0A1128', '#162447', '#1F3A5F', '#274472', '#D4AF37', '#E5C158', '#F3E5AB', '#B8941F'];
   
-  // Função para obter cor do cargo por nível
+  // Função para obter cor do cargo por nível (usando paleta consistente com o app)
   const getRoleColorByLevel = (level: string): string => {
     switch (level) {
-      case 'Estratégico': return '#8B5CF6'; // Roxo
-      case 'Tático': return '#6366F1'; // Índigo
-      case 'Líder': return '#3B82F6'; // Azul
-      case 'Operacional': return '#10B981'; // Verde
-      case 'Colaborador': return '#F59E0B'; // Laranja
+      case 'Estratégico': return '#0F52BA'; // Navy Blue (cor principal do app)
+      case 'Tático': return '#2563EB'; // Blue 600
+      case 'Líder': return '#3B82F6'; // Blue 500
+      case 'Operacional': return '#60A5FA'; // Blue 400
+      case 'Colaborador': return '#93C5FD'; // Blue 300
       default: return '#6B7280'; // Cinza
     }
   };
   
-  // Função para gradiente dourado->vermelho baseado na nota
-  const getGoldRedGradient = (score: number): string => {
-    if (score >= 9) return '#D4AF37'; // Dourado
-    if (score >= 8) return '#EAB308'; // Amarelo
-    if (score >= 7) return '#F59E0B'; // Laranja claro
-    if (score >= 6) return '#F97316'; // Laranja
-    if (score >= 5) return '#EF4444'; // Vermelho claro
-    return '#DC2626'; // Vermelho escuro
-  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -257,7 +278,13 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
         <Card title="Colaboradores" value={activeEmployeesCount} icon={Users} className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20" />
         <Card title="Setores" value={activeSectorsCount} icon={Briefcase} className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/20 dark:to-gray-700/20" />
         <Card title="Cargos" value={activeRolesCount} icon={Award} className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20" />
-        <Card title="Avaliações" value={totalEvaluations} icon={TrendingUp} className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20" />
+        <Card 
+          title="Total de Avaliações" 
+          value={totalEvaluations} 
+          icon={TrendingUp} 
+          className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
+          subtitle={uniqueEmployeesEvaluated ? `${uniqueEmployeesEvaluated} funcionário${uniqueEmployeesEvaluated !== 1 ? 's' : ''} avaliado${uniqueEmployeesEvaluated !== 1 ? 's' : ''}` : undefined}
+        />
         <Card title="Férias" value={0} icon={CheckCircle} subtitle="Mock Data" className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20" /> 
         <Card title="Afastados" value={0} icon={AlertCircle} subtitle="Mock Data" className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20" />
       </div>
@@ -388,13 +415,13 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   <defs>
                     {roleRanking.map((entry: any, index: number) => {
                       const baseColor = getRoleColorByLevel(entry.level || 'Operacional');
-                      // Criar gradiente baseado na cor do nível
+                      // Criar gradiente mais sutil baseado na cor do nível (tons de azul)
                       let endColor = baseColor;
-                      if (baseColor === '#8B5CF6') endColor = '#A78BFA'; // Estratégico
-                      else if (baseColor === '#6366F1') endColor = '#818CF8'; // Tático
+                      if (baseColor === '#0F52BA') endColor = '#2563EB'; // Estratégico
+                      else if (baseColor === '#2563EB') endColor = '#3B82F6'; // Tático
                       else if (baseColor === '#3B82F6') endColor = '#60A5FA'; // Líder
-                      else if (baseColor === '#10B981') endColor = '#34D399'; // Operacional
-                      else if (baseColor === '#F59E0B') endColor = '#FBBF24'; // Colaborador
+                      else if (baseColor === '#60A5FA') endColor = '#93C5FD'; // Operacional
+                      else if (baseColor === '#93C5FD') endColor = '#BFDBFE'; // Colaborador
                       else endColor = '#9CA3AF'; // Default
                       
                       return (
@@ -463,13 +490,13 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                     <LabelList 
                       dataKey="name" 
                       position="insideLeft" 
-                      style={{ fill: '#fff', fontSize: '12px', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                      style={{ fill: '#fff', fontSize: '12px', fontWeight: 'normal', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
                       offset={15}
                     />
                     <LabelList 
                       dataKey="average" 
                       position="right" 
-                      style={{ fill: '#374151', fontSize: '11px', fontWeight: 'bold' }}
+                      style={{ fill: isDarkMode ? '#E5E7EB' : '#1F2937', fontSize: '11px', fontWeight: 'normal' }}
                       formatter={(value: any) => `${Number(value).toFixed(1)}`}
                     />
                   </Bar>
@@ -502,49 +529,48 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Média geral de cada critério de avaliação (ordenado alfabeticamente)</p>
           {expandedSections.scorecards && (
-          <div className={`grid gap-3 ${metricsData.length > 32 ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'}`}>
+          <div className={`grid gap-4 ${metricsData.length > 32 ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'}`}>
             {[...metricsData].sort((a: any, b: any) => {
               const nameA = (a.criteria || '').toLowerCase();
               const nameB = (b.criteria || '').toLowerCase();
               return nameA.localeCompare(nameB);
             }).map((metric: any, index: number) => {
               const score = metric.average || 0;
-              // Cores dourado->vermelho (pior->melhor)
-              let color = '#DC2626'; // Vermelho (pior)
-              if (score >= 9) color = '#D4AF37'; // Dourado (melhor)
-              else if (score >= 7) color = '#EAB308'; // Amarelo
-              else if (score >= 5) color = '#F59E0B'; // Laranja
+              // Cores para mapa de calor: Verde (9-10), Amarelo (7-8), Laranja (5-6), Vermelho (0-4)
+              let bgColor = '#DC2626'; // Vermelho (0-4)
+              let textColor = '#FFFFFF';
+              if (score >= 9) {
+                bgColor = '#34D399'; // Verde (9-10)
+                textColor = '#FFFFFF';
+              } else if (score >= 7) {
+                bgColor = '#FCD34D'; // Amarelo (7-8)
+                textColor = '#1F2937';
+              } else if (score >= 5) {
+                bgColor = '#F59E0B'; // Laranja (5-6)
+                textColor = '#FFFFFF';
+              }
               
               return (
-                <div key={metric.criteria || index} className="bg-white dark:bg-navy-800 p-2 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col items-center">
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 text-center line-clamp-2 min-h-[2rem]">
-                    {metric.criteria || 'Critério'}
-                  </h4>
-                  <div className="relative w-24 h-24">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[{ value: score }, { value: 10 - score }]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={25}
-                          outerRadius={35}
-                          startAngle={180}
-                          endAngle={0}
-                          dataKey="value"
-                          isAnimationActive={true}
-                          animationDuration={600}
-                          animationEasing="ease-out"
-                        >
-                          <Cell fill={color} />
-                          <Cell fill="#e5e7eb" />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-center">
-                      <span className={`text-lg font-bold ${getLuminance(color) > 128 ? 'text-gray-800' : 'text-white'}`}>{score.toFixed(1)}</span>
-                      <span className="block text-[10px] text-gray-400">de 10</span>
+                <div 
+                  key={metric.criteria || index} 
+                  className="bg-white dark:bg-navy-800 rounded-xl shadow-sm border-2 border-gray-200 dark:border-navy-700 overflow-hidden transition-transform hover:scale-105"
+                  style={{ borderColor: bgColor, borderWidth: '2px' }}
+                >
+                  <div 
+                    className="p-6 text-center"
+                    style={{ backgroundColor: bgColor }}
+                  >
+                    <div className="text-5xl font-bold mb-2" style={{ color: textColor }}>
+                      {score.toFixed(1)}
                     </div>
+                    <div className="text-xs font-medium" style={{ color: textColor, opacity: 0.9 }}>
+                      de 10.0
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gray-50 dark:bg-navy-900">
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 text-center line-clamp-2">
+                      {metric.criteria || 'Critério'}
+                    </h4>
                   </div>
                 </div>
               );
@@ -671,12 +697,17 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
          {/* Tabela Resumo com Mapa de Calor */}
          <div className="lg:col-span-2 bg-white dark:bg-navy-800 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
             <div className="p-4 border-b border-gray-100 dark:border-navy-700 flex justify-between items-center">
-               <h3 className="font-bold text-gray-800 dark:text-white">Resumo de Performance (Top 10)</h3>
+               <h3 className="font-bold text-gray-800 dark:text-white">
+                 Resumo de Performance {showAllRanking ? `(${sortedPerformanceList.length} funcionários)` : `(Top ${ITEMS_PER_PAGE})`}
+               </h3>
                <div className="flex items-center gap-2">
                   <Filter size={16} className="text-gray-400" />
                   <select
                      value={selectedLevel}
-                     onChange={(e) => setSelectedLevel(e.target.value)}
+                     onChange={(e) => {
+                       setSelectedLevel(e.target.value);
+                       setShowAllRanking(false); // Reset paginação ao mudar filtro
+                     }}
                      className="px-3 py-1.5 text-sm border border-gray-200 dark:border-navy-700 rounded-lg bg-white dark:bg-navy-900 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20"
                   >
                      {availableLevels.map((level: string) => (
@@ -734,8 +765,8 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                     {sortedPerformanceList.length > 0 ? (
-                       sortedPerformanceList.map((item: any, idx: number) => {
+                     {displayedPerformanceList.length > 0 ? (
+                       displayedPerformanceList.map((item: any, idx: number) => {
                          const score = item.score || 0;
                          const colorInfo = getHeatmapColor(score);
                          // Verificar funcionarioMes: pode ser 'Sim', 'sim', 'SIM', true, ou boolean
@@ -745,19 +776,71 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                                            funcionarioMesValue === 'SIM' ||
                                            funcionarioMesValue === true ||
                                            funcionarioMesValue === 'true';
-                         // Verificar se está no top 5 por pontuação
-                         const isDestaquePontuacao = idx < 5;
+                         // Verificar se está no top 10 (índice real na lista completa, não na paginada)
+                         const realIndex = sortedPerformanceList.findIndex((i: any) => 
+                           (i.realName || i.employeeName) === (item.realName || item.employeeName)
+                         );
+                         const isTop10 = realIndex < 10;
+                         
+                         // Verificar se o funcionário está inativo
+                         const employeeStatus = item.employeeStatus || item.status || 'Ativo';
+                         const isInactive = employeeStatus !== 'Ativo';
                          
                          return (
-                           <tr key={item.id || idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                              <td className="p-3 text-gray-400 font-mono text-xs">#{idx + 1}</td>
-                              <td className="p-3 font-medium text-gray-700 dark:text-gray-300">
-                                 {item.realName}
+                           <tr 
+                             key={item.id || `${item.realName}-${idx}`} 
+                             className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                               isTop10 && !isInactive ? 'bg-gradient-to-r from-yellow-50/50 to-amber-50/50 dark:from-yellow-900/20 dark:to-amber-900/20 border-l-4 border-yellow-500' : ''
+                             } ${isInactive ? 'opacity-60 bg-gray-100/50 dark:bg-gray-800/30' : ''}`}
+                           >
+                              <td className="p-3 text-gray-400 font-mono text-xs">
+                                <span className={`${isTop10 && !isInactive ? 'font-bold text-yellow-600 dark:text-yellow-400' : ''} ${isInactive ? 'text-gray-400' : ''}`}>
+                                  #{realIndex + 1}
+                                </span>
                               </td>
-                              <td className="p-3 text-gray-500">{item.realSector}</td>
-                              <td className="p-3 text-gray-500">{item.realRole}</td>
+                              <td className={`p-3 font-medium ${isInactive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                                 <div className="flex items-center gap-3">
+                                   {(() => {
+                                     const emp = employees.find((e: any) => e.name === item.realName);
+                                     const photoUrl = emp?.photoUrl;
+                                     return photoUrl ? (
+                                       <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-navy-700 flex-shrink-0">
+                                         <img 
+                                           src={photoUrl} 
+                                           alt={item.realName}
+                                           className="w-full h-full object-cover"
+                                           onError={(e) => {
+                                             (e.target as HTMLImageElement).style.display = 'none';
+                                           }}
+                                         />
+                                       </div>
+                                     ) : (
+                                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center border-2 border-gray-200 dark:border-navy-700 flex-shrink-0">
+                                         <span className="text-sm font-bold text-white">
+                                           {getInitials(item.realName)}
+                                         </span>
+                                       </div>
+                                     );
+                                   })()}
+                                   <div>
+                                     {currentCompany && getEmployeeId(item.realName) ? (
+                                       <Link
+                                         to={`/employee/${currentCompany.id}/${getEmployeeId(item.realName)}`}
+                                         className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                       >
+                                         {formatShortName(item.realName)}
+                                       </Link>
+                                     ) : (
+                                       formatShortName(item.realName)
+                                     )}
+                                     {isInactive && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(Inativo)</span>}
+                                   </div>
+                                 </div>
+                              </td>
+                              <td className={`p-3 ${isInactive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500'}`}>{item.realSector}</td>
+                              <td className={`p-3 ${isInactive ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500'}`}>{item.realRole}</td>
                               <td className="p-3">
-                                 <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${isInactive ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>
                                     {item.realType || item.type || 'Operacional'}
                                  </span>
                               </td>
@@ -765,8 +848,9 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                                  <div 
                                     className="flex items-center justify-center w-full h-full font-bold text-sm min-h-[48px]"
                                     style={{ 
-                                       backgroundColor: colorInfo.bg,
-                                       color: colorInfo.text
+                                       backgroundColor: isInactive ? '#9CA3AF' : colorInfo.bg,
+                                       color: isInactive ? '#FFFFFF' : colorInfo.text,
+                                       opacity: isInactive ? 0.7 : 1
                                     }}
                                  >
                                     {score.toFixed(1)}
@@ -775,7 +859,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                               <td className="p-3 text-center">
                                  <div className="flex items-center justify-center gap-1">
                                     {isDestaqueSelecao && <span className="text-lg" title="Destaque por Seleção">⭐</span>}
-                                    {isDestaquePontuacao && <span className="text-lg" title="Destaque por Pontuação">🏆</span>}
+                                    {isTop10 && !isInactive && <span className="text-lg" title="Top 10">🏆</span>}
                                  </div>
                               </td>
                            </tr>
@@ -789,25 +873,47 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                   </tbody>
                </table>
             </div>
-            <div className="p-4 border-t border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-900 flex items-center justify-center gap-4 text-xs">
-               <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-600 dark:text-gray-400">Legenda:</span>
-                  <div className="flex items-center gap-1">
-                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#DC2626' }}></div>
-                     <span className="text-gray-500">0-4</span>
+            <div className="p-4 border-t border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-xs">
+                     <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-600 dark:text-gray-400">Legenda:</span>
+                        <div className="flex items-center gap-1">
+                           <div className="w-4 h-4 rounded" style={{ backgroundColor: '#DC2626' }}></div>
+                           <span className="text-gray-500">0-4</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                           <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F59E0B' }}></div>
+                           <span className="text-gray-500">5-6</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                           <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FCD34D' }}></div>
+                           <span className="text-gray-500">7-8</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                           <div className="w-4 h-4 rounded" style={{ backgroundColor: '#34D399' }}></div>
+                           <span className="text-gray-500">9-10</span>
+                        </div>
+                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F59E0B' }}></div>
-                     <span className="text-gray-500">5-6</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#FCD34D' }}></div>
-                     <span className="text-gray-500">7-8</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                     <div className="w-4 h-4 rounded" style={{ backgroundColor: '#34D399' }}></div>
-                     <span className="text-gray-500">9-10</span>
-                  </div>
+                  {hasMoreItems && (
+                     <button
+                        onClick={() => setShowAllRanking(!showAllRanking)}
+                        className="px-4 py-2 text-sm font-medium text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors flex items-center gap-2"
+                     >
+                        {showAllRanking ? (
+                           <>
+                              <ChevronUp size={16} />
+                              Mostrar Menos
+                           </>
+                        ) : (
+                           <>
+                              Ver Mais ({sortedPerformanceList.length - ITEMS_PER_PAGE} funcionários)
+                              <ChevronDown size={16} />
+                           </>
+                        )}
+                     </button>
+                  )}
                </div>
             </div>
          </div>
@@ -831,7 +937,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                            </div>
                            <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm line-clamp-1" title={emp.realName || emp.employeeName}>
-                                 {emp.realName || emp.employeeName}
+                                 {formatShortName(emp.realName || emp.employeeName)}
                               </p>
                               <p className="text-xs text-blue-200 line-clamp-1">{emp.realRole || emp.role}</p>
                            </div>
@@ -863,7 +969,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                            </div>
                            <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm line-clamp-1" title={emp.realName || emp.employeeName}>
-                                 {emp.realName || emp.employeeName}
+                                 {formatShortName(emp.realName || emp.employeeName)}
                               </p>
                               <p className="text-xs text-yellow-200 line-clamp-1">{emp.realRole || emp.role}</p>
                            </div>
@@ -903,7 +1009,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-gray-800 dark:text-white line-clamp-1" title={emp.name}>
-                        {emp.name}
+                        {formatShortName(emp.name)}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{emp.role || 'Sem cargo'}</p>
                     </div>
@@ -943,7 +1049,7 @@ export const CompanyOverview = ({ data, competenceData, employees = [] }: { data
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-gray-800 dark:text-white line-clamp-1" title={emp.name}>
-                        {emp.name}
+                        {formatShortName(emp.name)}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{emp.role || 'Sem cargo'}</p>
                     </div>

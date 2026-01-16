@@ -1,18 +1,5 @@
 import { useMemo } from 'react';
 
-// Tipos auxiliares
-interface Evaluation {
-  id: string;
-  employeeId?: string;
-  employeeName: string; 
-  role?: string;
-  sector?: string;
-  type?: string; 
-  date: string;
-  average?: number; 
-  details?: Record<string, number>;
-}
-
 interface FilterState {
   searchTerm?: string;
   selectedSectors: string[]; // Mudado para array
@@ -109,10 +96,12 @@ export const useDashboardAnalytics = (
       return {
         ...ev,
         realName: resolvedName || 'Colaborador Desconhecido',
-        realSector: ev.sector || employeeData?.sector || 'Geral',
-        realRole: ev.role || employeeData?.role || 'Não definido',
-        realType: normalizedType, // Nível normalizado: Estratégico, Tático, Operacional
-        realStatus: employeeStatus, // Status do funcionário
+        // IMPORTANTE: Sempre usar os valores salvos na avaliação (ev.sector, ev.role, ev.type)
+        // para preservar o histórico. Não usar employeeData como fallback para não "sujar" os dados históricos
+        realSector: ev.sector || 'Geral', // Não usar employeeData?.sector para preservar histórico
+        realRole: ev.role || 'Não definido', // Não usar employeeData?.role para preservar histórico
+        realType: normalizedType, // Nível normalizado: Estratégico, Tático, Operacional (já vem de ev.type)
+        realStatus: employeeStatus, // Status do funcionário (pode usar employeeData pois status não afeta histórico de avaliações)
         realDiscProfile: employeeData?.discProfile || null, // Perfil DISC do funcionário
         score,
         details,
@@ -156,8 +145,14 @@ export const useDashboardAnalytics = (
 
   // 3. Métricas Gerais (Aba 1)
   const generalMetrics = useMemo(() => {
-    const total = filteredData.length;
-    const avg = total > 0 ? filteredData.reduce((acc, curr) => acc + curr.score, 0) / total : 0;
+    // Total de avaliações (pode ter múltiplas avaliações por funcionário)
+    const totalEvaluations = filteredData.length;
+    
+    // Número de funcionários únicos avaliados
+    const uniqueEmployeesSet = new Set(filteredData.map(d => d.realName || d.employeeName));
+    const uniqueEmployeesCount = uniqueEmployeesSet.size;
+    
+    const avg = totalEvaluations > 0 ? filteredData.reduce((acc, curr) => acc + curr.score, 0) / totalEvaluations : 0;
     
     // Contagens únicas
     const sectorsSet = new Set(filteredData.map(d => d.realSector));
@@ -179,71 +174,84 @@ export const useDashboardAnalytics = (
     const sectorDistribution = aggregateDonutData(rawSectorDist);
     const roleDistribution = aggregateDonutData(rawRoleDist);
 
-    // Funcionário do Mês (Top 1) e Lista de Performance
-    const sortedByScore = [...filteredData].sort((a, b) => b.score - a.score);
-    const topEmployee = sortedByScore[0];
+    // Agrupar avaliações por pessoa e calcular média (não repetir pessoas)
+    const employeeScoresMap = new Map<string, {
+      name: string;
+      scores: number[];
+      evaluationCount: number;
+      totalScore: number;
+      averageScore: number;
+      firstEvaluation: any; // Primeira avaliação encontrada para pegar dados do funcionário
+      hasDestaque: boolean; // Se tem pelo menos um destaque por seleção
+    }>();
     
-    // Destaques por Seleção (funcionarioMes === 'Sim')
-    // Agrupar por funcionário e contar quantas vezes foi destaque
-    const selectionMap = new Map<string, { employee: any; count: number }>();
-    filteredData
-      .filter(item => {
-        const value = item.funcionarioMes || item.funcionario_mes;
-        return value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM';
-      })
-      .forEach(item => {
-        const key = item.realName || item.employeeName;
-        if (!selectionMap.has(key)) {
-          selectionMap.set(key, { employee: item, count: 0 });
-        }
-        selectionMap.get(key)!.count++;
-      });
-    
-    const highlightedBySelection = Array.from(selectionMap.values())
-      .sort((a, b) => b.employee.score - a.employee.score)
-      .slice(0, 5)
-      .map(({ employee, count }) => ({ ...employee, highlightCount: count }));
-    
-    // Destaques por Pontuação (top 5 por nota)
-    // Agrupar por funcionário e contar quantas vezes foi top 5
-    const scoreMap = new Map<string, { employee: any; count: number }>();
-    sortedByScore.slice(0, 5).forEach(item => {
-      const key = item.realName || item.employeeName;
-      if (!scoreMap.has(key)) {
-        scoreMap.set(key, { employee: item, count: 0 });
-      }
-      scoreMap.get(key)!.count++;
-    });
-    
-    // Também contar todas as vezes que cada funcionário foi top 5 em qualquer período
     filteredData.forEach(item => {
-      const sorted = [...filteredData].sort((a, b) => b.score - a.score);
-      const top5Names = sorted.slice(0, 5).map(i => i.realName || i.employeeName);
-      const key = item.realName || item.employeeName;
-      if (top5Names.includes(key)) {
-        if (!scoreMap.has(key)) {
-          scoreMap.set(key, { employee: item, count: 0 });
-        }
-        scoreMap.get(key)!.count++;
+      const key = item.realName || item.employeeName || '';
+      if (!key) return;
+      
+      if (!employeeScoresMap.has(key)) {
+        employeeScoresMap.set(key, {
+          name: key,
+          scores: [],
+          evaluationCount: 0,
+          totalScore: 0,
+          averageScore: 0,
+          firstEvaluation: item,
+          hasDestaque: false
+        });
+      }
+      
+      const employeeData = employeeScoresMap.get(key)!;
+      employeeData.scores.push(item.score || 0);
+      employeeData.evaluationCount++;
+      employeeData.totalScore += item.score || 0;
+      
+      // Verificar se tem destaque por seleção
+      const value = item.funcionarioMes || item.funcionario_mes;
+      if (value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM') {
+        employeeData.hasDestaque = true;
       }
     });
     
-    const highlightedByScore = Array.from(scoreMap.values())
-      .sort((a, b) => b.employee.score - a.employee.score)
-      .slice(0, 5)
-      .map(({ employee, count }) => ({ ...employee, highlightCount: count }));
+    // Calcular média de cada pessoa
+    employeeScoresMap.forEach((data, key) => {
+      data.averageScore = data.evaluationCount > 0 ? data.totalScore / data.evaluationCount : 0;
+    });
     
-    const performanceList = sortedByScore.slice(0, 10).map(item => ({
-      ...item,
-      // Normalizar funcionarioMes para garantir formato consistente
-      funcionarioMes: (() => {
-        const value = item.funcionarioMes || item.funcionario_mes;
-        if (value === true || value === 'true' || value === 'Sim' || value === 'sim' || value === 'SIM') {
-          return 'Sim';
-        }
-        return 'Não';
-      })()
-    })); // Top 10 para a tabela
+    // Converter para array e ordenar por média (maior para menor)
+    const performanceList = Array.from(employeeScoresMap.values())
+      .map(data => {
+        const item = data.firstEvaluation;
+        return {
+          ...item,
+          realName: data.name,
+          score: data.averageScore, // Usar a média calculada
+          evaluationCount: data.evaluationCount, // Número de avaliações
+          funcionarioMes: data.hasDestaque ? 'Sim' : 'Não',
+          employeeStatus: item.employeeStatus || item.status || 'Ativo' // Garantir que o status seja incluído
+        };
+      })
+      .sort((a, b) => b.score - a.score); // Ordenar por média (maior para menor)
+    
+    // Top employee é o primeiro da lista (maior média)
+    const topEmployee = performanceList[0];
+    
+    // Destaques por Seleção (funcionário do mês) - top 5 por média
+    const highlightedBySelection = performanceList
+      .filter(item => item.funcionarioMes === 'Sim')
+      .slice(0, 5)
+      .map(item => ({
+        ...item,
+        highlightCount: item.evaluationCount || 1
+      }));
+    
+    // Destaques por Pontuação (top 5 por média)
+    const highlightedByScore = performanceList
+      .slice(0, 5)
+      .map(item => ({
+        ...item,
+        highlightCount: item.evaluationCount || 1
+      }));
 
     // Análise de Perfil Comportamental (DISC) por Setor e Cargo
     const discBySector: Record<string, Record<string, { sum: number; count: number }>> = {};
@@ -326,7 +334,8 @@ export const useDashboardAnalytics = (
 
     return {
         healthScore: avg,
-        totalEvaluations: total,
+        totalEvaluations: totalEvaluations,
+        uniqueEmployeesEvaluated: uniqueEmployeesCount,
         activeSectorsCount: sectorsSet.size,
         activeRolesCount: rolesSet.size,
         activeEmployeesCount: employeesSet.size,

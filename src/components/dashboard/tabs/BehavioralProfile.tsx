@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 // Card component não aceita children, usando divs estilizadas
 import { CustomTooltip } from '../../ui/CustomTooltip';
-import { Brain, Users, Briefcase, Layers, BarChart3, Database } from 'lucide-react';
+import { Brain, Users, Briefcase, Layers, BarChart3 } from 'lucide-react';
 import { db } from '../../../services/firebase';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { useCompany } from '../../../contexts/CompanyContext';
+import { formatShortName } from '../../../utils/nameFormatter';
 import { toast } from '../../../utils/toast';
 
 interface DISCProfile {
@@ -278,7 +280,7 @@ export const BehavioralProfile = () => {
     });
     
     return Object.entries(counts)
-      .filter(([_, count]) => count > 0)
+      .filter(([, count]) => count > 0)
       .map(([type, count]) => ({
         name: type,
         value: count,
@@ -516,7 +518,18 @@ export const BehavioralProfile = () => {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredData.map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <td className="px-4 py-4 font-medium text-gray-900 dark:text-white">{emp.name}</td>
+                    <td className="px-4 py-4 font-medium text-gray-900 dark:text-white">
+                      {currentCompany && emp.id ? (
+                        <Link
+                          to={`/employee/${currentCompany.id}/${emp.id}`}
+                          className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                        >
+                          {formatShortName(emp.name)}
+                        </Link>
+                      ) : (
+                        formatShortName(emp.name)
+                      )}
+                    </td>
                     <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.sector}</td>
                     <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.role}</td>
                     <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.level}</td>

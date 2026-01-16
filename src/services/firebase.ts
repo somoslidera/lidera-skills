@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc, deleteDoc, limit, startAfter, QueryDocumentSnapshot, DocumentData, Query } from "firebase/firestore";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, collection, getDocs, query, where, addDoc, doc, getDoc, setDoc, deleteDoc, limit, startAfter, QueryDocumentSnapshot, DocumentData, Query, orderBy } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Configuração do Firebase usando variáveis de ambiente
 const firebaseConfig = {
@@ -16,17 +17,40 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // --- FUNÇÕES DE AJUDA ---
 
-// Login
+// Login com Google
 export const loginGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
     console.error("Erro no login:", error);
+    throw error;
+  }
+};
+
+// Login com email e senha
+export const loginEmailPassword = async (email: string, password: string) => {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    return result.user;
+  } catch (error) {
+    console.error("Erro no login:", error);
+    throw error;
+  }
+};
+
+// Criar usuário com email e senha (útil para criar o admin)
+export const createUserEmailPassword = async (email: string, password: string) => {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    return result.user;
+  } catch (error) {
+    console.error("Erro ao criar usuário:", error);
     throw error;
   }
 };
@@ -447,6 +471,7 @@ export const getAuditLogs = async (
     userId?: string;
     action?: AuditLog['action'];
     entityType?: string;
+    entityId?: string;
     startDate?: string;
     endDate?: string;
     limit?: number;
@@ -467,6 +492,9 @@ export const getAuditLogs = async (
     if (filters?.entityType) {
       q = query(q, where('entityType', '==', filters.entityType));
     }
+    if (filters?.entityId) {
+      q = query(q, where('entityId', '==', filters.entityId));
+    }
     if (filters?.startDate) {
       q = query(q, where('timestamp', '>=', filters.startDate));
     }
@@ -477,6 +505,9 @@ export const getAuditLogs = async (
     if (filters?.limit) {
       q = query(q, limit(filters.limit));
     }
+
+    // Ordenar por timestamp descendente (mais recente primeiro)
+    q = query(q, orderBy('timestamp', 'desc'));
 
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({

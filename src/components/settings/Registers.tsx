@@ -156,7 +156,8 @@ export const EmployeesView = () => (
         { key: 'terminationDate', label: 'Data de Desligamento', type: 'date' },
         { key: 'status', label: 'Status', type: 'select', options: ['Ativo', 'Inativo', 'Férias', 'Afastado'] },
         // Perfil DISC Adicionado
-        { key: 'discProfile', label: 'Perfil DISC', type: 'select', options: DISC_OPTIONS }
+        { key: 'discProfile', label: 'Perfil DISC', type: 'select', options: DISC_OPTIONS },
+        { key: 'photoUrl', label: 'URL da Foto', type: 'image' }
       ]}
     />
   </div>

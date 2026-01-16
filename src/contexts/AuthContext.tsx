@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { auth, loginGoogle, logout, getUserRole, type UserRole } from '../services/firebase';
+import { auth, loginGoogle, loginEmailPassword, logout, getUserRole, type UserRole } from '../services/firebase';
 
 interface AuthContextType {
   user: User | null;
   userRole: UserRole | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isMaster: boolean;
   refreshUserRole: () => Promise<void>;
@@ -48,6 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginGoogle();
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    await loginEmailPassword(email, password);
+  };
+
   const signOutUser = async () => {
     await logout();
     setUserRole(null);
@@ -67,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userRole, 
       loading, 
       signIn, 
+      signInWithEmail,
       signOut: signOutUser,
       isMaster,
       refreshUserRole

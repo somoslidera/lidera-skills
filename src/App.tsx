@@ -9,6 +9,7 @@ import { EvaluationsView } from './components/evaluations/EvaluationsView';
 import { HelpView } from './components/help/HelpView';
 import DocumentationView from './components/documentation/DocumentationView';
 import { WelcomeView } from './components/welcome/WelcomeView';
+import { EmployeeProfile } from './components/employee/EmployeeProfile';
 import { fetchCollection } from './services/firebase';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 import { Toaster } from './components/ui/Toaster';
@@ -254,7 +255,10 @@ function MainApp() {
           <div className="flex justify-between h-16 items-center">
             
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+              >
                 <div className="w-10 h-10 rounded-full overflow-hidden shadow-lg ring-2 ring-white dark:ring-gray-800">
                   <img 
                     src="/lidera-logo.png" 
@@ -265,7 +269,7 @@ function MainApp() {
                 <h1 className="text-xl font-bold text-gray-800 dark:text-white hidden md:block tracking-tight">
                   Lidera Skills
                 </h1>
-              </div>
+              </button>
               <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
               <div className="hidden md:block">
                 <CompanySelector />
@@ -313,6 +317,7 @@ function MainApp() {
             </div>
           } />
           <Route path="/help" element={<HelpView />} />
+          <Route path="/employee/:companyId/:employeeId" element={<EmployeeProfile />} />
           <Route path="/settings" element={<Navigate to="/settings/criteria" replace />} />
           <Route path="/settings/:view" element={<SettingsWrapper />} />
           <Route path="*" element={<Navigate to="/welcome" replace />} />
@@ -325,7 +330,25 @@ function MainApp() {
 
 // Componente interno que verifica autenticação
 function AppContent() {
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, signInWithEmail } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      await signInWithEmail(email, password);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Tela de Login
   if (!loading && !user) {
@@ -354,6 +377,71 @@ function AppContent() {
               Sistema de Gestão de Performance e Avaliações
             </p>
             
+            {/* Formulário de Email e Senha */}
+            <form onSubmit={handleEmailLogin} className="space-y-4 mb-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                  placeholder="seu@email.com"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Senha
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                  placeholder="••••••••"
+                />
+              </div>
+              
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+              
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
+              </button>
+            </form>
+            
+            {/* Divisor */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-[#1E1E1E] text-gray-500 dark:text-gray-400">ou</span>
+              </div>
+            </div>
+            
+            {/* Botão do Google */}
             <button
               onClick={signIn}
               className="w-full bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-3"

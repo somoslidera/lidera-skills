@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../../services/firebase';
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { Database, Plus, Search, Edit, Trash, Save, Loader2, Filter, ArrowUp, ArrowDown, ArrowUpDown, Tag as TagIcon, X, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,24 +9,24 @@ import { toast } from '../../utils/toast';
 import { ErrorHandler } from '../../utils/errorHandler';
 import { usePagination } from '../../hooks/usePagination';
 import { fetchCollectionPaginated } from '../../services/firebase';
-
-interface Entity {
-  id: string;
-  [key: string]: any;
-}
+import { formatShortName } from '../../utils/nameFormatter';
+import { useAuditLogger } from '../../utils/auditLogger';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ColumnConfig {
   key: string;
   label: string;
-  type?: 'text' | 'number' | 'date' | 'email' | 'select' | 'multi-select-companies';
+  type?: 'text' | 'number' | 'date' | 'email' | 'select' | 'multi-select-companies' | 'image';
   options?: string[]; 
   linkedCollection?: string; 
   linkedField?: string;
   hiddenInTable?: boolean;
 }
 
-export const GenericDatabaseView = ({ collectionName, title, columns, customFieldsAllowed = true }: { collectionName: string, title: string, columns: ColumnConfig[], customFieldsAllowed?: boolean }) => {
+export const GenericDatabaseView = ({ collectionName, title, columns }: { collectionName: string, title: string, columns: ColumnConfig[] }) => {
   const { currentCompany, companies } = useCompany();
+  const { user } = useAuth();
+  const { logAction } = useAuditLogger();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Estado para Ordenação e Filtros
@@ -181,10 +182,44 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
       }
 
       if (currentItem.id) {
+        // Capturar mudanças para o audit log (apenas para employees)
+        let changes: Record<string, { old?: any; new?: any }> = {};
+        if (collectionName === 'employees' && user) {
+          // Buscar dados antigos da lista atual para comparar
+          const oldData = pagination.items.find((item: any) => item.id === currentItem.id);
+          if (oldData) {
+            Object.keys(itemToSave).forEach(key => {
+              if (oldData[key] !== itemToSave[key]) {
+                changes[key] = {
+                  old: oldData[key],
+                  new: itemToSave[key]
+                };
+              }
+            });
+          }
+        }
+        
         await updateDoc(doc(db, collectionName, currentItem.id), itemToSave);
+        
+        // Log de auditoria para employees
+        if (collectionName === 'employees' && user && Object.keys(changes).length > 0) {
+          await logAction('update', 'employee', currentItem.id, {
+            entityName: itemToSave.name || 'Funcionário',
+            changes
+          });
+        }
+        
         toast.success("Registro atualizado com sucesso!");
       } else {
-        await addDoc(collection(db, collectionName), itemToSave);
+        const docRef = await addDoc(collection(db, collectionName), itemToSave);
+        
+        // Log de auditoria para employees
+        if (collectionName === 'employees' && user) {
+          await logAction('create', 'employee', docRef.id, {
+            entityName: itemToSave.name || 'Funcionário'
+          });
+        }
+        
         toast.success("Registro criado com sucesso!");
       }
       setIsModalOpen(false);
@@ -209,7 +244,24 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
   const handleDelete = async (id: string) => {
     if (!window.confirm("Tem certeza que deseja excluir este registro?")) return;
     try {
+      // Buscar dados antes de excluir para o audit log
+      let entityName = 'Registro';
+      if (collectionName === 'employees' && user) {
+        const itemToDelete = pagination.items.find((item: any) => item.id === id);
+        if (itemToDelete) {
+          entityName = itemToDelete.name || 'Funcionário';
+        }
+      }
+      
       await deleteDoc(doc(db, collectionName, id));
+      
+      // Log de auditoria para employees
+      if (collectionName === 'employees' && user) {
+        await logAction('delete', 'employee', id, {
+          entityName
+        });
+      }
+      
       toast.success("Registro excluído com sucesso!");
       pagination.removeItem(id);
     } catch (error) {
@@ -367,6 +419,33 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
         </select>
       );
     }
+
+    if (col.type === 'image') {
+      return (
+        <div className="space-y-2">
+          <input 
+            type="url"
+            className="w-full p-2 rounded border bg-white dark:bg-lidera-dark dark:border-gray-700"
+            placeholder="https://exemplo.com/foto.jpg"
+            value={value}
+            onChange={(e) => setCurrentItem({...currentItem, [col.key]: e.target.value})}
+          />
+          {value && (
+            <div className="mt-2">
+              <img 
+                src={value} 
+                alt="Preview" 
+                className="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <input 
         type={col.type || "text"}
@@ -527,6 +606,13 @@ export const GenericDatabaseView = ({ collectionName, title, columns, customFiel
                             }`}>
                                {item[col.key]}
                             </span>
+                         ) : col.key === 'name' && collectionName === 'employees' && currentCompany ? (
+                            <Link
+                              to={`/employee/${currentCompany.id}/${item.id}`}
+                              className="font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                            >
+                              {formatShortName(item[col.key] || '-')}
+                            </Link>
                          ) : (
                             <span className="font-medium">{item[col.key] || '-'}</span>
                          )}

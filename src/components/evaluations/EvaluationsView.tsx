@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Plus, FileText, Search, Download, Filter, Save, 
   Calendar, Loader2, CheckSquare, Square, Edit, X, Trash2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Star, ArrowUpDown, ArrowUp, ArrowDown, Users
@@ -9,7 +10,6 @@ import { useCompany } from '../../contexts/CompanyContext';
 import Papa from 'papaparse';
 import { Modal } from '../ui/Modal';
 import { toast } from '../../utils/toast';
-import { ErrorHandler } from '../../utils/errorHandler';
 import { useAuditLogger } from '../../utils/auditLogger';
 
 // --- Interfaces para Tipagem ---
@@ -613,6 +613,9 @@ const EvaluationsTable = () => {
   // Estado para grupos expandidos/colapsados (inicia com todos expandidos)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
+  // Estado para menu de filtros lateral
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  
   // Estados para edição individual
   const [editingEvaluation, setEditingEvaluation] = useState<EvaluationData | null>(null);
   const [editScores, setEditScores] = useState<Record<string, number>>({});
@@ -891,12 +894,6 @@ const EvaluationsTable = () => {
     link.click();
   };
 
-  // Obter meses e anos únicos para filtros
-  const uniqueMonths = Array.from(new Set(data.map(d => {
-    const date = new Date(d.date);
-    return (date.getMonth() + 1).toString().padStart(2, '0');
-  }))).sort();
-  
   const uniqueYears = Array.from(new Set(data.map(d => {
     const date = new Date(d.date);
     return date.getFullYear().toString();
@@ -905,24 +902,6 @@ const EvaluationsTable = () => {
   const sectors = Array.from(new Set(data.map(d => d.sector))).sort();
   const roles = Array.from(new Set(data.map(d => d.role))).sort();
   const levels = Array.from(new Set(data.map(d => d.type))).sort();
-  
-  // Agrupar avaliações por mês/ano para mostrar contagem de funcionários avaliados
-  const evaluationsByMonth = React.useMemo(() => {
-    const grouped: Record<string, Set<string>> = {};
-    data.forEach(d => {
-      const date = new Date(d.date);
-      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = new Set();
-      }
-      if (d.employeeId) {
-        grouped[monthKey].add(d.employeeId);
-      } else if (d.employeeName) {
-        grouped[monthKey].add(d.employeeName);
-      }
-    });
-    return grouped;
-  }, [data]);
 
   // Agrupar dados paginados por mês/ano
   const groupedTableData = useMemo(() => {
@@ -978,105 +957,222 @@ const EvaluationsTable = () => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Barra de Ferramentas / Ações em Massa */}
-      <div className="bg-white dark:bg-navy-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-            <input 
-              placeholder="Buscar por nome..."
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none focus:ring-2 ring-blue-500/20 text-sm"
-              value={filterName}
-              onChange={e => setFilterName(e.target.value)}
-            />
-          </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            <select 
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterSector}
-              onChange={e => setFilterSector(e.target.value)}
+    <div className="space-y-4 relative">
+      {/* Overlay quando menu está aberto */}
+      {isFilterPanelOpen && (
+        <div
+          onClick={() => setIsFilterPanelOpen(false)}
+          className="fixed inset-0 bg-black/20 dark:bg-black/40 z-30"
+        />
+      )}
+
+      {/* Botão Toggle do Menu de Filtros */}
+      <button
+        onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+        className={`fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-gradient-to-b from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-l border-t border-b border-blue-200 dark:border-blue-700 rounded-l-lg shadow-lg transition-all hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/40 dark:hover:to-blue-700/40 flex flex-col items-center justify-center gap-1.5 ${
+          isFilterPanelOpen ? 'translate-x-[380px]' : 'translate-x-0'
+        }`}
+        style={{ top: '50%', padding: '14px 10px', minWidth: '50px' }}
+        title={isFilterPanelOpen ? 'Recolher filtros' : 'Expandir filtros'}
+      >
+        <Filter size={20} className="text-blue-600 dark:text-blue-400" />
+        <span 
+          className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          Filtros
+        </span>
+        {isFilterPanelOpen ? (
+          <ChevronRight size={14} className="text-blue-600 dark:text-blue-400" />
+        ) : (
+          <ChevronLeft size={14} className="text-blue-600 dark:text-blue-400" />
+        )}
+      </button>
+
+      {/* Menu de Filtros Lateral */}
+      <div
+        className={`fixed right-0 top-0 h-full bg-white dark:bg-navy-800 border-l border-gray-200 dark:border-navy-700 shadow-2xl z-40 transition-transform duration-300 ease-in-out overflow-y-auto ${
+          isFilterPanelOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        style={{ width: '380px', paddingTop: '20px' }}
+      >
+        <div className="p-6 space-y-6">
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-navy-700 pb-4">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Filter size={20} />
+              Filtros
+            </h3>
+            <button
+              onClick={() => setIsFilterPanelOpen(false)}
+              className="p-1 hover:bg-gray-100 dark:hover:bg-navy-700 rounded transition-colors"
             >
-              <option value="">Todos Setores</option>
-              {sectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              <X size={18} className="text-gray-600 dark:text-gray-400" />
+            </button>
           </div>
-          <div className="relative">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterRole}
-              onChange={e => setFilterRole(e.target.value)}
-            >
-              <option value="">Todos Cargos</option>
-              {roles.map((r: string) => <option key={r} value={r}>{r}</option>)}
-            </select>
+
+          {/* Filtro Nome */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nome do Funcionário</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar por nome..."
+                className="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20 text-sm"
+                value={filterName}
+                onChange={e => setFilterName(e.target.value)}
+              />
+              <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+            </div>
           </div>
-          <div className="relative">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterLevel}
-              onChange={e => setFilterLevel(e.target.value)}
-            >
-              <option value="">Todos Níveis</option>
-              {levels.map((l: string) => <option key={l} value={l}>{l}</option>)}
-            </select>
+
+          {/* Filtro Setor */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Setor</label>
+            <div className="relative">
+              <select 
+                className="w-full pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterSector}
+                onChange={e => setFilterSector(e.target.value)}
+              >
+                <option value="">Todos Setores</option>
+                {sectors.map((s: string) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <Filter className="absolute left-3 top-2.5 text-gray-400 pointer-events-none" size={18} />
+            </div>
           </div>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            <input
-              type="month"
-              className="w-full pl-10 p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterMonth && filterYear ? `${filterYear}-${filterMonth}` : ''}
-              onChange={e => {
-                const value = e.target.value;
-                if (value) {
-                  const [year, month] = value.split('-');
-                  setFilterYear(year);
-                  setFilterMonth(month);
-                } else {
-                  setFilterYear('');
-                  setFilterMonth('');
-                }
+
+          {/* Filtro Cargo */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cargo</label>
+            <div className="relative">
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterRole}
+                onChange={e => setFilterRole(e.target.value)}
+              >
+                <option value="">Todos Cargos</option>
+                {roles.map((r: string) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Filtro Nível */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Nível</label>
+            <div className="relative">
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterLevel}
+                onChange={e => setFilterLevel(e.target.value)}
+              >
+                <option value="">Todos Níveis</option>
+                {levels.map((l: string) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Filtro Mês/Ano */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Mês de Referência</label>
+            <div className="relative">
+              <input
+                type="month"
+                className="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterMonth && filterYear ? `${filterYear}-${filterMonth}` : ''}
+                onChange={e => {
+                  const value = e.target.value;
+                  if (value) {
+                    const [year, month] = value.split('-');
+                    setFilterYear(year);
+                    setFilterMonth(month);
+                  } else {
+                    setFilterYear('');
+                    setFilterMonth('');
+                  }
+                }}
+              />
+              <Calendar className="absolute left-3 top-2.5 text-gray-400 pointer-events-none" size={18} />
+            </div>
+          </div>
+
+          {/* Filtro Ano */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ano</label>
+            <div className="relative">
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterYear}
+                onChange={e => setFilterYear(e.target.value)}
+              >
+                <option value="">Todos Anos</option>
+                {uniqueYears.map((y: string) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Filtro Faixa de Nota */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Faixa de Nota</label>
+            <div className="relative">
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={filterScoreRange}
+                onChange={e => setFilterScoreRange(e.target.value)}
+              >
+                <option value="">Todas Notas</option>
+                <option value="0-4">0-4 (Ruim)</option>
+                <option value="5-6">5-6 (Regular)</option>
+                <option value="7-8">7-8 (Bom)</option>
+                <option value="9-10">9-10 (Excelente)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Ordenação */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Ordenação</label>
+            <div className="relative">
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-sm"
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value as 'recent' | 'oldest')}
+              >
+                <option value="recent">Mais Recente</option>
+                <option value="oldest">Mais Antigo</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Botão Limpar Filtros */}
+          <div className="pt-4 border-t border-gray-200 dark:border-navy-700">
+            <button
+              onClick={() => {
+                setFilterName('');
+                setFilterSector('');
+                setFilterRole('');
+                setFilterLevel('');
+                setFilterScoreRange('');
+                setFilterMonth('');
+                setFilterYear('');
+                setSortOrder('recent');
               }}
-            />
+              className="w-full px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-red-200 dark:border-red-800"
+            >
+              Limpar todos os filtros
+            </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          <div className="relative">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterYear}
-              onChange={e => setFilterYear(e.target.value)}
-            >
-              <option value="">Todos Anos</option>
-              {uniqueYears.map((y: string) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div className="relative">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={filterScoreRange}
-              onChange={e => setFilterScoreRange(e.target.value)}
-            >
-              <option value="">Todas Notas</option>
-              <option value="0-4">0-4 (Ruim)</option>
-              <option value="5-6">5-6 (Regular)</option>
-              <option value="7-8">7-8 (Bom)</option>
-              <option value="9-10">9-10 (Excelente)</option>
-            </select>
-          </div>
-          <div className="relative">
-            <select 
-              className="w-full p-2 border rounded-lg dark:bg-navy-900 dark:border-navy-700 text-gray-700 dark:text-gray-300 outline-none appearance-none cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700 transition-colors text-sm"
-              value={sortOrder}
-              onChange={e => setSortOrder(e.target.value as 'recent' | 'oldest')}
-            >
-              <option value="recent">Mais Recente</option>
-              <option value="oldest">Mais Antigo</option>
-            </select>
-          </div>
-          <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+      </div>
+
+      {/* Barra de Ações */}
+      <div 
+        className={`bg-white dark:bg-navy-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 transition-all duration-300 ${
+          isFilterPanelOpen ? 'mr-[380px]' : 'mr-0'
+        }`}
+      >
+        <div className="flex flex-wrap gap-2 justify-between items-center">
+          <div className="flex gap-2">
             {selectedIds.length > 0 && (
               <button
                 onClick={() => setIsBulkEditOpen(true)}
@@ -1088,10 +1184,13 @@ const EvaluationsTable = () => {
             <button 
               onClick={handleExportCSV} 
               disabled={filteredData.length === 0}
-              className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="flex items-center gap-2 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 font-bold px-4 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               <Download size={18} /> Exportar
             </button>
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {filteredData.length} avaliação(ões) encontrada(s)
           </div>
         </div>
       </div>
@@ -1115,7 +1214,11 @@ const EvaluationsTable = () => {
       )}
 
       {/* Tabela */}
-      <div className="bg-white dark:bg-navy-800 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden">
+      <div 
+        className={`bg-white dark:bg-navy-800 rounded-lg shadow-sm border border-gray-200 dark:border-navy-700 overflow-hidden transition-all duration-300 ${
+          isFilterPanelOpen ? 'mr-[380px]' : 'mr-0'
+        }`}
+      >
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 dark:bg-navy-900 text-gray-500 uppercase font-medium border-b dark:border-navy-700">
@@ -1230,16 +1333,25 @@ const EvaluationsTable = () => {
                         <td className="p-4 text-gray-500 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                               <Calendar size={14}/> 
-                              {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric'})}
+                              {new Date(ev.date).toLocaleDateString('pt-BR', {timeZone: 'UTC', month: 'long', year: 'numeric'})}
                           </div>
                         </td>
                         <td className="p-4">
-                          <button
-                            onClick={() => handleShowSummary(ev)}
-                            className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
-                          >
-                            {ev.employeeName}
-                          </button>
+                          {ev.employeeId && currentCompany ? (
+                            <Link
+                              to={`/employee/${currentCompany.id}/${ev.employeeId}`}
+                              className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-left"
+                            >
+                              {formatShortName(ev.employeeName)}
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={() => handleShowSummary(ev)}
+                              className="font-bold text-gray-800 dark:text-white hover:text-blue-600 dark:hover:text-gold-400 transition-colors cursor-pointer text-left"
+                            >
+                              {formatShortName(ev.employeeName)}
+                            </button>
+                          )}
                         </td>
                         <td className="p-4 text-gray-600 dark:text-gray-400">{ev.role}</td>
                         <td className="p-4 text-gray-600 dark:text-gray-400">{ev.sector}</td>
@@ -1290,8 +1402,8 @@ const EvaluationsTable = () => {
         {/* Paginação */}
         {(totalPages > 1 || filteredData.length > 0) && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-900">
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-              <span>
+            <div className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-400">
+              <span className="font-medium">
                 Mostrando {(currentPage - 1) * itemsPerPage + 1} a {Math.min(currentPage * itemsPerPage, filteredData.length)} de {filteredData.length} avaliações
               </span>
               <select
@@ -1300,7 +1412,7 @@ const EvaluationsTable = () => {
                   setItemsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="px-2 py-1 border border-gray-300 dark:border-navy-700 rounded-lg dark:bg-navy-800 text-gray-700 dark:text-gray-300 outline-none text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors"
+                className="px-3 py-1.5 bg-white dark:bg-navy-800 border border-gray-300 dark:border-navy-700 rounded-lg text-gray-700 dark:text-gray-300 outline-none text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors font-medium"
               >
                 <option value={10}>10 por página</option>
                 <option value={20}>20 por página</option>
@@ -1313,7 +1425,7 @@ const EvaluationsTable = () => {
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                  className="p-2 bg-white dark:bg-navy-800 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-gray-700 dark:text-gray-300"
                   title="Página anterior"
                 >
                   <ChevronLeft size={18} />
@@ -1324,7 +1436,7 @@ const EvaluationsTable = () => {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-2 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                  className="p-2 bg-white dark:bg-navy-800 border border-gray-300 dark:border-navy-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors text-gray-700 dark:text-gray-300"
                   title="Próxima página"
                 >
                   <ChevronRight size={18} />
@@ -1583,7 +1695,7 @@ const EvaluationsTable = () => {
 };
 
 export const EvaluationsView = () => {
-  const [activeTab, setActiveTab] = useState<'new' | 'list'>('list');
+  const [activeTab, setActiveTab] = useState<'new' | 'list'>('new');
 
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
@@ -1594,16 +1706,6 @@ export const EvaluationsView = () => {
         </div>
         <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mt-4 md:mt-0">
           <button
-            onClick={() => setActiveTab('list')}
-            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
-              activeTab === 'list' 
-              ? 'bg-white dark:bg-navy-900 text-blue-600 shadow-sm' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-            }`}
-          >
-            Histórico Completo
-          </button>
-          <button
             onClick={() => setActiveTab('new')}
             className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === 'new' 
@@ -1612,6 +1714,16 @@ export const EvaluationsView = () => {
             }`}
           >
             <Plus size={16} /> Nova Avaliação
+          </button>
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${
+              activeTab === 'list' 
+              ? 'bg-white dark:bg-navy-900 text-blue-600 shadow-sm' 
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+            }`}
+          >
+            Histórico Completo
           </button>
         </div>
       </div>

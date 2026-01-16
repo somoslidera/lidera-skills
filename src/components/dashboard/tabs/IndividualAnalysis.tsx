@@ -1,14 +1,22 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
-} from 'recharts';
+import { Link } from 'react-router-dom';
 import { Filter, ArrowUp, ArrowDown, Minus, X } from 'lucide-react';
 import { ChartInfoTooltip } from '../../ui/ChartInfoTooltip';
+import { useCompany } from '../../../contexts/CompanyContext';
+import { formatShortName } from '../../../utils/nameFormatter';
 
 export const IndividualAnalysis = ({ data }: { data: any }) => {
+  const { currentCompany } = useCompany();
   const { individualData, monthlyComparison } = data;
   const [localSearch, setLocalSearch] = useState('');
   const [viewMode, setViewMode] = useState<'comparative' | 'monthly'>('comparative');
+  
+  // Helper para encontrar employeeId pelo nome
+  const getEmployeeId = (employeeName: string): string | null => {
+    // Tentar encontrar pelo nome nas avaliações individuais
+    const item = individualData.find((d: any) => d.name === employeeName);
+    return item?.employeeId || null;
+  };
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -284,7 +292,18 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                  {displayData.map((item: any, idx: number) => {
                     return (
                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
-                          <td className="p-4 font-medium text-gray-800 dark:text-white">{item.name}</td>
+                          <td className="p-4 font-medium text-gray-800 dark:text-white">
+                            {currentCompany && getEmployeeId(item.name) ? (
+                              <Link
+                                to={`/employee/${currentCompany.id}/${getEmployeeId(item.name)}`}
+                                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              >
+                                {formatShortName(item.name)}
+                              </Link>
+                            ) : (
+                              formatShortName(item.name)
+                            )}
+                          </td>
                           <td className="p-4 text-gray-500 text-xs">{item.monthYear || '-'}</td>
                           <td className="p-4 text-gray-500">{item.sector}</td>
                           <td className="p-4 text-gray-500">{item.role}</td>
@@ -556,7 +575,7 @@ export const IndividualAnalysis = ({ data }: { data: any }) => {
                     return (
                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-navy-700/50">
                           <td className="p-3 font-medium text-gray-800 dark:text-white sticky left-0 bg-white dark:bg-navy-800 z-10 border-r">
-                            {item.name}
+                            {formatShortName(item.name)}
                           </td>
                           <td className="p-3 text-gray-500 sticky left-[150px] bg-white dark:bg-navy-800 z-10 border-r">
                             {item.sector}

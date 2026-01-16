@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Calendar, X, Check } from 'lucide-react';
+import { Search, Filter, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDashboardAnalytics } from '../../hooks/useDashboardAnalytics';
 import { fetchCollection } from '../../services/firebase';
 import { useCompany } from '../../contexts/CompanyContext';
@@ -13,11 +13,6 @@ import { PerformanceAnalysis } from './tabs/PerformanceAnalysis';
 import { IndividualAnalysis } from './tabs/IndividualAnalysis';
 import { RankingView } from './tabs/RankingView';
 import { BehavioralProfile } from './tabs/BehavioralProfile';
-
-interface DashboardProps {
-  evaluations: any[];
-  employees: any[];
-}
 
 export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { evaluations?: any[]; employees?: any[]; initialTab?: string }) => {
   const navigate = useNavigate();
@@ -34,7 +29,15 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
   const [criteriaList, setCriteriaList] = useState<any[]>([]);
   const [showSectorDropdown, setShowSectorDropdown] = useState(false);
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [sectorSearchTerm, setSectorSearchTerm] = useState('');
+  const [statusSearchTerm, setStatusSearchTerm] = useState('');
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  
+  // Chave para localStorage
+  const FILTERS_STORAGE_KEY = 'lidera-skills-dashboard-filters';
   
   // Buscar critérios do banco
   useEffect(() => {
@@ -60,6 +63,41 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
       setActiveTab(initialTab as any);
     }
   }, [initialTab]);
+
+  // Carregar filtros salvos do localStorage
+  useEffect(() => {
+    try {
+      const savedFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+      if (savedFilters) {
+        const filters = JSON.parse(savedFilters);
+        setSelectedSectors(filters.selectedSectors || []);
+        setSelectedEmployees(filters.selectedEmployees || []);
+        setSelectedStatuses(filters.selectedStatuses || ['Ativo']);
+        setDateStart(filters.dateStart || '');
+        setDateEnd(filters.dateEnd || '');
+        setActiveFilterLabel(filters.activeFilterLabel || 'Todo o período');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar filtros salvos:', error);
+    }
+  }, []);
+
+  // Salvar filtros no localStorage quando mudarem
+  useEffect(() => {
+    try {
+      const filtersToSave = {
+        selectedSectors,
+        selectedEmployees,
+        selectedStatuses,
+        dateStart,
+        dateEnd,
+        activeFilterLabel
+      };
+      localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filtersToSave));
+    } catch (error) {
+      console.error('Erro ao salvar filtros:', error);
+    }
+  }, [selectedSectors, selectedEmployees, selectedStatuses, dateStart, dateEnd, activeFilterLabel]);
 
   // Hook de Metas
   const { goalValue } = usePerformanceGoals();
@@ -111,13 +149,14 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         end = new Date(now.getFullYear(), now.getMonth(), 0);
         setActiveFilterLabel('Mês Passado');
         break;
-      case 'thisQuarter':
+      case 'thisQuarter': {
         const currentQuarter = Math.floor(now.getMonth() / 3);
         start = new Date(now.getFullYear(), currentQuarter * 3, 1);
         end = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
         setActiveFilterLabel('Este Trimestre');
         break;
-      case 'lastQuarter':
+      }
+      case 'lastQuarter': {
         const lastQuarter = Math.floor(now.getMonth() / 3) - 1;
         const lastQuarterYear = lastQuarter < 0 ? now.getFullYear() - 1 : now.getFullYear();
         const lastQuarterMonth = lastQuarter < 0 ? 9 : lastQuarter * 3;
@@ -125,19 +164,22 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
         end = new Date(lastQuarterYear, lastQuarterMonth + 3, 0);
         setActiveFilterLabel('Trimestre Passado');
         break;
-      case 'thisSemester':
+      }
+      case 'thisSemester': {
         const currentSemester = now.getMonth() < 6 ? 0 : 6;
         start = new Date(now.getFullYear(), currentSemester, 1);
         end = new Date(now.getFullYear(), currentSemester + 6, 0);
         setActiveFilterLabel('Este Semestre');
         break;
-      case 'lastSemester':
+      }
+      case 'lastSemester': {
         const lastSemester = now.getMonth() < 6 ? 6 : 0;
         const lastSemesterYear = now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear();
         start = new Date(lastSemesterYear, lastSemester, 1);
         end = new Date(lastSemesterYear, lastSemester + 6, 0);
         setActiveFilterLabel('Semestre Passado');
         break;
+      }
       case 'thisYear':
         start = new Date(now.getFullYear(), 0, 1);
         end = new Date(now.getFullYear(), 11, 31);
@@ -159,43 +201,176 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
     setDateEnd(end.toISOString().split('T')[0]);
   };
 
+  // Filtrar setores por busca
+  const filteredSectors = useMemo(() => {
+    if (!sectorSearchTerm) return uniqueSectors.sort();
+    return uniqueSectors.filter(s => 
+      s.toLowerCase().includes(sectorSearchTerm.toLowerCase())
+    ).sort();
+  }, [uniqueSectors, sectorSearchTerm]);
+
+  // Filtrar status por busca
+  const filteredStatuses = useMemo(() => {
+    const allStatuses = ['Ativo', 'Inativo', 'Férias', 'Afastado'];
+    if (!statusSearchTerm) return allStatuses;
+    return allStatuses.filter(s => 
+      s.toLowerCase().includes(statusSearchTerm.toLowerCase())
+    );
+  }, [statusSearchTerm]);
+
+  // Função para limpar filtros salvos
+  const clearSavedFilters = () => {
+    try {
+      localStorage.removeItem(FILTERS_STORAGE_KEY);
+      setSelectedSectors([]);
+      setSelectedEmployees([]);
+      setSelectedStatuses(['Ativo']);
+      setDateStart('');
+      setDateEnd('');
+      setActiveFilterLabel('Todo o período');
+      setEmployeeSearchTerm('');
+      setSectorSearchTerm('');
+      setStatusSearchTerm('');
+    } catch (error) {
+      console.error('Erro ao limpar filtros:', error);
+    }
+  };
+
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest('.sector-filter') && !target.closest('.employee-filter')) {
+      if (!target.closest('.sector-filter') && !target.closest('.employee-filter') && 
+          !target.closest('.status-filter') && !target.closest('.period-filter') &&
+          !target.closest('.date-picker')) {
         setShowSectorDropdown(false);
         setShowEmployeeDropdown(false);
+        setShowStatusDropdown(false);
+        setShowPeriodDropdown(false);
+        setShowDateStartPicker(false);
+        setShowDateEndPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Títulos dinâmicos baseados na aba
+  const getPageTitle = () => {
+    switch (activeTab) {
+      case 'overview':
+        return { h1: 'Painel', h2: 'Saúde da Empresa' };
+      case 'performance':
+        return { h1: 'Painel', h2: 'Análise de Desempenho' };
+      case 'individual':
+        return { h1: 'Painel', h2: 'Comparativo Individual' };
+      case 'ranking':
+        return { h1: 'Painel', h2: 'Ranking' };
+      case 'behavioral':
+        return { h1: 'Painel', h2: 'Perfil Comportamental' };
+      default:
+        return { h1: 'Painel', h2: 'Dashboard' };
+    }
+  };
+
+  const pageTitles = getPageTitle();
+
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 relative">
       
-      {/* --- BARRA DE FILTROS SUPERIOR --- */}
-      <div className="bg-white dark:bg-navy-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-navy-700 flex flex-col gap-4 sticky top-0 z-10">
+      {/* --- TÍTULOS E NAVEGAÇÃO POR ABAS (FIXO) --- */}
+      <div className="sticky top-0 z-30 bg-skills-light dark:bg-lidera-dark -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 pt-4 pb-2 border-b border-gray-200 dark:border-gray-800">
+        {/* Títulos */}
+        <div className="mb-4">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{pageTitles.h1}</h1>
+          <h2 className="text-xl text-gray-600 dark:text-gray-400 mt-1">{pageTitles.h2}</h2>
+        </div>
         
-        {/* Linha 1: Controles Principais */}
-        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-            {/* Filtro Setor (Múltipla Seleção) */}
-            <div className="relative w-full sm:w-auto sector-filter">
-              <Filter className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+        {/* Separador */}
+        <div className="h-px bg-gray-200 dark:bg-gray-800 my-4"></div>
+        
+        {/* Navegação por Abas */}
+        <div className="flex flex-wrap gap-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg">
+
+      {/* --- OVERLAY (quando menu aberto) --- */}
+      {isFilterPanelOpen && (
+        <div
+          onClick={() => setIsFilterPanelOpen(false)}
+          className="fixed inset-0 bg-black/20 dark:bg-black/40 z-30"
+        />
+      )}
+
+      {/* --- BOTÃO TOGGLE DO MENU DE FILTROS (Fixo na direita) --- */}
+      <button
+        onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+        className={`fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-gradient-to-b from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 border-l border-t border-b border-blue-200 dark:border-blue-700 rounded-l-lg shadow-lg transition-all hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/40 dark:hover:to-blue-700/40 flex flex-col items-center justify-center gap-1.5 ${
+          isFilterPanelOpen ? 'translate-x-[380px]' : 'translate-x-0'
+        }`}
+        style={{ top: '50%', padding: '14px 10px', minWidth: '50px' }}
+        title={isFilterPanelOpen ? 'Recolher filtros' : 'Expandir filtros'}
+      >
+        <Filter size={20} className="text-blue-600 dark:text-blue-400" />
+        <span 
+          className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          Filtros
+        </span>
+        {isFilterPanelOpen ? (
+          <ChevronRight size={14} className="text-blue-600 dark:text-blue-400" />
+        ) : (
+          <ChevronLeft size={14} className="text-blue-600 dark:text-blue-400" />
+        )}
+      </button>
+
+      {/* --- MENU DE FILTROS RECOLHÍVEL (Lateral Direita) --- */}
+      <div
+        className={`fixed right-0 top-0 h-full bg-white dark:bg-navy-800 border-l border-gray-200 dark:border-navy-700 shadow-2xl z-40 transition-transform duration-300 ease-in-out overflow-y-auto ${
+          isFilterPanelOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        style={{ width: '380px', paddingTop: '20px' }}
+      >
+        <div className="p-6 space-y-6">
+          {/* Cabeçalho do Menu */}
+          <div className="flex items-center justify-between border-b border-gray-200 dark:border-navy-700 pb-4">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Filter size={20} />
+              Filtros
+            </h3>
+            <button
+              onClick={() => setIsFilterPanelOpen(false)}
+              className="p-1 hover:bg-gray-100 dark:hover:bg-navy-700 rounded transition-colors"
+            >
+              <X size={18} className="text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
+
+          {/* Filtro Setor - Estilo Busca */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Setores</label>
+            <div className="relative sector-filter">
               <div className="relative">
-                <button
-                  onClick={() => setShowSectorDropdown(!showSectorDropdown)}
-                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none cursor-pointer w-full sm:w-56 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors flex items-center justify-between"
-                >
-                  <span className="truncate">
-                    {selectedSectors.length === 0 ? 'Todos Setores' : `${selectedSectors.length} setor(es)`}
-                  </span>
-                  <span className="text-xs text-gray-400">▼</span>
-                </button>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Buscar setor..."
+                    value={sectorSearchTerm}
+                    onChange={(e) => {
+                      setSectorSearchTerm(e.target.value);
+                      setShowSectorDropdown(true);
+                    }}
+                    onFocus={() => setShowSectorDropdown(true)}
+                    className="w-full pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
+                  />
+                  <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+                  {selectedSectors.length > 0 && (
+                    <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
+                      {selectedSectors.length}
+                    </span>
+                  )}
+                </div>
                 {showSectorDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-full sm:w-48 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     <div className="p-2">
                       <button
                         onClick={() => {
@@ -206,7 +381,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                       >
                         Todos Setores
                       </button>
-                      {uniqueSectors.sort().map((s: string) => (
+                      {filteredSectors.map((s: string) => (
                         <label key={s} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
                           <input
                             type="checkbox"
@@ -223,15 +398,20 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                           <span className="text-sm text-gray-700 dark:text-gray-300">{s}</span>
                         </label>
                       ))}
+                      {filteredSectors.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-gray-500">Nenhum setor encontrado</div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            
-            {/* Filtro Funcionário (Busca + Seleção Múltipla) */}
-            <div className="relative w-full sm:w-auto employee-filter">
-              <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+          </div>
+
+          {/* Filtro Funcionário */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Funcionários</label>
+            <div className="relative employee-filter">
               <div className="relative">
                 <div className="flex items-center">
                   <input
@@ -243,8 +423,9 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                       setShowEmployeeDropdown(true);
                     }}
                     onFocus={() => setShowEmployeeDropdown(true)}
-                    className="pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none w-full sm:w-72 text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
+                    className="w-full pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
                   />
+                  <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
                   {selectedEmployees.length > 0 && (
                     <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
                       {selectedEmployees.length}
@@ -252,7 +433,7 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                   )}
                 </div>
                 {showEmployeeDropdown && filteredEmployees.length > 0 && (
-                  <div className="absolute top-full left-0 mt-1 w-full sm:w-72 bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     <div className="p-2">
                       {filteredEmployees.slice(0, 10).map((name: string) => (
                         <label key={name} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
@@ -281,212 +462,306 @@ export const Dashboard = ({ evaluations = [], employees = [], initialTab }: { ev
                 )}
               </div>
             </div>
-            
-            {/* Filtros de Status */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Status:</span>
-              {['Ativo', 'Inativo', 'Férias', 'Afastado'].map((status) => (
-                <label key={status} className="flex items-center gap-1 cursor-pointer">
+          </div>
+
+          {/* Filtros de Status - Estilo Busca */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+            <div className="relative status-filter">
+              <div className="relative">
+                <div className="flex items-center">
                   <input
-                    type="checkbox"
-                    checked={selectedStatuses.includes(status)}
+                    type="text"
+                    placeholder="Buscar status..."
+                    value={statusSearchTerm}
                     onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedStatuses([...selectedStatuses, status]);
-                      } else {
-                        setSelectedStatuses(selectedStatuses.filter(s => s !== status));
-                      }
+                      setStatusSearchTerm(e.target.value);
+                      setShowStatusDropdown(true);
                     }}
-                    className="rounded text-blue-600 focus:ring-blue-500"
+                    onFocus={() => setShowStatusDropdown(true)}
+                    className="w-full pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-gray-700 dark:text-gray-300 focus:ring-2 ring-blue-500/20"
                   />
-                  <span className="text-xs text-gray-700 dark:text-gray-300">{status}</span>
-                </label>
-              ))}
+                  <Search className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+                  {selectedStatuses.length > 0 && selectedStatuses.length < 4 && (
+                    <span className="absolute right-8 text-xs bg-blue-500 text-white rounded-full px-2 py-0.5">
+                      {selectedStatuses.length}
+                    </span>
+                  )}
+                </div>
+                {showStatusDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    <div className="p-2">
+                      {filteredStatuses.map((status: string) => (
+                        <label key={status} className="flex items-center px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedStatuses.includes(status)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStatuses([...selectedStatuses, status]);
+                              } else {
+                                setSelectedStatuses(selectedStatuses.filter(s => s !== status));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{status}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {/* Indicador de Filtros Ativos */}
-            {(selectedSectors.length > 0 || selectedEmployees.length > 0 || selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo' || dateStart || dateEnd) && (
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 flex-wrap">
-                <span className="font-medium">Filtros ativos:</span>
-                {selectedSectors.length > 0 && (
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                    Setores: {selectedSectors.length}
-                  </span>
-                )}
-                {selectedEmployees.length > 0 && (
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                    Funcionários: {selectedEmployees.length}
-                  </span>
-                )}
-                {(selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo') && (
-                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
-                    Status: {selectedStatuses.join(', ')}
-                  </span>
-                )}
-                {(dateStart || dateEnd) && (
-                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+          </div>
+
+          {/* Filtros de Período - Estilo Busca */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período</label>
+            <div className="relative period-filter">
+              <div className="relative">
+                <button
+                  onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                  className="w-full pl-10 pr-8 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none cursor-pointer text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors flex items-center justify-between"
+                >
+                  <span className="truncate">
                     {activeFilterLabel}
                   </span>
-                )}
-                <button 
-                  onClick={() => {
-                    setSelectedSectors([]);
-                    setSelectedEmployees([]);
-                    setSelectedStatuses(['Ativo']);
-                    setEmployeeSearchTerm('');
-                    applyDateFilter('all');
-                  }}
-                  className="px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                >
-                  Limpar todos
+                  <span className="text-xs text-gray-400">▼</span>
                 </button>
+                <Calendar className="absolute left-3 top-2.5 text-gray-400 z-10" size={18} />
+                {showPeriodDropdown && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    <div className="p-2">
+                      {[
+                        { key: 'thisMonth', label: 'Este Mês' },
+                        { key: 'lastMonth', label: 'Mês Passado' },
+                        { key: 'thisQuarter', label: 'Este Trimestre' },
+                        { key: 'lastQuarter', label: 'Trimestre Passado' },
+                        { key: 'thisSemester', label: 'Este Semestre' },
+                        { key: 'lastSemester', label: 'Semestre Passado' },
+                        { key: 'thisYear', label: 'Este Ano' },
+                        { key: 'lastYear', label: 'Ano Passado' },
+                        { key: 'all', label: 'Todo Período' }
+                      ].map((period) => {
+                        const isActive = (period.key === 'all' && !dateStart) || activeFilterLabel === period.label;
+                        
+                        return (
+                          <button 
+                            key={period.key}
+                            onClick={() => {
+                              applyDateFilter(period.key as any);
+                              setShowPeriodDropdown(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded transition-all ${
+                               isActive 
+                               ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' 
+                               : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                            }`}
+                          >
+                            {period.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Seleção Rápida de Período e Exportação */}
-          <div className="flex flex-col gap-3 justify-center lg:justify-end items-center">
-            <div className="flex flex-wrap gap-2 justify-center">
-              {[
-                { key: 'thisMonth', label: 'Este Mês' },
-                { key: 'lastMonth', label: 'Mês Passado' },
-                { key: 'thisQuarter', label: 'Este Trimestre' },
-                { key: 'lastQuarter', label: 'Trimestre Passado' },
-                { key: 'thisSemester', label: 'Este Semestre' },
-                { key: 'lastSemester', label: 'Semestre Passado' },
-                { key: 'thisYear', label: 'Este Ano' },
-                { key: 'lastYear', label: 'Ano Passado' },
-                { key: 'all', label: 'Todo Período' }
-              ].map((period) => {
-                const isActive = (period.key === 'all' && !dateStart) || activeFilterLabel === period.label;
-                
-                return (
-                  <button 
-                    key={period.key}
-                    onClick={() => applyDateFilter(period.key as any)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
-                       isActive 
-                       ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white shadow-lg border border-blue-400 transform scale-105' 
-                       : 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 text-gray-600 dark:text-gray-400 hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-700 dark:hover:to-gray-600'
-                    }`}
-                  >
-                    {period.label}
-                  </button>
-                );
-              })}
             </div>
-            
-            {/* Botão de Exportação */}
-            {evaluations.length > 0 && (
-              <div className="ml-2">
-                <ReportExporter
-                  title="Dashboard de Desempenho"
-                  contentRef={dashboardContentRef}
-                  generalMetrics={analytics.generalMetrics}
-                  competenceMetrics={analytics.competenceMetrics}
-                  comparativeMetrics={analytics.comparativeMetrics}
-                  companyName={currentCompany?.name || 'Empresa'}
-                  exportType="dashboard"
-                />
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Linha 2: Intervalo Personalizado (se necessário) */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 dark:bg-navy-900 p-2 rounded-lg border border-gray-200 dark:border-navy-700 w-fit">
-          <Calendar size={14} />
-          <span className="text-xs font-bold uppercase tracking-wide">Personalizado:</span>
-          <input 
-            type="date" 
-            className="bg-transparent outline-none text-gray-700 dark:text-gray-300"
-            value={dateStart}
-            onChange={e => { setDateStart(e.target.value); setActiveFilterLabel('Personalizado'); }}
-          />
-          <span className="text-gray-400">-</span>
-          <input 
-            type="date" 
-            className="bg-transparent outline-none text-gray-700 dark:text-gray-300"
-            value={dateEnd}
-            onChange={e => { setDateEnd(e.target.value); setActiveFilterLabel('Personalizado'); }}
-          />
-          {(dateStart || dateEnd) && (
-             <button onClick={() => applyDateFilter('all')} className="ml-2 hover:text-red-500"><X size={14} /></button>
+          {/* Intervalo Personalizado - Com Date Picker */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Período Personalizado</label>
+            <div className="flex flex-col gap-2">
+              <div className="relative date-picker">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-gray-400" />
+                  <input 
+                    type="date" 
+                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                    value={dateStart}
+                    onChange={e => { 
+                      setDateStart(e.target.value); 
+                      setActiveFilterLabel('Personalizado'); 
+                    }}
+                    placeholder="Data inicial"
+                  />
+                </div>
+              </div>
+              <div className="relative date-picker">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-sm">até</span>
+                  <input 
+                    type="date" 
+                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-navy-900 border border-gray-200 dark:border-navy-700 rounded-lg outline-none text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                    value={dateEnd}
+                    onChange={e => { 
+                      setDateEnd(e.target.value); 
+                      setActiveFilterLabel('Personalizado'); 
+                    }}
+                    placeholder="Data final"
+                  />
+                  {(dateStart || dateEnd) && (
+                    <button 
+                      onClick={() => {
+                        setDateStart('');
+                        setDateEnd('');
+                        applyDateFilter('all');
+                      }} 
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded transition-colors"
+                      title="Limpar datas"
+                    >
+                      <X size={16} className="text-gray-600 dark:text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Indicador de Filtros Ativos */}
+          {(selectedSectors.length > 0 || selectedEmployees.length > 0 || selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo' || dateStart || dateEnd) && (
+            <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-navy-700">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Filtros Ativos</label>
+              <div className="flex flex-col gap-2">
+                {selectedSectors.length > 0 && (
+                  <div className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-sm">
+                    Setores: {selectedSectors.length}
+                  </div>
+                )}
+                {selectedEmployees.length > 0 && (
+                  <div className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-sm">
+                    Funcionários: {selectedEmployees.length}
+                  </div>
+                )}
+                {(selectedStatuses.length !== 1 || selectedStatuses[0] !== 'Ativo') && (
+                  <div className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-sm">
+                    Status: {selectedStatuses.join(', ')}
+                  </div>
+                )}
+                {(dateStart || dateEnd) && (
+                  <div className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-sm">
+                    {activeFilterLabel}
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <button 
+                    onClick={() => {
+                      setSelectedSectors([]);
+                      setSelectedEmployees([]);
+                      setSelectedStatuses(['Ativo']);
+                      setEmployeeSearchTerm('');
+                      setSectorSearchTerm('');
+                      setStatusSearchTerm('');
+                      applyDateFilter('all');
+                    }}
+                    className="w-full px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-red-200 dark:border-red-800"
+                  >
+                    Limpar todos os filtros
+                  </button>
+                  <button 
+                    onClick={clearSavedFilters}
+                    className="w-full px-3 py-2 text-sm font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors border border-orange-200 dark:border-orange-800"
+                    title="Remove os filtros salvos do navegador"
+                  >
+                    Limpar filtros salvos
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Botão de Exportação */}
+          {evaluations.length > 0 && (
+            <div className="pt-4 border-t border-gray-200 dark:border-navy-700">
+              <ReportExporter
+                title="Dashboard de Desempenho"
+                contentRef={dashboardContentRef}
+                generalMetrics={analytics.generalMetrics}
+                competenceMetrics={analytics.competenceMetrics}
+                comparativeMetrics={analytics.comparativeMetrics}
+                companyName={currentCompany?.name || 'Empresa'}
+                exportType="dashboard"
+              />
+            </div>
           )}
         </div>
       </div>
 
-      {/* --- NAVEGAÇÃO POR ABAS --- */}
-      <div className="flex flex-wrap gap-1 bg-gray-200 dark:bg-navy-700 p-1 rounded-lg sticky top-20 z-10">
-        <button
-          onClick={() => {
-            setActiveTab('overview');
-            navigate('/dashboard/overview');
-          }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'overview' 
-              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-          }`}
-        >
-          Saúde da Empresa
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('performance');
-            navigate('/dashboard/performance');
-          }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'performance' 
-              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-          }`}
-        >
-          Análise de Desempenho
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('individual');
-            navigate('/dashboard/individual');
-          }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'individual' 
-              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-          }`}
-        >
-          Comparativo Individual
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('ranking');
-            navigate('/dashboard/ranking');
-          }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'ranking' 
-              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-          }`}
-        >
-          Ranking
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('behavioral');
-            navigate('/dashboard/behavioral');
-          }}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            activeTab === 'behavioral' 
-              ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-          }`}
-        >
-          Perfil Comportamental
-        </button>
+          <button
+            onClick={() => {
+              setActiveTab('overview');
+              navigate('/dashboard/overview');
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === 'overview' 
+                ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            Saúde da Empresa
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('performance');
+              navigate('/dashboard/performance');
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === 'performance' 
+                ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            Análise de Desempenho
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('individual');
+              navigate('/dashboard/individual');
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === 'individual' 
+                ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            Comparativo Individual
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('ranking');
+              navigate('/dashboard/ranking');
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === 'ranking' 
+                ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            Ranking
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('behavioral');
+              navigate('/dashboard/behavioral');
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === 'behavioral' 
+                ? 'bg-white dark:bg-navy-800 text-blue-600 dark:text-gold-400 shadow-sm' 
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+            }`}
+          >
+            Perfil Comportamental
+          </button>
+        </div>
       </div>
 
       {/* --- CONTEÚDO DAS ABAS --- */}
-      <div ref={dashboardContentRef}>
+      <div 
+        ref={dashboardContentRef}
+        className={`transition-all duration-300 ${isFilterPanelOpen ? 'mr-[380px]' : 'mr-0'}`}
+      >
         {evaluations.length === 0 ? (
           <div className="p-10 text-center text-gray-500 bg-white dark:bg-navy-800 rounded-xl border border-dashed border-gray-300 dark:border-navy-700">
             Nenhuma avaliação encontrada. Utilize a aba "Histórico" para importar dados via CSV.

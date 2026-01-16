@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronRight, ArrowLeft, Calendar, User, FileText, TrendingUp, Upload } from 'lucide-react';
 import { fetchCollection } from '../../services/firebase';
 import { DataImporter } from '../settings/DataImporter';
 import { useCompany } from '../../contexts/CompanyContext';
+import { formatShortName } from '../../utils/nameFormatter';
 
 // Interface Unificada
 interface Evaluation {
@@ -27,6 +29,7 @@ interface Employee {
 }
 
 export const EvaluationHistory = () => {
+  const { currentCompany } = useCompany();
   const [viewLevel, setViewLevel] = useState<1 | 2 | 3>(1);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [selectedEvaluation, setSelectedEvaluation] = useState<any | null>(null);
@@ -35,8 +38,6 @@ export const EvaluationHistory = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showImporter, setShowImporter] = useState(false);
-
-  const { currentCompany } = useCompany();
 
   // Carrega dados iniciais
   useEffect(() => {
@@ -238,7 +239,17 @@ export const EvaluationHistory = () => {
                     <div className="flex items-center gap-3">
                       <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-full text-gray-500"><User size={18} /></div>
                       <div>
-                        <div className="font-bold text-gray-800 dark:text-gray-200">{ev.displayName}</div>
+                        {currentCompany && ev.employeeId ? (
+                          <Link
+                            to={`/employee/${currentCompany.id}/${ev.employeeId}`}
+                            className="font-bold text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {formatShortName(ev.displayName)}
+                          </Link>
+                        ) : (
+                          <div className="font-bold text-gray-800 dark:text-gray-200">{formatShortName(ev.displayName)}</div>
+                        )}
                         <div className="text-xs text-gray-400 font-mono">ID: {ev.displayId}</div>
                       </div>
                     </div>
@@ -270,7 +281,16 @@ export const EvaluationHistory = () => {
         <div className="animate-fade-in">
           <div className="bg-gray-50 dark:bg-[#121212] p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center border border-gray-100 dark:border-gray-800">
             <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">{selectedEvaluation.displayName}</h3>
+              {currentCompany && selectedEvaluation.employeeId ? (
+                <Link
+                  to={`/employee/${currentCompany.id}/${selectedEvaluation.employeeId}`}
+                  className="text-xl font-bold text-gray-800 dark:text-white mb-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  {formatShortName(selectedEvaluation.displayName)}
+                </Link>
+              ) : (
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">{formatShortName(selectedEvaluation.displayName)}</h3>
+              )}
               <div className="flex gap-4 text-sm text-gray-500">
                 <span>{selectedEvaluation.displayRole}</span>
                 <span>•</span>

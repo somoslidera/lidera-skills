@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 // Card component não aceita children, usando divs estilizadas
-import { CustomTooltip } from '../../ui/CustomTooltip';
-import { Trophy, Star, Award, TrendingUp, Filter, Users, Briefcase, Layers, BarChart3 } from 'lucide-react';
+import { Trophy, Star, Award, TrendingUp, Users, Briefcase, Layers, BarChart3 } from 'lucide-react';
+import { useCompany } from '../../../contexts/CompanyContext';
+import { formatShortName } from '../../../utils/nameFormatter';
 
 interface RankingViewProps {
   evaluations: any[];
@@ -17,6 +19,7 @@ interface RankingViewProps {
 type RankingType = 'geral' | 'setor' | 'cargo' | 'nivel';
 
 export const RankingView = ({ evaluations = [], employees = [], filters }: RankingViewProps) => {
+  const { currentCompany } = useCompany();
   const [rankingType, setRankingType] = useState<RankingType>('geral');
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
@@ -218,6 +221,8 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
   const chartData = useMemo(() => {
     const top10 = processedRankings.rankings.slice(0, 10);
     
+    if (top10.length === 0) return [];
+    
     // Obter todas as datas únicas ordenadas de TODAS as avaliações dos top10
     const allDates = Array.from(new Set(
       evaluations
@@ -227,28 +232,43 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
           if (!evNormalizedId) return false;
           
           return top10.some(emp => {
-            // Normalizar ID do emp do ranking também
             const empNormalizedId = (emp.employeeId || '').toString().toLowerCase().trim();
             const empName = (emp.name || '').toString().toLowerCase().trim();
+            const evEmployeeId = (ev.employeeId || '').toString().toLowerCase().trim();
+            const evEmployeeName = (ev.employeeName || '').toString().toLowerCase().trim();
+            
             return evNormalizedId === empNormalizedId ||
                    evNormalizedId === empName ||
-                   evNormalizedId === (emp.employeeId || '').toString().toLowerCase().trim();
+                   evEmployeeId === empNormalizedId ||
+                   evEmployeeName === empName;
           });
         })
-        .map(ev => ev.date || ev.month)
+        .map(ev => {
+          // Normalizar data para formato YYYY-MM
+          const dateStr = ev.date || ev.month || '';
+          if (!dateStr) return null;
+          // Se for YYYY-MM-DD, converter para YYYY-MM
+          if (dateStr.includes('-') && dateStr.split('-').length === 3) {
+            return dateStr.substring(0, 7); // YYYY-MM
+          }
+          return dateStr.substring(0, 7); // Já está em YYYY-MM ou similar
+        })
         .filter(Boolean)
     )).sort();
 
+    if (allDates.length === 0) return [];
+
     // Calcular SOMA acumulada por funcionário
-    // Para cada funcionário, calcular a soma acumulada em cada data
     const cumulativeData: Array<Record<string, any>> = [];
     
     allDates.forEach((currentDate, dateIdx) => {
       const dataPoint: any = { date: currentDate };
       
       top10.forEach((emp) => {
+        // Usar employeeId como chave única para o gráfico
+        const empKey = `emp_${emp.employeeId || emp.name}`.replace(/\s+/g, '_');
+        
         // Buscar TODAS as avaliações deste funcionário usando normalização
-        // Identificar funcionário por ID normalizado
         const empNormalizedId = (emp.employeeId || '').toString().toLowerCase().trim();
         const empName = (emp.name || '').toString().toLowerCase().trim();
         
@@ -275,9 +295,15 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
 
         // Filtrar avaliações até a data atual (inclusive) e somar
         const empEvals = allEmpEvals.filter((e: any) => {
-          const evDate = (e.date || e.month || '').toString();
+          let evDate = (e.date || e.month || '').toString();
           if (!evDate) return false;
-          // Comparar datas como strings (formato YYYY-MM-DD ou YYYY-MM)
+          // Normalizar data para YYYY-MM
+          if (evDate.includes('-') && evDate.split('-').length === 3) {
+            evDate = evDate.substring(0, 7);
+          } else {
+            evDate = evDate.substring(0, 7);
+          }
+          // Comparar datas como strings (formato YYYY-MM)
           return evDate <= currentDate;
         });
 
@@ -287,14 +313,18 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
             const score = typeof e.average === 'number' ? e.average : parseFloat((e.notaFinal || '0').replace(',', '.'));
             return sum + (isNaN(score) ? 0 : score);
           }, 0);
-          dataPoint[emp.name] = cumulativeSum;
+          dataPoint[empKey] = cumulativeSum;
+          // Também salvar o nome para exibição na legenda
+          dataPoint[`${empKey}_name`] = emp.name;
         } else {
           // Se não tem avaliação ainda nesta data, usar o valor anterior ou null
           if (dateIdx > 0 && cumulativeData.length > 0) {
-            const previousValue = cumulativeData[dateIdx - 1]?.[emp.name];
-            dataPoint[emp.name] = previousValue !== undefined && previousValue !== null ? previousValue : null;
+            const previousValue = cumulativeData[dateIdx - 1]?.[empKey];
+            dataPoint[empKey] = previousValue !== undefined && previousValue !== null ? previousValue : null;
+            dataPoint[`${empKey}_name`] = emp.name;
           } else {
-            dataPoint[emp.name] = null;
+            dataPoint[empKey] = null;
+            dataPoint[`${empKey}_name`] = emp.name;
           }
         }
       });
@@ -303,7 +333,7 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
     });
 
     return cumulativeData;
-  }, [processedRankings.rankings, evaluations, employeeMap, normalizeEmployeeId]);
+  }, [processedRankings.rankings, evaluations, normalizeEmployeeId]);
 
   const colors = ['#0F52BA', '#4CA1AF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1'];
 
@@ -416,8 +446,13 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 dataKey="date" 
                 stroke="#666"
                 tickFormatter={(value) => {
-                  const date = new Date(value);
-                  return `${date.getMonth() + 1}/${date.getFullYear().toString().slice(-2)}`;
+                  // value já está em formato YYYY-MM
+                  if (!value) return '';
+                  const parts = value.split('-');
+                  if (parts.length >= 2) {
+                    return `${parts[1]}/${parts[0].slice(-2)}`;
+                  }
+                  return value;
                 }}
               />
               <YAxis 
@@ -425,20 +460,53 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                 domain={['auto', 'auto']}
                 label={{ value: 'Pontuação Acumulada', angle: -90, position: 'insideLeft' }}
               />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              {processedRankings.rankings.slice(0, 10).map((emp, idx) => (
-                <Line
-                  key={emp.employeeId}
-                  type="monotone"
-                  dataKey={emp.name}
-                  stroke={colors[idx % colors.length]}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  connectNulls
-                />
-              ))}
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload.length) return null;
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-white dark:bg-navy-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-navy-700">
+                      <p className="font-semibold text-gray-800 dark:text-white mb-2">{data.date}</p>
+                      {payload.map((entry: any, idx: number) => {
+                        const empKey = entry.dataKey;
+                        const empName = data[`${empKey}_name`] || empKey.replace('emp_', '');
+                        return (
+                          <p key={idx} style={{ color: entry.color }} className="text-sm">
+                            {empName}: {entry.value?.toFixed(2) || '0.00'}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  );
+                }}
+              />
+              <Legend 
+                formatter={(value) => {
+                  // Extrair nome do value que está no formato emp_xxx
+                  const firstDataPoint = chartData[0];
+                  if (firstDataPoint) {
+                    const nameKey = `${value}_name`;
+                    return firstDataPoint[nameKey] || value.replace('emp_', '');
+                  }
+                  return value.replace('emp_', '');
+                }}
+              />
+              {processedRankings.rankings.slice(0, 10).map((emp, idx) => {
+                const empKey = `emp_${emp.employeeId || emp.name}`.replace(/\s+/g, '_');
+                return (
+                  <Line
+                    key={emp.employeeId || emp.name}
+                    type="monotone"
+                    dataKey={empKey}
+                    name={emp.name}
+                    stroke={colors[idx % colors.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    connectNulls
+                  />
+                );
+              })}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -499,7 +567,18 @@ export const RankingView = ({ evaluations = [], employees = [], filters }: Ranki
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 font-medium text-gray-900 dark:text-white">{emp.name}</td>
+                    <td className="px-4 py-4 font-medium text-gray-900 dark:text-white">
+                      {currentCompany && emp.employeeId ? (
+                        <Link
+                          to={`/employee/${currentCompany.id}/${emp.employeeId}`}
+                          className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                        >
+                          {formatShortName(emp.name)}
+                        </Link>
+                      ) : (
+                        formatShortName(emp.name)
+                      )}
+                    </td>
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.sector}</td>}
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.role}</td>}
                     {rankingType === 'geral' && <td className="px-4 py-4 text-sm text-gray-600 dark:text-gray-400">{emp.level}</td>}
