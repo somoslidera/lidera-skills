@@ -40,19 +40,20 @@ import {
   FileCheck,
   HelpCircle,
   Building,
-  FileSpreadsheet // <--- Importação do ícone
+  FileSpreadsheet, // <--- Importação do ícone
+  type LucideIcon
 } from 'lucide-react';
 
 // Tipos para os componentes de botões
 interface NavButtonProps {
   view: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: LucideIcon;
   label: string;
 }
 
 interface SettingsButtonProps {
   view: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: LucideIcon;
   label: string;
 }
 
