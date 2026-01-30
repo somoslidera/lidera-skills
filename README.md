@@ -14,6 +14,7 @@ Sistema web completo para gestão e análise de avaliações de desempenho de co
 - [Como Usar](#como-usar)
 - [Estrutura de Dados](#estrutura-de-dados)
 - [Scripts Disponíveis](#scripts-disponíveis)
+- [Usuários e Permissões](#usuários-e-permissões)
 - [Arquitetura](#arquitetura)
 - [Contribuindo](#contribuindo)
 
@@ -305,6 +306,7 @@ lidera-skills/
 │   └── index.css          # Estilos globais
 ├── scripts/               # Scripts utilitários
 │   ├── create-admin-user.ts
+│   ├── set-user-role-company.ts   # Atribui role 'company' a um usuário (requer Admin SDK)
 │   └── pre-commit-check.js
 ├── exemplos/              # Arquivos CSV de exemplo
 ├── .gitignore
@@ -555,6 +557,14 @@ npm run lint
 # Validação completa (TypeScript + ESLint + Build)
 npm run validate
 ```
+
+## 👥 Usuários e Permissões
+
+Para **adicionar um novo usuário** e dar **permissões específicas** (por exemplo, acesso só à empresa dele para ver e fazer avaliações), use o guia completo:
+
+**[README_USUARIOS_E_PERMISSOES.md](./README_USUARIOS_E_PERMISSOES.md)**
+
+Resumo: criar o usuário no Firebase Authentication, anotar o UID e o ID da empresa no Firestore (coleção `companies`), e criar um documento na coleção `user_roles` com `role: 'company'` e `companyId` da empresa. O script `scripts/set-user-role-company.ts` pode ser usado em ambiente com Admin SDK; no dia a dia, o documento costuma ser criado manualmente no Firestore Console.
 
 ## 🏗 Arquitetura
 

@@ -12,6 +12,10 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isMaster: boolean;
+  /** Usuário com role 'company': acesso apenas à empresa vinculada (avaliações e dados da empresa) */
+  isCompanyUser: boolean;
+  /** ID da empresa permitida quando isCompanyUser é true; null caso contrário */
+  allowedCompanyId: string | null;
   refreshUserRole: () => Promise<void>;
 }
 
@@ -65,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isMaster = userRole?.role === 'master' || false;
+  const isCompanyUser = userRole?.role === 'company' || false;
+  const allowedCompanyId = userRole?.role === 'company' && userRole?.companyId ? userRole.companyId : null;
 
   return (
     <AuthContext.Provider value={{ 
@@ -75,6 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithEmail,
       signOut: signOutUser,
       isMaster,
+      isCompanyUser,
+      allowedCompanyId,
       refreshUserRole
     }}>
       {!loading && children}

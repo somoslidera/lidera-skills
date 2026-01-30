@@ -4,7 +4,7 @@ import { Building2, Check } from 'lucide-react';
 import { debugCompanies } from '../../utils/debugCompanies';
 
 export const CompanySelector = () => {
-  const { companies, currentCompany, setCompany, addNewCompany, isMaster, loading } = useCompany();
+  const { companies, currentCompany, setCompany, addNewCompany, isMaster, isCompanyUser, loading } = useCompany();
   const [isCreating, setIsCreating] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
 
@@ -49,6 +49,10 @@ export const CompanySelector = () => {
             <button onClick={handleCreate} className="text-green-500 hover:text-green-600"><Check size={16}/></button>
             <button onClick={() => setIsCreating(false)} className="text-red-500 hover:text-red-600 text-xs">X</button>
           </div>
+        ) : isCompanyUser && companies.length === 1 ? (
+          <span className="text-sm font-bold text-gray-800 dark:text-white min-w-[150px]">
+            {currentCompany?.name ?? companies[0]?.name ?? '—'}
+          </span>
         ) : (
           <select 
             className="text-sm font-bold text-gray-800 dark:text-white bg-transparent outline-none cursor-pointer min-w-[150px]"
@@ -68,8 +72,8 @@ export const CompanySelector = () => {
               {loading ? 'Carregando...' : companies.length === 0 ? 'Nenhuma empresa encontrada' : 'Selecione...'}
             </option>
             
-            {/* Opção TODAS AS EMPRESAS (Apenas para Master) */}
-            {isMaster && (
+            {/* Opção TODAS AS EMPRESAS (apenas Master; usuário company vê só sua empresa) */}
+            {isMaster && !isCompanyUser && (
               <option value="all" className="font-bold text-blue-600">🌐 Todas as Empresas</option>
             )}
 
@@ -83,7 +87,8 @@ export const CompanySelector = () => {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
             
-            {isMaster && (
+            {/* Nova Empresa só para Master (não para usuário company) */}
+            {isMaster && !isCompanyUser && (
               <option value="new" className="text-green-600 font-bold">+ Nova Empresa</option>
             )}
           </select>

@@ -231,7 +231,15 @@ const DocumentationView = () => {
           id: 'roles',
           title: 'Sistema de Roles',
           content: [
-            'Controle de acesso baseado em permissões: Master (acesso total ao sistema, pode gerenciar empresas, criar critérios universais, acesso a todas as empresas), Admin (administrador de empresa, gestão completa dos dados da empresa, acesso a todas as funcionalidades da empresa), Gestor (gestor de setor, acesso limitado ao seu setor, pode criar avaliações), Líder (líder de equipe, acesso a avaliações da sua equipe, pode criar avaliações), Colaborador (acesso básico, visualização de próprias avaliações).'
+            'Controle de acesso baseado em permissões: Master (acesso total ao sistema, pode gerenciar empresas, criar critérios universais, acesso a todas as empresas), Company (usuário por empresa: vê e avalia apenas a empresa vinculada ao seu usuário; não vê outras empresas nem opções "Todas as Empresas" ou "Nova Empresa"), Admin (administrador de empresa, gestão completa dos dados da empresa), Gestor (gestor de setor, acesso limitado ao seu setor, pode criar avaliações), Líder (líder de equipe, acesso a avaliações da sua equipe, pode criar avaliações), Colaborador (acesso básico, visualização de próprias avaliações).'
+          ]
+        },
+        {
+          id: 'adicionar-usuario-permissoes',
+          title: 'Como adicionar usuário e dar permissões específicas',
+          content: [
+            'Para dar a um usuário acesso somente à empresa dele (role Company): 1) Crie o usuário no Firebase Authentication (Authentication > Users > Add user) e anote o UID. 2) No Firestore, coleção companies, anote o ID do documento da empresa. 3) Na coleção user_roles, crie um documento com Document ID = UID do usuário e os campos: userId (mesmo UID), email, role = "company", companyId = ID da empresa, createdAt e updatedAt (datas em ISO).',
+            'Documento completo com passo a passo, exemplos e scripts está em README_USUARIOS_E_PERMISSOES.md na raiz do projeto. Apenas usuários Master (ou sem documento em user_roles) podem criar empresas e alterar documentos em user_roles.'
           ]
         },
         {

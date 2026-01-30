@@ -15,12 +15,14 @@ interface CompanyContextType {
   addNewCompany: (name: string) => Promise<void>;
   loading: boolean;
   isMaster: boolean;
+  /** Usuário com acesso restrito a uma empresa (role 'company') */
+  isCompanyUser: boolean;
 }
 
 const CompanyContext = createContext<CompanyContextType>({} as CompanyContextType);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
-  const { isMaster: userIsMaster, user, loading: authLoading } = useAuth();
+  const { isMaster: userIsMaster, user, loading: authLoading, isCompanyUser, allowedCompanyId } = useAuth();
   
   const [currentCompany, setCurrentCompanyState] = useState<Company | null>(() => {
     const saved = localStorage.getItem('lidera_selected_company');
@@ -64,6 +66,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
   }, [userIsMaster, user, authLoading]);
 
+  // Usuário com role 'company': auto-seleciona a única empresa permitida
+  useEffect(() => {
+    if (loading || !isCompanyUser || !allowedCompanyId || companies.length === 0) return;
+    const allowed = companies.find(c => c.id === allowedCompanyId);
+    if (allowed && (!currentCompany || currentCompany.id !== allowedCompanyId)) {
+      setCurrentCompanyState(allowed);
+      localStorage.setItem('lidera_selected_company', JSON.stringify(allowed));
+    }
+  }, [loading, isCompanyUser, allowedCompanyId, companies, currentCompany?.id]);
+
   const setCompany = (company: Company | null) => {
     setCurrentCompanyState(company);
     if (company) {
@@ -86,7 +98,8 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       refreshCompanies: loadCompanies,
       addNewCompany,
       loading,
-      isMaster: userIsMaster
+      isMaster: userIsMaster,
+      isCompanyUser: isCompanyUser ?? false
     }}>
       {children}
     </CompanyContext.Provider>

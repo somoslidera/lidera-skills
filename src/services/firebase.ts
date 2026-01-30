@@ -182,8 +182,10 @@ export interface UserRole {
   id: string;
   userId: string;
   email: string;
-  role: 'master' | 'admin' | 'gestor' | 'lider' | 'colaborador';
-  companyIds?: string[]; // Empresas que o usuário tem acesso (se aplicável)
+  role: 'master' | 'admin' | 'gestor' | 'lider' | 'colaborador' | 'company';
+  /** Para role 'company': ID da única empresa que o usuário pode acessar/avaliar */
+  companyId?: string;
+  companyIds?: string[]; // Empresas que o usuário tem acesso (se aplicável, para outros roles)
   createdAt: string;
   updatedAt: string;
 }

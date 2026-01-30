@@ -7,11 +7,28 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // Helper: reference to current user's role document
+    function userRoleRef() {
+      return get(/databases/$(database)/documents/user_roles/$(request.auth.uid));
+    }
+    
     // Helper function to check if user is master
     function isMaster() {
       return isAuthenticated() && 
              exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/user_roles/$(request.auth.uid)).data.role == 'master';
+             userRoleRef().data.role == 'master';
+    }
+    
+    // Helper: user has role 'company' (acesso restrito a uma empresa)
+    function isCompanyUser() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) &&
+             userRoleRef().data.role == 'company';
+    }
+    
+    // Helper: companyId permitido para usuário com role 'company'
+    function getUserCompanyId() {
+      return userRoleRef().data.companyId;
     }
     
     // Helper function to check if user can manage users
@@ -24,18 +41,23 @@ service cloud.firestore {
     }
     
     // Helper function to check if user has access to company
-    // Simplificado: permite acesso se é master OU se não tem user_roles configurado (fallback permissivo)
+    // Master ou sem role: acesso a todas. Role 'company': apenas à empresa vinculada.
     function hasCompanyAccess(companyId) {
       return isAuthenticated() && (
         isMaster() ||
-        !exists(/databases/$(database)/documents/user_roles/$(request.auth.uid))
+        !exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) ||
+        (isCompanyUser() && companyId == getUserCompanyId())
       );
     }
     
-    // Companies collection - readable by all authenticated users, writable by master
+    // Companies collection - master/sem role: todas; role company: só a empresa vinculada
     match /companies/{companyId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        isMaster() ||
+        !exists(/databases/$(database)/documents/user_roles/$(request.auth.uid)) ||
+        (isCompanyUser() && companyId == getUserCompanyId())
+      );
+      allow create: if isMaster() || !exists(/databases/$(database)/documents/user_roles/$(request.auth.uid));
       allow update, delete: if isMaster();
     }
     
