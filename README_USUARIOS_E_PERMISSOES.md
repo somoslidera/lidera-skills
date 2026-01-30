@@ -2,6 +2,17 @@
 
 Este documento descreve como adicionar novos usuários e atribuir permissões específicas (roles) no sistema.
 
+---
+
+## ⚠️ Importante: regras + documento em `user_roles`
+
+**Só publicar as regras no Firebase não restringe o acesso.** Para um usuário ter acesso só à empresa dele, é obrigatório:
+
+1. **Publicar as regras** (`firebase deploy --only firestore:rules`) ✅  
+2. **Criar o documento na coleção `user_roles`** no Firestore com o UID do usuário e os campos `role: 'company'` e `companyId` da empresa.
+
+Se o documento em `user_roles` **não existir**, as regras tratam o usuário como “dono inicial” e ele continua com **acesso a todas as empresas**. Sempre crie o documento após criar o usuário no Authentication.
+
 ## Visão geral dos roles
 
 | Role        | Descrição | Acesso |
@@ -69,6 +80,8 @@ Se aparecer **PERMISSION_DENIED**, crie o documento manualmente no Firestore (Op
 
 5. Salve o documento.
 
+**Importante:** Os nomes dos campos no Firestore devem ser **exatamente** (case-sensitive): `userId`, `email`, `role`, `companyId`, `createdAt`, `updatedAt`. O valor de `role` deve ser exatamente a string `company` (minúsculo). O **Document ID** deve ser **exatamente** o UID do usuário (copie do Authentication → Users → UID).
+
 ### 4. Publicar as regras do Firestore
 
 As regras em `firestore.rules` já suportam o role `company`. Garanta que a versão atual foi publicada:
@@ -127,3 +140,20 @@ Apenas usuários **master** (ou sem documento em `user_roles`, legado) podem cri
 - **UI:** `src/components/layout/CompanySelector.tsx` – esconde "Todas as Empresas" e "Nova Empresa" para usuário company; mostra só o nome da empresa quando há uma única empresa.
 
 Para mais detalhes sobre o sistema (roles, segurança, Firestore), consulte a documentação geral em **Documentação** no app ou o arquivo de visão do projeto.
+
+---
+
+## 🔧 Troubleshooting: usuário ainda vê outras empresas
+
+1. **Abra o console do navegador** (F12 → aba Console), faça login com o usuário restrito e recarregue a página.
+
+2. **Procure pelos logs `[Lidera]`:**
+   - **`[Lidera] Sem documento em user_roles para UID: xxx`** → O Firestore não encontrou documento para esse UID. Confira no Firestore:
+     - Coleção **user_roles** tem um documento cujo **ID do documento** é **exatamente** esse UID (copie o UID do Authentication → Users).
+     - Não use "Add document" com ID automático: use "Add document" e no campo "Document ID" cole o UID.
+   - **`[Lidera] userRole carregado: { role: 'company', companyId: '...' }`** → O app recebeu o role. Se ainda aparecem várias empresas, as regras no servidor podem estar em cache ou o campo no Firestore está com nome errado:
+     - No documento em **user_roles**, os campos devem ser exatamente: `role` (string `company`) e `companyId` (string com o ID da empresa). Nada de `company_id` ou `CompanyId`.
+
+3. **Confira o UID:** No console deve aparecer algo como `[Lidera] userRole carregado: { uid: "I9ExAlAO2eSZ4evy8x978JnprsW2", ... }`. Esse `uid` tem que ser **idêntico** ao Document ID do documento em **user_roles** (incluindo maiúsculas/minúsculas).
+
+4. **Faça logout e login de novo** após criar ou corrigir o documento, e limpe o cache/localStorage se precisar (ou use uma aba anônima para testar).

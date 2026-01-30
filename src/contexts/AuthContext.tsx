@@ -30,6 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const role = await getUserRole(userId);
       setUserRole(role);
+      // Debug: conferir no console se o usuário tem role 'company' e companyId
+      if (role) {
+        console.log('[Lidera] userRole carregado:', { uid: userId, role: role.role, companyId: role.companyId });
+      } else {
+        console.log('[Lidera] Sem documento em user_roles para UID:', userId, '→ acesso total (legado)');
+      }
     } catch (error) {
       console.error('Erro ao carregar role do usuário:', error);
       setUserRole(null);

@@ -42,16 +42,16 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      console.log('🔍 Tentando carregar empresas...');
-      console.log('Usuário autenticado:', user?.email);
+      console.log('🔍 [Lidera] Carregando empresas. UID:', user?.uid, 'isCompanyUser:', isCompanyUser, 'allowedCompanyId:', allowedCompanyId);
       const data = await fetchCollection('companies');
-      console.log('✅ Companies loaded:', data);
+      console.log('✅ [Lidera] Companies retornadas pelo Firestore:', data?.length, 'empresa(s)', data);
       setCompanies(data as Company[]);
     } catch (error) {
       console.error('❌ Erro ao carregar empresas:', error);
       if (error instanceof Error) {
         console.error('   Mensagem:', error.message);
-        console.error('   Código:', (error as any).code);
+        const err = error as Error & { code?: string };
+        if (err.code) console.error('   Código:', err.code);
       }
       setCompanies([]);
     } finally {
