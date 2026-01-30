@@ -66,6 +66,21 @@ export const createCompany = async (name: string) => {
   });
 };
 
+/** Busca uma empresa por ID (usado para usuário com role 'company' — evita permission-denied na coleção inteira) */
+export const getCompany = async (companyId: string): Promise<{ id: string; name: string; [key: string]: unknown } | null> => {
+  try {
+    const docRef = doc(db, 'companies', companyId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as { id: string; name: string; [key: string]: unknown };
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao buscar empresa:', error);
+    return null;
+  }
+};
+
 // ATUALIZADA: Busca filtrada por empresa
 export const fetchCollection = async (collectionName: string, companyId?: string | null) => {
   try {
@@ -95,7 +110,7 @@ export const fetchCollection = async (collectionName: string, companyId?: string
     // Log detalhado do erro
     if (error instanceof Error) {
       console.error('   Mensagem:', error.message);
-      const firebaseError = error as any;
+      const firebaseError = error as Error & { code?: string };
       if (firebaseError.code) {
         console.error('   Código do erro:', firebaseError.code);
         if (firebaseError.code === 'permission-denied') {
@@ -125,7 +140,7 @@ export const fetchCollectionPaginated = async (
   lastDoc: QueryDocumentSnapshot<DocumentData> | null,
   pageSize: number = 20
 ): Promise<{
-  items: any[];
+  items: DocumentData[];
   lastDoc: QueryDocumentSnapshot<DocumentData> | null;
   hasMore: boolean;
 }> => {
@@ -416,8 +431,8 @@ export interface AuditLog {
   entityId: string; // ID da entidade afetada
   entityName?: string; // Nome/identificação da entidade
   companyId: string;
-  changes?: Record<string, { old?: any; new?: any }>; // Mudanças específicas (para updates)
-  metadata?: Record<string, any>; // Dados adicionais
+  changes?: Record<string, { old?: unknown; new?: unknown }>; // Mudanças específicas (para updates)
+  metadata?: Record<string, unknown>; // Dados adicionais
   ipAddress?: string;
   userAgent?: string;
   timestamp: string;
@@ -436,8 +451,8 @@ export const createAuditLog = async (
   options?: {
     userName?: string;
     entityName?: string;
-    changes?: Record<string, { old?: any; new?: any }>;
-    metadata?: Record<string, any>;
+    changes?: Record<string, { old?: unknown; new?: unknown }>;
+    metadata?: Record<string, unknown>;
   }
 ): Promise<string> => {
   try {

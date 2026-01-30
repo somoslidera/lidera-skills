@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { fetchCollection, createCompany } from '../services/firebase';
+import { fetchCollection, createCompany, getCompany } from '../services/firebase';
 import { useAuth } from './AuthContext';
 
 interface Company {
@@ -43,9 +43,17 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       console.log('🔍 [Lidera] Carregando empresas. UID:', user?.uid, 'isCompanyUser:', isCompanyUser, 'allowedCompanyId:', allowedCompanyId);
-      const data = await fetchCollection('companies');
-      console.log('✅ [Lidera] Companies retornadas pelo Firestore:', data?.length, 'empresa(s)', data);
-      setCompanies(data as Company[]);
+      let data: Company[];
+      if (isCompanyUser && allowedCompanyId) {
+        // Usuário company: busca só o documento da empresa permitida (getDocs na coleção inteira dá permission-denied)
+        const company = await getCompany(allowedCompanyId);
+        data = company ? [{ id: company.id, name: company.name }] : [];
+        console.log('✅ [Lidera] Company (única permitida):', data.length ? data[0] : 'nenhuma');
+      } else {
+        data = (await fetchCollection('companies')) as Company[];
+        console.log('✅ [Lidera] Companies retornadas pelo Firestore:', data?.length, 'empresa(s)', data);
+      }
+      setCompanies(data);
     } catch (error) {
       console.error('❌ Erro ao carregar empresas:', error);
       if (error instanceof Error) {
@@ -60,11 +68,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Só carrega empresas após autenticação estar completa
+    // Só carrega empresas após autenticação (e role, para company user) estar completo
     if (!authLoading) {
       loadCompanies();
     }
-  }, [userIsMaster, user, authLoading]);
+  }, [userIsMaster, user, authLoading, isCompanyUser, allowedCompanyId]);
 
   // Usuário com role 'company': auto-seleciona a única empresa permitida
   useEffect(() => {
